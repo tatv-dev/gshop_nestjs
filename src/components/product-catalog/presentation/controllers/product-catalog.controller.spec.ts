@@ -146,5 +146,43 @@ describe('ProductCatalogController', () => {
       expect(controllerMethod).toBeDefined();
       expect(controllerMethod.length).toBe(2); // request and jwtPayload parameters
     });
+
+    it('should handle multiple workspaces by using first workspace tenantId', async () => {
+      const request = new GetListProductCategoryRequest();
+      const mockUserWithMultipleWorkspaces = {
+        userId: '123',
+        softwareId: 1,
+        workspaceId: undefined,
+        tenantId: undefined,
+        workspaces: [
+          { workspaceId: '1', tenantId: 200 },
+          { workspaceId: '2', tenantId: 300 },
+        ],
+      } as any;
+
+      const mockResult = {
+        data: [],
+        pagination: { page: 1, size: 10, total: 0, totalPages: 0 },
+      };
+      queryBus.execute.mockResolvedValue(mockResult);
+
+      await controller.getList(request, mockUserWithMultipleWorkspaces);
+
+      const executedQuery = queryBus.execute.mock.calls[0][0] as any;
+      expect(executedQuery.dto.tenantId).toBe('200'); // Should use first workspace's tenantId
+    });
+
+    it('should throw error when tenantId cannot be determined', async () => {
+      const request = new GetListProductCategoryRequest();
+      const mockUserWithoutTenant = {
+        userId: '123',
+        softwareId: 1,
+        workspaces: [],
+      } as any;
+
+      await expect(controller.getList(request, mockUserWithoutTenant)).rejects.toThrow(
+        'Cannot determine tenant ID from user context',
+      );
+    });
   });
 });
