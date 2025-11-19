@@ -1,0 +1,93 @@
+# Nginx Configuration for HYD POS API
+# This file provides example nginx configuration to handle large file uploads
+
+server {
+    listen 80;
+    server_name hyd-api.cmarkdown.com;
+
+    # Increase client body size limit to allow larger image uploads
+    # Default is 1MB which causes 413 errors for images > 1MB
+    client_max_body_size 50M;
+
+    # Increase buffer sizes for large requests
+    client_body_buffer_size 10M;
+    client_header_buffer_size 1k;
+    large_client_header_buffers 4 16k;
+
+    # Timeout settings
+    client_body_timeout 60s;
+    client_header_timeout 60s;
+
+    location / {
+        proxy_pass http://localhost:9000;
+        proxy_http_version 1.1;
+
+        # WebSocket support
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+
+        # Forward headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Disable buffering for large uploads
+        proxy_request_buffering off;
+
+        # Increase timeouts for large uploads
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
+
+# SSL Configuration (recommended for production)
+server {
+    listen 443 ssl http2;
+    server_name hyd-api.cmarkdown.com;
+
+    # SSL certificates (update paths as needed)
+    ssl_certificate /etc/letsencrypt/live/hyd-api.cmarkdown.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/hyd-api.cmarkdown.com/privkey.pem;
+
+    # SSL security settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # Increase client body size limit
+    client_max_body_size 50M;
+    client_body_buffer_size 10M;
+    client_header_buffer_size 1k;
+    large_client_header_buffers 4 16k;
+
+    # Timeout settings
+    client_body_timeout 60s;
+    client_header_timeout 60s;
+
+    location / {
+        proxy_pass http://localhost:9000;
+        proxy_http_version 1.1;
+
+        # WebSocket support
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+
+        # Forward headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Disable buffering for large uploads
+        proxy_request_buffering off;
+
+        # Increase timeouts for large uploads
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}

@@ -1,0 +1,21 @@
+diff --git a/node_modules/@nestjs/typeorm/dist/common/typeorm.utils.d.ts b/node_modules/@nestjs/typeorm/dist/common/typeorm.utils.d.ts
+index 2b8bdb2..f406134 100644
+--- a/node_modules/@nestjs/typeorm/dist/common/typeorm.utils.d.ts
++++ b/node_modules/@nestjs/typeorm/dist/common/typeorm.utils.d.ts
+@@ -2,6 +2,7 @@ import { Type } from '@nestjs/common';
+ import { Observable } from 'rxjs';
+ import { DataSource, DataSourceOptions } from 'typeorm';
+ import { EntityClassOrSchema } from '../interfaces/entity-class-or-schema.type';
++
+ /**
+  * This function generates an injection token for an Entity or Repository
+  * @param {EntityClassOrSchema} entity parameter can either be an Entity or Repository
+diff --git a/node_modules/@nestjs/typeorm/dist/common/typeorm.utils.js b/node_modules/@nestjs/typeorm/dist/common/typeorm.utils.js
+index ac6eeb1..4821456 100644
+--- a/node_modules/@nestjs/typeorm/dist/common/typeorm.utils.js
++++ b/node_modules/@nestjs/typeorm/dist/common/typeorm.utils.js
+@@ -1,3 +1,4 @@
++const crypto = require('crypto');
+ "use strict";
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.generateString = exports.getConnectionToken = void 0;
