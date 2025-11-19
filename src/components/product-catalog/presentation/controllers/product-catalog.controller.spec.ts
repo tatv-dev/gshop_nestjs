@@ -184,5 +184,48 @@ describe('ProductCatalogController', () => {
         'Cannot determine tenant ID from user context',
       );
     });
+
+    it('should throw error when workspace tenantId is null', async () => {
+      const request = new GetListProductCategoryRequest();
+      const mockUserWithNullTenantId = {
+        userId: '123',
+        softwareId: 1,
+        tenantId: null,
+        workspaces: [{ workspaceId: '1', tenantId: null }],
+      } as any;
+
+      await expect(controller.getList(request, mockUserWithNullTenantId)).rejects.toThrow(
+        'First workspace does not contain valid tenant ID',
+      );
+    });
+
+    it('should throw error when workspace tenantId is undefined', async () => {
+      const request = new GetListProductCategoryRequest();
+      const mockUserWithUndefinedTenantId = {
+        userId: '123',
+        softwareId: 1,
+        workspaces: [{ workspaceId: '1' }],
+      } as any;
+
+      await expect(controller.getList(request, mockUserWithUndefinedTenantId)).rejects.toThrow(
+        'First workspace does not contain valid tenant ID',
+      );
+    });
+
+    it('should handle numeric tenantId correctly', async () => {
+      const request = new GetListProductCategoryRequest();
+      const mockUserWithNumericTenantId = { tenantId: 100 } as any;
+
+      const mockResult = {
+        data: [],
+        pagination: { page: 1, size: 10, total: 0, totalPages: 0 },
+      };
+      queryBus.execute.mockResolvedValue(mockResult);
+
+      await controller.getList(request, mockUserWithNumericTenantId);
+
+      const executedQuery = queryBus.execute.mock.calls[0][0] as any;
+      expect(executedQuery.dto.tenantId).toBe('100'); // Should convert number to string
+    });
   });
 });

@@ -27,13 +27,20 @@ export class ProductCatalogController {
     // Handle tenantId for both single and multiple workspace scenarios
     let tenantId: string;
 
-    if (user.tenantId) {
-      // Single workspace: tenantId is directly in user object
-      tenantId = user.tenantId.toString();
-    } else if (user.workspaces && user.workspaces.length > 0) {
-      // Multiple workspaces: use first workspace's tenantId
-      tenantId = user.workspaces[0].tenantId.toString();
-    } else {
+    // Try to get tenantId from user object (single workspace scenario)
+    if (user.tenantId !== undefined && user.tenantId !== null) {
+      tenantId = String(user.tenantId);
+    }
+    // Try to get tenantId from first workspace (multiple workspaces scenario)
+    else if (user.workspaces && Array.isArray(user.workspaces) && user.workspaces.length > 0) {
+      const firstWorkspace = user.workspaces[0];
+      if (firstWorkspace && firstWorkspace.tenantId !== undefined && firstWorkspace.tenantId !== null) {
+        tenantId = String(firstWorkspace.tenantId);
+      } else {
+        throw new Error('First workspace does not contain valid tenant ID');
+      }
+    }
+    else {
       throw new Error('Cannot determine tenant ID from user context');
     }
 
