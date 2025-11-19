@@ -78,12 +78,13 @@ export class JWTTokenAdapter implements IJWTTokenPort {
     const refreshToken = this.jwtService.sign(refreshTokenPayload, { expiresIn: '7d' });
 
     // Save refresh token to database
+    // Use first workspace's tenantId since tenant_id is required in DB
     const firstWorkspace = params.workspaces[0];
     await this.saveRefreshToken(
       params.userId,
       params.softwareId,
-      null,
-      null,
+      null, // workspace_id is null for multiple workspaces
+      firstWorkspace.tenantId.toString(), // Use first workspace's tenantId
       refreshToken,
     );
 
@@ -159,6 +160,7 @@ export class JWTTokenAdapter implements IJWTTokenPort {
         };
       } else {
         // Multiple workspaces scenario
+        // Need to get tenantId from stored refresh token since it's required
         const accessTokenPayload = {
           userId: payload.userId,
           softwareId: payload.softwareId,
@@ -174,11 +176,16 @@ export class JWTTokenAdapter implements IJWTTokenPort {
         const accessToken = this.jwtService.sign(accessTokenPayload, { expiresIn: '1h' });
         const newRefreshToken = this.jwtService.sign(newRefreshTokenPayload, { expiresIn: '7d' });
 
+        // Use tenant_id from the stored token (required field in DB)
+        if (!storedToken.tenant_id) {
+          throw new UnauthorizedException('Invalid token: missing tenant information');
+        }
+
         await this.saveRefreshToken(
           payload.userId,
           payload.softwareId,
-          null,
-          null,
+          null, // workspace_id is null for multiple workspaces
+          storedToken.tenant_id.toString(),
           newRefreshToken,
         );
 
@@ -210,7 +217,7 @@ export class JWTTokenAdapter implements IJWTTokenPort {
     userId: string,
     softwareId: number,
     workspaceId: string | null,
-    tenantId: string | null,
+    tenantId: string,
     refreshToken: string,
   ): Promise<void> {
     const tokenHash = this.hashToken(refreshToken);
@@ -220,7 +227,7 @@ export class JWTTokenAdapter implements IJWTTokenPort {
     refreshTokenModel.user_id = parseInt(userId);
     refreshTokenModel.software_id = softwareId;
     refreshTokenModel.workspace_id = workspaceId ? parseInt(workspaceId) : null;
-    refreshTokenModel.tenant_id = tenantId ? parseInt(tenantId) : null;
+    refreshTokenModel.tenant_id = parseInt(tenantId); // tenant_id is required (NOT NULL in DB)
     refreshTokenModel.token_hash = tokenHash;
     refreshTokenModel.revoked = 0;
     refreshTokenModel.expires_at = expiresAt;

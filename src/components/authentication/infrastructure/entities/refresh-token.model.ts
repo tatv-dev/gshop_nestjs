@@ -21,10 +21,10 @@ export class RefreshTokenModel {
   software_id: number;
 
   @Column({ type: 'bigint', unsigned: true, nullable: true })
-  workspace_id: number | null;;
+  workspace_id: number | null;
 
-  @Column({ type: 'bigint', unsigned: true, nullable: true })
-  tenant_id: number | null;;
+  @Column({ type: 'bigint', unsigned: true })
+  tenant_id: number;
 
   @Column({ type: 'varchar', length: 255, unique: true })
   token_hash: string;
