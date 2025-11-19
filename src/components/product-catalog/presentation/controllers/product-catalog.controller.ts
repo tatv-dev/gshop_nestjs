@@ -24,7 +24,7 @@ import { ProductNotFoundError } from '../../domain/errors/product.error';
 import { JwtAuthGuard } from '../../../../shared/infrastructure/guards/jwt-auth.guard';
 
 @ApiTags('Product Catalog')
-@Controller('api/v2/product-catalog')
+@Controller('api/v1/product-catalog')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ProductCatalogController {
@@ -64,7 +64,7 @@ export class ProductCatalogController {
         error: 'Product with code "PROD-001" not found',
         code: 'PRODUCT_NOT_FOUND',
         timestamp: '2025-01-19T00:00:00.000Z',
-        path: '/api/v2/product-catalog/find-product-code',
+        path: '/api/v1/product-catalog/find-product-code',
         method: 'GET',
       },
     },

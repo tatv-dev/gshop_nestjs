@@ -123,14 +123,14 @@ describe('FindProductByCode E2E', () => {
     ]);
   }
 
-  describe('AC_E2E_01: GET /api/v2/product-catalog/find-product-code with valid JWT', () => {
+  describe('AC_E2E_01: GET /api/v1/product-catalog/find-product-code with valid JWT', () => {
     it('[PASS] should return 200 OK with product data', async () => {
       // Arrange
       await seedTestData();
 
       // Act
       const response = await request(app.getHttpServer())
-        .get('/api/v2/product-catalog/find-product-code')
+        .get('/api/v1/product-catalog/find-product-code')
         .query({ productCode: 'PROD-001' })
         .set('Authorization', `Bearer ${jwtToken}`)
         .expect(200);
@@ -147,14 +147,14 @@ describe('FindProductByCode E2E', () => {
     });
   });
 
-  describe('AC_E2E_02: GET /api/v2/product-catalog/find-product-code with invalid code', () => {
+  describe('AC_E2E_02: GET /api/v1/product-catalog/find-product-code with invalid code', () => {
     it('[FAIL] should return 404 NOT_FOUND when product does not exist', async () => {
       // Arrange
       await seedTestData();
 
       // Act
       const response = await request(app.getHttpServer())
-        .get('/api/v2/product-catalog/find-product-code')
+        .get('/api/v1/product-catalog/find-product-code')
         .query({ productCode: 'INVALID-CODE' })
         .set('Authorization', `Bearer ${jwtToken}`)
         .expect(404);
@@ -167,11 +167,11 @@ describe('FindProductByCode E2E', () => {
     });
   });
 
-  describe('AC_E2E_03: GET /api/v2/product-catalog/find-product-code with empty productCode', () => {
+  describe('AC_E2E_03: GET /api/v1/product-catalog/find-product-code with empty productCode', () => {
     it('[FAIL] should return 400 BAD_REQUEST with validation error', async () => {
       // Act
       const response = await request(app.getHttpServer())
-        .get('/api/v2/product-catalog/find-product-code')
+        .get('/api/v1/product-catalog/find-product-code')
         .query({ productCode: '' })
         .set('Authorization', `Bearer ${jwtToken}`)
         .expect(400);
@@ -183,11 +183,11 @@ describe('FindProductByCode E2E', () => {
     });
   });
 
-  describe('AC_E2E_04: GET /api/v2/product-catalog/find-product-code missing productCode', () => {
+  describe('AC_E2E_04: GET /api/v1/product-catalog/find-product-code missing productCode', () => {
     it('[FAIL] should return 400 BAD_REQUEST when productCode param is missing', async () => {
       // Act
       const response = await request(app.getHttpServer())
-        .get('/api/v2/product-catalog/find-product-code')
+        .get('/api/v1/product-catalog/find-product-code')
         // No query params
         .set('Authorization', `Bearer ${jwtToken}`)
         .expect(400);
@@ -197,11 +197,11 @@ describe('FindProductByCode E2E', () => {
     });
   });
 
-  describe('AC_E2E_05: GET /api/v2/product-catalog/find-product-code without JWT', () => {
+  describe('AC_E2E_05: GET /api/v1/product-catalog/find-product-code without JWT', () => {
     it('[FAIL] should return 401 UNAUTHORIZED without JWT token', async () => {
       // Act
       const response = await request(app.getHttpServer())
-        .get('/api/v2/product-catalog/find-product-code')
+        .get('/api/v1/product-catalog/find-product-code')
         .query({ productCode: 'PROD-001' })
         // No Authorization header
         .expect(401);
@@ -220,7 +220,7 @@ describe('FindProductByCode E2E', () => {
       // User with tenantId=1 trying to access product from tenantId=2
       // Act
       const response = await request(app.getHttpServer())
-        .get('/api/v2/product-catalog/find-product-code')
+        .get('/api/v1/product-catalog/find-product-code')
         .query({ productCode: 'PROD-003' }) // This belongs to tenant 2
         .set('Authorization', `Bearer ${jwtToken}`) // JWT has tenant_id=1
         .expect(404);
@@ -244,7 +244,7 @@ describe('FindProductByCode E2E', () => {
 
       // Act
       const response = await request(app.getHttpServer())
-        .get('/api/v2/product-catalog/find-product-code')
+        .get('/api/v1/product-catalog/find-product-code')
         .query({ productCode: 'PROD-003' })
         .set('Authorization', `Bearer ${tenant2Token}`)
         .expect(200);
@@ -259,7 +259,7 @@ describe('FindProductByCode E2E', () => {
     it('[FAIL] should return 400 with validation error for invalid characters', async () => {
       // Act
       const response = await request(app.getHttpServer())
-        .get('/api/v2/product-catalog/find-product-code')
+        .get('/api/v1/product-catalog/find-product-code')
         .query({ productCode: 'PROD@001' }) // @ is invalid
         .set('Authorization', `Bearer ${jwtToken}`)
         .expect(400);

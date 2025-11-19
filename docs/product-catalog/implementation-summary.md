@@ -7,7 +7,7 @@
 
 ### Endpoint
 ```
-GET /api/v2/product-catalog/find-product-code?productCode=PROD-001
+GET /api/v1/product-catalog/find-product-code?productCode=PROD-001
 Authorization: Bearer <JWT_TOKEN>
 ```
 

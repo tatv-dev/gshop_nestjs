@@ -1,7 +1,7 @@
 # Test Plan: Find Product by Code API
 
 ## Feature Overview
-**API Endpoint**: `GET /api/v2/product-catalog/find-product-code`
+**API Endpoint**: `GET /api/v1/product-catalog/find-product-code`
 **Bounded Context**: ProductCatalog
 **Use Case**: Tìm kiếm sản phẩm theo mã code
 
@@ -52,7 +52,7 @@
   "error": "Product not found",
   "code": "PRODUCT_NOT_FOUND",
   "timestamp": string (ISO 8601),
-  "path": "/api/v2/product-catalog/find-product-code",
+  "path": "/api/v1/product-catalog/find-product-code",
   "method": "GET"
 }
 ```
