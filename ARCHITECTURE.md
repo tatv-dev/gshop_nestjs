@@ -33,6 +33,9 @@ Hệ thống authentication được xây dựng theo **Clean Architecture** và
 ---
 
 ## Architecture Patterns
+- **DDD** = định nghĩa *nội dung bên trong domain* (entity, aggregate, VO…)  
+- **Hexagon** = định nghĩa *cấu trúc dự án và cách domain giao tiếp với bên ngoài*  
+- **CQRS** = định nghĩa *cách xử lý use case: đọc và ghi tách biệt*
 
 ### 1. Clean Architecture (Hexagonal Architecture)
 
