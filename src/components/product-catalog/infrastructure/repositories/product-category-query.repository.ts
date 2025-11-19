@@ -109,15 +109,15 @@ export class ProductCategoryQueryRepository implements IProductCategoryQueryRepo
 
   private toDomain(model: ProductCategoryModel): ProductCategory {
     return new ProductCategory(
-      model.id.toString(),
+      String(model.id),
       new ProductCategoryNameVO(model.name),
-      model.tenant_id.toString(),
-      model.product_category_parent_id ? model.product_category_parent_id.toString() : null,
+      String(model.tenant_id),
+      model.product_category_parent_id ? String(model.product_category_parent_id) : null,
       model.level,
-      model.parent_level1_id ? model.parent_level1_id.toString() : null,
-      model.parent_level2_id ? model.parent_level2_id.toString() : null,
+      model.parent_level1_id ? String(model.parent_level1_id) : null,
+      model.parent_level2_id ? String(model.parent_level2_id) : null,
       model.active_status,
-      model.creator_id.toString(),
+      model.creator_id ? String(model.creator_id) : null,
     );
   }
 }

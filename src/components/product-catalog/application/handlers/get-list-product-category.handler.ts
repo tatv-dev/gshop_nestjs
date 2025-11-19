@@ -13,7 +13,7 @@ export interface ProductCategoryResponseDTO {
   parentLevel1Id: string | null;
   parentLevel2Id: string | null;
   activeStatus: number;
-  creatorId: string;
+  creatorId: string | null;
 }
 
 export interface GetListProductCategoryResponseDTO {

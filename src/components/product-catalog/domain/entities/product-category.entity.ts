@@ -11,7 +11,7 @@ export class ProductCategory {
     public readonly parentLevel1Id: string | null,
     public readonly parentLevel2Id: string | null,
     public readonly activeStatus: number,
-    public readonly creatorId: string,
+    public readonly creatorId: string | null,
   ) {
     this.validateBusinessRules();
   }
@@ -43,10 +43,12 @@ export class ProductCategory {
       throw new Error('Active status must be 0 or 1');
     }
 
-    // Validate creator ID
-    const creatorIdNum = parseInt(this.creatorId);
-    if (isNaN(creatorIdNum) || creatorIdNum <= 0) {
-      throw new Error('Creator ID must be a positive number');
+    // Validate creator ID (if provided)
+    if (this.creatorId !== null) {
+      const creatorIdNum = parseInt(this.creatorId);
+      if (isNaN(creatorIdNum) || creatorIdNum <= 0) {
+        throw new Error('Creator ID must be a positive number');
+      }
     }
   }
 

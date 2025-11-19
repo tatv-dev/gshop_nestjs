@@ -202,6 +202,22 @@ describe('ProductCategory Entity', () => {
           ),
       ).toThrow('Creator ID must be a positive number');
     });
+
+    it('should allow null creator ID for migrated data', () => {
+      const category = new ProductCategory(
+        '1',
+        new ProductCategoryNameVO('Electronics'),
+        '100',
+        null,
+        1,
+        null,
+        null,
+        1,
+        null, // null creatorId is allowed
+      );
+
+      expect(category.creatorId).toBeNull();
+    });
   });
 
   describe('Entity methods', () => {
