@@ -9,7 +9,7 @@ import { JwtAuthGuard } from '../../../../shared/infrastructure/guards/jwt-auth.
 import { CurrentUser } from '../../../../shared/infrastructure/decorators/current-user.decorator';
 
 @ApiTags('Product Catalog')
-@Controller('api/product-catalog')
+@Controller('api/v1/product-catalog')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ProductCatalogController {
