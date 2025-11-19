@@ -2,34 +2,24 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { TypeOrmModule } from '@nestjs/typeorm';
-
-// Infrastructure
-import { ProductModel } from './infrastructure/entities/product.model';
 import { ProductCategoryModel } from './infrastructure/entities/product-category.model';
-import { ProductQueryRepository } from './infrastructure/repositories/product-query.repository';
-
-// Application
-import { FindProductByCodeHandler } from './application/handlers/find-product-by-code.handler';
-
-// Presentation
+import { ProductCategoryQueryRepository } from './infrastructure/repositories/product-category-query.repository';
+import { GetListProductCategoryQueryHandler } from './application/handlers/get-list-product-category.handler';
 import { ProductCatalogController } from './presentation/controllers/product-catalog.controller';
 
-// Query Handlers
-const QueryHandlers = [FindProductByCodeHandler];
+const QueryHandlers = [GetListProductCategoryQueryHandler];
+
+const Repositories = [
+  {
+    provide: 'IProductCategoryQueryRepository',
+    useClass: ProductCategoryQueryRepository,
+  },
+];
 
 @Module({
-  imports: [
-    CqrsModule,
-    TypeOrmModule.forFeature([ProductModel, ProductCategoryModel]),
-  ],
+  imports: [CqrsModule, TypeOrmModule.forFeature([ProductCategoryModel])],
   controllers: [ProductCatalogController],
-  providers: [
-    ...QueryHandlers,
-    {
-      provide: 'ProductRepository',
-      useClass: ProductQueryRepository,
-    },
-  ],
-  exports: ['ProductRepository'],
+  providers: [...QueryHandlers, ...Repositories],
+  exports: [],
 })
 export class ProductCatalogModule {}

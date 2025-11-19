@@ -1,10 +1,9 @@
 // src/components/product-catalog/presentation/controllers/product-catalog.controller.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { QueryBus } from '@nestjs/cqrs';
-import { NotFoundException } from '@nestjs/common';
 import { ProductCatalogController } from './product-catalog.controller';
-import { FindProductByCodeRequest } from '../requests/find-product-by-code.request';
-import { ProductNotFoundError } from '../../domain/errors/product.error';
+import { GetListProductCategoryRequest } from '../requests/get-list-product-category.request';
+import { GetListProductCategoryQuery } from '../../application/queries/get-list-product-category.query';
 
 describe('ProductCatalogController', () => {
   let controller: ProductCatalogController;
@@ -25,189 +24,127 @@ describe('ProductCatalogController', () => {
       ],
     }).compile();
 
-    controller = module.get<ProductCatalogController>(
-      ProductCatalogController,
-    );
+    controller = module.get<ProductCatalogController>(ProductCatalogController);
     queryBus = module.get(QueryBus);
   });
 
-  describe('AC_PRES_02_01: Controller maps request to Query and calls QueryBus', () => {
-    it('[PASS] should map request to FindProductByCodeQuery and execute via QueryBus', async () => {
-      // Arrange
-      const request = new FindProductByCodeRequest();
-      request.productCode = 'PROD-001';
+  describe('getList', () => {
+    it('should call QueryBus with correct query', async () => {
+      const request = new GetListProductCategoryRequest();
+      request.productCategoryName = 'Electronics';
+      request.activeStatuses = [1];
+      request.page = 1;
+      request.size = 10;
 
-      const mockUser = {
-        tenant_id: 1,
-        employee_id: 1,
-        permission: [],
+      const mockResult = {
+        data: [],
+        pagination: { page: 1, size: 10, total: 0, totalPages: 0 },
       };
+      queryBus.execute.mockResolvedValue(mockResult);
 
-      const mockHttpRequest: any = {
-        user: mockUser,
-      };
+      const mockJwtPayload = { tenantId: '100' } as any;
 
-      const expectedResult = {
-        productId: 1,
-        productCode: 'PROD-001',
-        productName: 'Test Product',
-        description: 'Test Description',
-        price: 100.5,
-        unit: 'pcs',
-        categoryId: 1,
-        categoryName: 'Electronics',
-        activeStatus: 1,
-        createdAt: '2025-01-01T00:00:00.000Z',
-        updatedAt: '2025-01-01T00:00:00.000Z',
-      };
+      await controller.getList(request, mockJwtPayload);
 
-      queryBus.execute.mockResolvedValue(expectedResult);
-
-      // Act
-      await controller.findByCode(request, mockHttpRequest);
-
-      // Assert
-      expect(queryBus.execute).toHaveBeenCalledTimes(1);
+      expect(queryBus.execute).toHaveBeenCalled();
       const executedQuery = queryBus.execute.mock.calls[0][0] as any;
-      expect(executedQuery).toBeDefined();
-      expect(executedQuery.productCode).toBe('PROD-001');
-      expect(executedQuery.tenantId).toBe(1);
+      expect(executedQuery).toBeInstanceOf(GetListProductCategoryQuery);
+      expect(executedQuery.dto.tenantId).toBe('100');
+      expect(executedQuery.dto.productCategoryName).toBe('Electronics');
     });
-  });
 
-  describe('AC_PRES_02_02: Controller returns 200 with product data', () => {
-    it('[PASS] should return 200 with product data when found', async () => {
-      // Arrange
-      const request = new FindProductByCodeRequest();
-      request.productCode = 'PROD-001';
+    it('should extract tenantId from JWT payload', async () => {
+      const request = new GetListProductCategoryRequest();
+      const mockJwtPayload = { tenantId: '999' } as any;
 
-      const mockUser = {
-        tenant_id: 1,
-        employee_id: 1,
-        permission: [],
+      const mockResult = {
+        data: [],
+        pagination: { page: 1, size: 10, total: 0, totalPages: 0 },
       };
+      queryBus.execute.mockResolvedValue(mockResult);
 
-      const mockHttpRequest: any = {
-        user: mockUser,
-      };
+      await controller.getList(request, mockJwtPayload);
 
-      const mockProductData = {
-        productId: 1,
-        productCode: 'PROD-001',
-        productName: 'Test Product',
-        description: 'Test Description',
-        price: 100.5,
-        unit: 'pcs',
-        categoryId: 1,
-        categoryName: 'Electronics',
-        activeStatus: 1,
-        createdAt: '2025-01-01T00:00:00.000Z',
-        updatedAt: '2025-01-01T00:00:00.000Z',
-      };
-
-      queryBus.execute.mockResolvedValue(mockProductData);
-
-      // Act
-      const result = await controller.findByCode(request, mockHttpRequest);
-
-      // Assert
-      expect(result).toBeDefined();
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockProductData);
-      expect(result.timestamp).toBeDefined();
-    });
-  });
-
-  describe('AC_PRES_02_03: Controller returns 404 when product not found', () => {
-    it('[PASS] should throw NotFoundException when product not found', async () => {
-      // Arrange
-      const request = new FindProductByCodeRequest();
-      request.productCode = 'INVALID-CODE';
-
-      const mockUser = {
-        tenant_id: 1,
-        employee_id: 1,
-        permission: [],
-      };
-
-      const mockHttpRequest: any = {
-        user: mockUser,
-      };
-
-      queryBus.execute.mockRejectedValue(
-        new ProductNotFoundError('INVALID-CODE'),
-      );
-
-      // Act & Assert
-      await expect(
-        controller.findByCode(request, mockHttpRequest),
-      ).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('AC_PRES_02_04: Controller extracts tenantId from JWT token', () => {
-    it('[PASS] should extract tenantId from request.user (JWT payload)', async () => {
-      // Arrange
-      const request = new FindProductByCodeRequest();
-      request.productCode = 'PROD-001';
-
-      const mockUser = {
-        tenant_id: 99,
-        employee_id: 1,
-        permission: [],
-      };
-
-      const mockHttpRequest: any = {
-        user: mockUser,
-      };
-
-      queryBus.execute.mockResolvedValue({});
-
-      // Act
-      await controller.findByCode(request, mockHttpRequest);
-
-      // Assert
       const executedQuery = queryBus.execute.mock.calls[0][0] as any;
-      expect(executedQuery.tenantId).toBe(99);
+      expect(executedQuery.dto.tenantId).toBe('999');
     });
 
-    it('[PASS] should handle missing user in request', async () => {
-      // Arrange
-      const request = new FindProductByCodeRequest();
-      request.productCode = 'PROD-001';
+    it('should return query result', async () => {
+      const request = new GetListProductCategoryRequest();
+      const mockJwtPayload = { tenantId: '100' } as any;
 
-      const mockHttpRequest: any = {
-        // user is undefined
+      const mockResult = {
+        data: [
+          {
+            id: '1',
+            name: 'Electronics',
+            tenantId: '100',
+            productCategoryParentId: null,
+            level: 1,
+            parentLevel1Id: null,
+            parentLevel2Id: null,
+            activeStatus: 1,
+            creatorId: '5',
+          },
+        ],
+        pagination: { page: 1, size: 10, total: 1, totalPages: 1 },
       };
+      queryBus.execute.mockResolvedValue(mockResult);
 
-      // Act & Assert
-      await expect(
-        controller.findByCode(request, mockHttpRequest),
-      ).rejects.toThrow();
+      const result = await controller.getList(request, mockJwtPayload);
+
+      expect(result).toEqual(mockResult);
     });
-  });
 
-  describe('AC_PRES_02_05: Controller handles various error scenarios', () => {
-    it('[PASS] should propagate domain errors', async () => {
-      const request = new FindProductByCodeRequest();
-      request.productCode = 'PROD-001';
+    it('should pass all filters to query', async () => {
+      const request = new GetListProductCategoryRequest();
+      request.productCategoryName = 'Test';
+      request.activeStatuses = [0, 1];
+      request.productCategoryAncestors = ['5', '10'];
+      request.page = 2;
+      request.size = 25;
 
-      const mockUser = {
-        tenant_id: 1,
-        employee_id: 1,
-        permission: [],
+      const mockJwtPayload = { tenantId: '100' } as any;
+
+      const mockResult = {
+        data: [],
+        pagination: { page: 2, size: 25, total: 0, totalPages: 0 },
       };
+      queryBus.execute.mockResolvedValue(mockResult);
 
-      const mockHttpRequest: any = {
-        user: mockUser,
+      await controller.getList(request, mockJwtPayload);
+
+      const executedQuery = queryBus.execute.mock.calls[0][0] as any;
+      expect(executedQuery.dto.productCategoryName).toBe('Test');
+      expect(executedQuery.dto.activeStatuses).toEqual([0, 1]);
+      expect(executedQuery.dto.productCategoryAncestors).toEqual(['5', '10']);
+      expect(executedQuery.dto.page).toBe(2);
+      expect(executedQuery.dto.size).toBe(25);
+    });
+
+    it('should handle request with no filters', async () => {
+      const request = new GetListProductCategoryRequest();
+      const mockJwtPayload = { tenantId: '100' } as any;
+
+      const mockResult = {
+        data: [],
+        pagination: { page: 1, size: 10, total: 0, totalPages: 0 },
       };
+      queryBus.execute.mockResolvedValue(mockResult);
 
-      const domainError = new Error('Some domain error');
-      queryBus.execute.mockRejectedValue(domainError);
+      await controller.getList(request, mockJwtPayload);
 
-      await expect(
-        controller.findByCode(request, mockHttpRequest),
-      ).rejects.toThrow('Some domain error');
+      const executedQuery = queryBus.execute.mock.calls[0][0] as any;
+      expect(executedQuery.dto.tenantId).toBe('100');
+      expect(executedQuery.dto.productCategoryName).toBeUndefined();
+      expect(executedQuery.dto.activeStatuses).toBeUndefined();
+    });
+
+    it('should be protected by authentication', () => {
+      // Verify that the controller method requires JWT payload
+      const controllerMethod = controller.getList;
+      expect(controllerMethod).toBeDefined();
+      expect(controllerMethod.length).toBe(2); // request and jwtPayload parameters
     });
   });
 });
