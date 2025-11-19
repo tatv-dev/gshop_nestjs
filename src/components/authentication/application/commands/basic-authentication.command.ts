@@ -39,6 +39,7 @@ export class BasicAuthenticationCommandHandler
       dto.username,
       dto.softwareId,
     );
+    console.log('User found:', user);
 
     if (!user) {
       throw new InvalidCredentialsError();
@@ -92,8 +93,6 @@ export class BasicAuthenticationCommandHandler
         workspace.id,
         dto.softwareId,
       );
-
-      console.log('Permissions 2:', permissions);
 
       tokenPayload = await this.jwtTokenPort.generateAndSaveNewTokens({
         userId: user.id,
