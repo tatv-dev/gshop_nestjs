@@ -11,14 +11,15 @@ import { DatabaseConfig } from './shared/infrastructure/config/database.config';
 
 // Modules
 import { AuthenticationModule } from './components/authentication/authentication.module';
-import { MenuModule } from './components/menu/menu.module';
-import { RestaurantTableModule } from './components/restaurant-table/restaurant-table.module';
-import { DiscountModule } from './components/discount/discount.module';
-import { ReportModule } from './components/report/report.module';
-import { ProfileModule } from './components/profile/profile.module';
-import { OrderModule } from './components/orders/order.module';
-import { PaymentModule } from './components/payments/payment.module';
-import { SettingModule } from './components/settings/setting.module';
+import { ProductCatalogModule } from './components/product-catalog/product-catalog.module';
+// import { MenuModule } from './components/menu/menu.module';
+// import { RestaurantTableModule } from './components/restaurant-table/restaurant-table.module';
+// import { DiscountModule } from './components/discount/discount.module';
+// import { ReportModule } from './components/report/report.module';
+// import { ProfileModule } from './components/profile/profile.module';
+// import { OrderModule } from './components/orders/order.module';
+// import { PaymentModule } from './components/payments/payment.module';
+// import { SettingModule } from './components/settings/setting.module';
 
 // Global filters and interceptors
 import { AllExceptionsFilter } from './shared/application/filters/http-exception.filter';
@@ -36,14 +37,15 @@ import { LoggingInterceptor } from './shared/application/interceptors/logging.in
     EventEmitterModule.forRoot(),
     CqrsModule,
     AuthenticationModule,
-    MenuModule,
-    RestaurantTableModule,
-    DiscountModule,
-    ReportModule,
-    ProfileModule,
-    OrderModule,
-    PaymentModule,
-    SettingModule,
+    ProductCatalogModule,
+    // MenuModule,
+    // RestaurantTableModule,
+    // DiscountModule,
+    // ReportModule,
+    // ProfileModule,
+    // OrderModule,
+    // PaymentModule,
+    // SettingModule,
   ],
   providers: [
     {
