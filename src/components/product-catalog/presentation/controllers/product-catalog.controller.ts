@@ -24,8 +24,21 @@ export class ProductCatalogController {
     @Query() request: GetListProductCategoryRequest,
     @CurrentUser() user: any,
   ) {
+    // Handle tenantId for both single and multiple workspace scenarios
+    let tenantId: string;
+
+    if (user.tenantId) {
+      // Single workspace: tenantId is directly in user object
+      tenantId = user.tenantId.toString();
+    } else if (user.workspaces && user.workspaces.length > 0) {
+      // Multiple workspaces: use first workspace's tenantId
+      tenantId = user.workspaces[0].tenantId.toString();
+    } else {
+      throw new Error('Cannot determine tenant ID from user context');
+    }
+
     const dto = new GetListProductCategoryDTO(
-      user.tenantId.toString(),
+      tenantId,
       request.productCategoryName,
       request.activeStatuses,
       request.productCategoryAncestors,
