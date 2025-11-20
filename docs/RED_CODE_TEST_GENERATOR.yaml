@@ -641,25 +641,16 @@ output_requirements:
         purpose: "Reusable assertion functions"
 
     unit_tests:
-      - path: "test/component/[bc]/[endpoint]/unit/request.spec.ts"
-        purpose: "Request DTO validation tests"
-        test_count: "Based on test_plan validation cases"
-
-      - path: "test/component/[bc]/[endpoint]/unit/handler.spec.ts"
+      - path: "test/component/[bc]/[endpoint]UT.spec.ts"
         purpose: "Handler orchestration logic tests"
         test_count: "Based on test_plan handler cases"
 
-    integration_tests:
-      - path: "test/component/[bc]/[endpoint]/integration/repository.spec.ts"
-        purpose: "Repository with real database tests"
-        test_count: "Based on test_plan repository cases"
-
-      - path: "test/component/[bc]/[endpoint]/integration/handler.spec.ts"
+      - path: "test/component/[bc]/[endpoint]IT.spec.ts"
         purpose: "Handler with real database tests"
         test_count: "Based on test_plan handler IT cases"
 
     e2e_tests:
-      - path: "test/component/[bc]/[endpoint]/e2e/api.spec.ts"
+      - path: "test/component/[bc]/[endpoint]E2E.spec.ts"
         purpose: "Full HTTP to database flow tests"
         test_count: "Based on test_plan e2e cases"
 
