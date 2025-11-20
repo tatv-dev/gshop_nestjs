@@ -172,7 +172,7 @@ describe('GetListProductCategoryRequest Validation (OFAT)', () => {
   describe('productCategoryAncestors validation', () => {
     it('should pass with valid productCategoryAncestors single ID', async () => {
       const request = new GetListProductCategoryRequest();
-      request.productCategoryAncestors = ['1'];
+      request.productCategoryAncestors = [1];
 
       const errors = await validate(request);
       const ancestorErrors = errors.filter((e) => e.property === 'productCategoryAncestors');
@@ -181,7 +181,7 @@ describe('GetListProductCategoryRequest Validation (OFAT)', () => {
 
     it('should pass with valid productCategoryAncestors multiple IDs', async () => {
       const request = new GetListProductCategoryRequest();
-      request.productCategoryAncestors = ['1', '2', '3'];
+      request.productCategoryAncestors = [1, 2, 3];
 
       const errors = await validate(request);
       const ancestorErrors = errors.filter((e) => e.property === 'productCategoryAncestors');
@@ -206,18 +206,18 @@ describe('GetListProductCategoryRequest Validation (OFAT)', () => {
       expect(ancestorErrors.length).toBeGreaterThan(0);
     });
 
-    it('should fail when productCategoryAncestors contains empty string', async () => {
+    it('should fail when productCategoryAncestors contains non-integer', async () => {
       const request = new GetListProductCategoryRequest();
-      request.productCategoryAncestors = [''];
+      (request as any).productCategoryAncestors = [1.5];
 
       const errors = await validate(request);
       const ancestorErrors = errors.filter((e) => e.property === 'productCategoryAncestors');
       expect(ancestorErrors.length).toBeGreaterThan(0);
     });
 
-    it('should fail when productCategoryAncestors contains non-numeric string', async () => {
+    it('should fail when productCategoryAncestors contains string', async () => {
       const request = new GetListProductCategoryRequest();
-      request.productCategoryAncestors = ['abc'];
+      (request as any).productCategoryAncestors = ['abc'];
 
       const errors = await validate(request);
       const ancestorErrors = errors.filter((e) => e.property === 'productCategoryAncestors');
@@ -226,7 +226,7 @@ describe('GetListProductCategoryRequest Validation (OFAT)', () => {
 
     it('should fail when productCategoryAncestors contains negative number', async () => {
       const request = new GetListProductCategoryRequest();
-      request.productCategoryAncestors = ['-1'];
+      request.productCategoryAncestors = [-1];
 
       const errors = await validate(request);
       const ancestorErrors = errors.filter((e) => e.property === 'productCategoryAncestors');
@@ -235,7 +235,7 @@ describe('GetListProductCategoryRequest Validation (OFAT)', () => {
 
     it('should fail when productCategoryAncestors contains zero', async () => {
       const request = new GetListProductCategoryRequest();
-      request.productCategoryAncestors = ['0'];
+      request.productCategoryAncestors = [0];
 
       const errors = await validate(request);
       const ancestorErrors = errors.filter((e) => e.property === 'productCategoryAncestors');

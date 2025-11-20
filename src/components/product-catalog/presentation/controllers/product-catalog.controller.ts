@@ -25,23 +25,28 @@ export class ProductCatalogController {
     @CurrentUser() user: any,
   ) {
     // Handle tenantId for both single and multiple workspace scenarios
-    let tenantId: string;
+    let tenantId: number;
 
     // Try to get tenantId from user object (single workspace scenario)
     if (user.tenantId !== undefined && user.tenantId !== null) {
-      tenantId = String(user.tenantId);
+      tenantId = Number(user.tenantId);
     }
     // Try to get tenantId from first workspace (multiple workspaces scenario)
     else if (user.workspaces && Array.isArray(user.workspaces) && user.workspaces.length > 0) {
       const firstWorkspace = user.workspaces[0];
       if (firstWorkspace && firstWorkspace.tenantId !== undefined && firstWorkspace.tenantId !== null) {
-        tenantId = String(firstWorkspace.tenantId);
+        tenantId = Number(firstWorkspace.tenantId);
       } else {
         throw new Error('First workspace does not contain valid tenant ID');
       }
     }
     else {
       throw new Error('Cannot determine tenant ID from user context');
+    }
+
+    // Validate tenantId is a valid number
+    if (!Number.isInteger(tenantId) || tenantId <= 0) {
+      throw new Error('Tenant ID must be a positive integer');
     }
 
     const dto = new GetListProductCategoryDTO(

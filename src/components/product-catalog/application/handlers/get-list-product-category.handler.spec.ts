@@ -34,31 +34,25 @@ describe('GetListProductCategoryQueryHandler', () => {
 
   describe('execute', () => {
     it('should return product categories with pagination metadata', async () => {
-      const dto = new GetListProductCategoryDTO('100', undefined, undefined, undefined, 1, 10);
+      const dto = new GetListProductCategoryDTO(100, undefined, undefined, undefined, 1, 10);
       const query = new GetListProductCategoryQuery(dto);
 
       const mockCategories = [
-        new ProductCategory(
-          '1',
-          new ProductCategoryNameVO('Electronics'),
-          '100',
+        new ProductCategory(1,
+          new ProductCategoryNameVO('Electronics'), 100,
           null,
           1,
           null,
           null,
-          1,
-          '5',
+          1, 5,
         ),
-        new ProductCategory(
-          '2',
-          new ProductCategoryNameVO('Food'),
-          '100',
+        new ProductCategory(2,
+          new ProductCategoryNameVO('Food'), 100,
           null,
           1,
           null,
           null,
-          1,
-          '5',
+          1, 5,
         ),
       ];
 
@@ -79,7 +73,7 @@ describe('GetListProductCategoryQueryHandler', () => {
     });
 
     it('should apply search filter to repository', async () => {
-      const dto = new GetListProductCategoryDTO('100', 'Elect');
+      const dto = new GetListProductCategoryDTO(100, 'Elect');
       const query = new GetListProductCategoryQuery(dto);
 
       mockRepository.findAll.mockResolvedValue([]);
@@ -88,7 +82,7 @@ describe('GetListProductCategoryQueryHandler', () => {
       await handler.execute(query);
 
       expect(mockRepository.findAll).toHaveBeenCalledWith(
-        '100',
+        100,
         'Elect',
         undefined,
         undefined,
@@ -98,7 +92,7 @@ describe('GetListProductCategoryQueryHandler', () => {
     });
 
     it('should apply active status filter to repository', async () => {
-      const dto = new GetListProductCategoryDTO('100', undefined, [1]);
+      const dto = new GetListProductCategoryDTO(100, undefined, [1]);
       const query = new GetListProductCategoryQuery(dto);
 
       mockRepository.findAll.mockResolvedValue([]);
@@ -107,7 +101,7 @@ describe('GetListProductCategoryQueryHandler', () => {
       await handler.execute(query);
 
       expect(mockRepository.findAll).toHaveBeenCalledWith(
-        '100',
+        100,
         undefined,
         [1],
         undefined,
@@ -117,7 +111,7 @@ describe('GetListProductCategoryQueryHandler', () => {
     });
 
     it('should apply ancestor filter to repository', async () => {
-      const dto = new GetListProductCategoryDTO('100', undefined, undefined, ['1', '2']);
+      const dto = new GetListProductCategoryDTO(100, undefined, undefined, [1, 2]);
       const query = new GetListProductCategoryQuery(dto);
 
       mockRepository.findAll.mockResolvedValue([]);
@@ -126,17 +120,17 @@ describe('GetListProductCategoryQueryHandler', () => {
       await handler.execute(query);
 
       expect(mockRepository.findAll).toHaveBeenCalledWith(
-        '100',
+        100,
         undefined,
         undefined,
-        ['1', '2'],
+        [1, 2],
         undefined,
         undefined,
       );
     });
 
     it('should apply pagination to repository', async () => {
-      const dto = new GetListProductCategoryDTO('100', undefined, undefined, undefined, 2, 25);
+      const dto = new GetListProductCategoryDTO(100, undefined, undefined, undefined, 2, 25);
       const query = new GetListProductCategoryQuery(dto);
 
       mockRepository.findAll.mockResolvedValue([]);
@@ -145,7 +139,7 @@ describe('GetListProductCategoryQueryHandler', () => {
       await handler.execute(query);
 
       expect(mockRepository.findAll).toHaveBeenCalledWith(
-        '100',
+        100,
         undefined,
         undefined,
         undefined,
@@ -155,7 +149,7 @@ describe('GetListProductCategoryQueryHandler', () => {
     });
 
     it('should calculate correct total pages', async () => {
-      const dto = new GetListProductCategoryDTO('100', undefined, undefined, undefined, 1, 10);
+      const dto = new GetListProductCategoryDTO(100, undefined, undefined, undefined, 1, 10);
       const query = new GetListProductCategoryQuery(dto);
 
       mockRepository.findAll.mockResolvedValue([]);
@@ -167,7 +161,7 @@ describe('GetListProductCategoryQueryHandler', () => {
     });
 
     it('should return empty array when no categories found', async () => {
-      const dto = new GetListProductCategoryDTO('100');
+      const dto = new GetListProductCategoryDTO(100);
       const query = new GetListProductCategoryQuery(dto);
 
       mockRepository.findAll.mockResolvedValue([]);
@@ -180,19 +174,14 @@ describe('GetListProductCategoryQueryHandler', () => {
     });
 
     it('should map entity fields to response DTO correctly', async () => {
-      const dto = new GetListProductCategoryDTO('100');
+      const dto = new GetListProductCategoryDTO(100);
       const query = new GetListProductCategoryQuery(dto);
 
-      const mockCategory = new ProductCategory(
-        '123',
-        new ProductCategoryNameVO('Smartphones'),
-        '100',
-        '1',
-        2,
-        '1',
+      const mockCategory = new ProductCategory(123,
+        new ProductCategoryNameVO('Smartphones'), 100, 1,
+        2, 1,
         null,
-        1,
-        '5',
+        1, 5,
       );
 
       mockRepository.findAll.mockResolvedValue([mockCategory]);
@@ -201,15 +190,15 @@ describe('GetListProductCategoryQueryHandler', () => {
       const result = await handler.execute(query);
 
       expect(result.data[0]).toMatchObject({
-        id: '123',
+        id: 123,
         name: 'Smartphones',
-        tenantId: '100',
-        productCategoryParentId: '1',
+        tenantId: 100,
+        productCategoryParentId: 1,
         level: 2,
-        parentLevel1Id: '1',
+        parentLevel1Id: 1,
         parentLevel2Id: null,
         activeStatus: 1,
-        creatorId: '5',
+        creatorId: 5,
       });
     });
   });

@@ -5,15 +5,15 @@ import { GetListProductCategoryQuery } from '../queries/get-list-product-categor
 import { IProductCategoryQueryRepository } from '../repositories/product-category-query.repository';
 
 export interface ProductCategoryResponseDTO {
-  id: string;
+  id: number;
   name: string;
-  tenantId: string;
-  productCategoryParentId: string | null;
+  tenantId: number;
+  productCategoryParentId: number | null;
   level: number;
-  parentLevel1Id: string | null;
-  parentLevel2Id: string | null;
+  parentLevel1Id: number | null;
+  parentLevel2Id: number | null;
   activeStatus: number;
-  creatorId: string | null;
+  creatorId: number | null;
 }
 
 export interface GetListProductCategoryResponseDTO {

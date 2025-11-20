@@ -3,18 +3,18 @@ import { ProductCategory } from '../../domain/entities/product-category.entity';
 
 export interface IProductCategoryQueryRepository {
   findAll(
-    tenantId: string,
+    tenantId: number,
     productCategoryName?: string,
     activeStatuses?: number[],
-    productCategoryAncestors?: string[],
+    productCategoryAncestors?: number[],
     page?: number,
     size?: number,
   ): Promise<ProductCategory[]>;
 
   count(
-    tenantId: string,
+    tenantId: number,
     productCategoryName?: string,
     activeStatuses?: number[],
-    productCategoryAncestors?: string[],
+    productCategoryAncestors?: number[],
   ): Promise<number>;
 }

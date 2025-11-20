@@ -5,26 +5,26 @@ describe('GetListProductCategoryDTO', () => {
   describe('DTO creation with valid data', () => {
     it('should create DTO with all fields', () => {
       const dto = new GetListProductCategoryDTO(
-        '100',
+        100,
         'Electronics',
         [0, 1],
-        ['1', '2'],
+        [1, 2],
         1,
         10,
       );
 
-      expect(dto.tenantId).toBe('100');
+      expect(dto.tenantId).toBe(100);
       expect(dto.productCategoryName).toBe('Electronics');
       expect(dto.activeStatuses).toEqual([0, 1]);
-      expect(dto.productCategoryAncestors).toEqual(['1', '2']);
+      expect(dto.productCategoryAncestors).toEqual([1, 2]);
       expect(dto.page).toBe(1);
       expect(dto.size).toBe(10);
     });
 
     it('should create DTO with only required fields (tenantId)', () => {
-      const dto = new GetListProductCategoryDTO('100');
+      const dto = new GetListProductCategoryDTO(100);
 
-      expect(dto.tenantId).toBe('100');
+      expect(dto.tenantId).toBe(100);
       expect(dto.productCategoryName).toBeUndefined();
       expect(dto.activeStatuses).toBeUndefined();
       expect(dto.productCategoryAncestors).toBeUndefined();
@@ -33,32 +33,32 @@ describe('GetListProductCategoryDTO', () => {
     });
 
     it('should create DTO with search filter only', () => {
-      const dto = new GetListProductCategoryDTO('100', 'Food');
+      const dto = new GetListProductCategoryDTO(100, 'Food');
 
-      expect(dto.tenantId).toBe('100');
+      expect(dto.tenantId).toBe(100);
       expect(dto.productCategoryName).toBe('Food');
     });
 
     it('should create DTO with active status filter', () => {
-      const dto = new GetListProductCategoryDTO('100', undefined, [1]);
+      const dto = new GetListProductCategoryDTO(100, undefined, [1]);
 
       expect(dto.activeStatuses).toEqual([1]);
     });
 
     it('should create DTO with ancestor filter', () => {
       const dto = new GetListProductCategoryDTO(
-        '100',
+        100,
         undefined,
         undefined,
-        ['5'],
+        [5],
       );
 
-      expect(dto.productCategoryAncestors).toEqual(['5']);
+      expect(dto.productCategoryAncestors).toEqual([5]);
     });
 
     it('should create DTO with pagination', () => {
       const dto = new GetListProductCategoryDTO(
-        '100',
+        100,
         undefined,
         undefined,
         undefined,
@@ -74,15 +74,15 @@ describe('GetListProductCategoryDTO', () => {
   describe('DTO field types', () => {
     it('should have correct types for all fields', () => {
       const dto = new GetListProductCategoryDTO(
-        '100',
+        100,
         'Test',
         [0, 1],
-        ['1', '2'],
+        [1, 2],
         1,
         10,
       );
 
-      expect(typeof dto.tenantId).toBe('string');
+      expect(typeof dto.tenantId).toBe('number');
       expect(typeof dto.productCategoryName).toBe('string');
       expect(Array.isArray(dto.activeStatuses)).toBe(true);
       expect(Array.isArray(dto.productCategoryAncestors)).toBe(true);

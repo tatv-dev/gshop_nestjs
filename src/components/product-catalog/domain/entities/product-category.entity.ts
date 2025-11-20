@@ -3,24 +3,23 @@ import { ProductCategoryNameVO } from '../value-objects/product-category-name.vo
 
 export class ProductCategory {
   constructor(
-    public readonly id: string,
+    public readonly id: number,
     private readonly name: ProductCategoryNameVO,
-    public readonly tenantId: string,
-    public readonly productCategoryParentId: string | null,
+    public readonly tenantId: number,
+    public readonly productCategoryParentId: number | null,
     public readonly level: number,
-    public readonly parentLevel1Id: string | null,
-    public readonly parentLevel2Id: string | null,
+    public readonly parentLevel1Id: number | null,
+    public readonly parentLevel2Id: number | null,
     public readonly activeStatus: number,
-    public readonly creatorId: string | null,
+    public readonly creatorId: number | null,
   ) {
     this.validateBusinessRules();
   }
 
   private validateBusinessRules(): void {
     // Validate tenant ID
-    const tenantIdNum = parseInt(this.tenantId);
-    if (isNaN(tenantIdNum) || tenantIdNum <= 0) {
-      throw new Error('Tenant ID must be a positive number');
+    if (!Number.isInteger(this.tenantId) || this.tenantId <= 0) {
+      throw new Error('Tenant ID must be a positive integer');
     }
 
     // Validate level (1-3)
@@ -45,9 +44,8 @@ export class ProductCategory {
 
     // Validate creator ID (if provided)
     if (this.creatorId !== null) {
-      const creatorIdNum = parseInt(this.creatorId);
-      if (isNaN(creatorIdNum) || creatorIdNum <= 0) {
-        throw new Error('Creator ID must be a positive number');
+      if (!Number.isInteger(this.creatorId) || this.creatorId <= 0) {
+        throw new Error('Creator ID must be a positive integer');
       }
     }
   }
@@ -64,8 +62,8 @@ export class ProductCategory {
     return this.level === 1;
   }
 
-  getAncestryPath(): string[] {
-    const path: string[] = [];
+  getAncestryPath(): number[] {
+    const path: number[] = [];
 
     if (this.parentLevel1Id !== null) {
       path.push(this.parentLevel1Id);

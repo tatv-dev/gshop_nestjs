@@ -42,20 +42,20 @@ describe('ProductCatalogController', () => {
       };
       queryBus.execute.mockResolvedValue(mockResult);
 
-      const mockJwtPayload = { tenantId: '100' } as any;
+      const mockJwtPayload = { tenantId: 100 } as any;
 
       await controller.getList(request, mockJwtPayload);
 
       expect(queryBus.execute).toHaveBeenCalled();
       const executedQuery = queryBus.execute.mock.calls[0][0] as any;
       expect(executedQuery).toBeInstanceOf(GetListProductCategoryQuery);
-      expect(executedQuery.dto.tenantId).toBe('100');
+      expect(executedQuery.dto.tenantId).toBe(100);
       expect(executedQuery.dto.productCategoryName).toBe('Electronics');
     });
 
     it('should extract tenantId from JWT payload', async () => {
       const request = new GetListProductCategoryRequest();
-      const mockJwtPayload = { tenantId: '999' } as any;
+      const mockJwtPayload = { tenantId: 999 } as any;
 
       const mockResult = {
         data: [],
@@ -66,19 +66,19 @@ describe('ProductCatalogController', () => {
       await controller.getList(request, mockJwtPayload);
 
       const executedQuery = queryBus.execute.mock.calls[0][0] as any;
-      expect(executedQuery.dto.tenantId).toBe('999');
+      expect(executedQuery.dto.tenantId).toBe(999);
     });
 
     it('should return query result', async () => {
       const request = new GetListProductCategoryRequest();
-      const mockJwtPayload = { tenantId: '100' } as any;
+      const mockJwtPayload = { tenantId: 100 } as any;
 
       const mockResult = {
         data: [
           {
             id: '1',
             name: 'Electronics',
-            tenantId: '100',
+            tenantId: 100,
             productCategoryParentId: null,
             level: 1,
             parentLevel1Id: null,
@@ -100,11 +100,11 @@ describe('ProductCatalogController', () => {
       const request = new GetListProductCategoryRequest();
       request.productCategoryName = 'Test';
       request.activeStatuses = [0, 1];
-      request.productCategoryAncestors = ['5', '10'];
+      request.productCategoryAncestors = [5, 10];
       request.page = 2;
       request.size = 25;
 
-      const mockJwtPayload = { tenantId: '100' } as any;
+      const mockJwtPayload = { tenantId: 100 } as any;
 
       const mockResult = {
         data: [],
@@ -117,14 +117,14 @@ describe('ProductCatalogController', () => {
       const executedQuery = queryBus.execute.mock.calls[0][0] as any;
       expect(executedQuery.dto.productCategoryName).toBe('Test');
       expect(executedQuery.dto.activeStatuses).toEqual([0, 1]);
-      expect(executedQuery.dto.productCategoryAncestors).toEqual(['5', '10']);
+      expect(executedQuery.dto.productCategoryAncestors).toEqual([5, 10]);
       expect(executedQuery.dto.page).toBe(2);
       expect(executedQuery.dto.size).toBe(25);
     });
 
     it('should handle request with no filters', async () => {
       const request = new GetListProductCategoryRequest();
-      const mockJwtPayload = { tenantId: '100' } as any;
+      const mockJwtPayload = { tenantId: 100 } as any;
 
       const mockResult = {
         data: [],
@@ -135,7 +135,7 @@ describe('ProductCatalogController', () => {
       await controller.getList(request, mockJwtPayload);
 
       const executedQuery = queryBus.execute.mock.calls[0][0] as any;
-      expect(executedQuery.dto.tenantId).toBe('100');
+      expect(executedQuery.dto.tenantId).toBe(100);
       expect(executedQuery.dto.productCategoryName).toBeUndefined();
       expect(executedQuery.dto.activeStatuses).toBeUndefined();
     });
@@ -155,8 +155,8 @@ describe('ProductCatalogController', () => {
         workspaceId: undefined,
         tenantId: undefined,
         workspaces: [
-          { workspaceId: '1', tenantId: 200 },
-          { workspaceId: '2', tenantId: 300 },
+          { workspaceId: 1, tenantId: 200 },
+          { workspaceId: 2, tenantId: 300 },
         ],
       } as any;
 
@@ -169,7 +169,7 @@ describe('ProductCatalogController', () => {
       await controller.getList(request, mockUserWithMultipleWorkspaces);
 
       const executedQuery = queryBus.execute.mock.calls[0][0] as any;
-      expect(executedQuery.dto.tenantId).toBe('200'); // Should use first workspace's tenantId
+      expect(executedQuery.dto.tenantId).toBe(200); // Should use first workspace's tenantId
     });
 
     it('should throw error when tenantId cannot be determined', async () => {
@@ -191,7 +191,7 @@ describe('ProductCatalogController', () => {
         userId: '123',
         softwareId: 1,
         tenantId: null,
-        workspaces: [{ workspaceId: '1', tenantId: null }],
+        workspaces: [{ workspaceId: 1, tenantId: null }],
       } as any;
 
       await expect(controller.getList(request, mockUserWithNullTenantId)).rejects.toThrow(
@@ -204,7 +204,7 @@ describe('ProductCatalogController', () => {
       const mockUserWithUndefinedTenantId = {
         userId: '123',
         softwareId: 1,
-        workspaces: [{ workspaceId: '1' }],
+        workspaces: [{ workspaceId: 1 }],
       } as any;
 
       await expect(controller.getList(request, mockUserWithUndefinedTenantId)).rejects.toThrow(
@@ -225,7 +225,7 @@ describe('ProductCatalogController', () => {
       await controller.getList(request, mockUserWithNumericTenantId);
 
       const executedQuery = queryBus.execute.mock.calls[0][0] as any;
-      expect(executedQuery.dto.tenantId).toBe('100'); // Should convert number to string
+      expect(executedQuery.dto.tenantId).toBe(100); // Should convert number to string
     });
   });
 });

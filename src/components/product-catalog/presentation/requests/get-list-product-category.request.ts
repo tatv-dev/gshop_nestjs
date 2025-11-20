@@ -48,16 +48,17 @@ export class GetListProductCategoryRequest {
   @ApiProperty({
     description: 'Filter by ancestor category IDs (for tree filtering)',
     required: false,
-    example: ['1', '2'],
-    type: [String],
+    example: [1, 2],
+    type: [Number],
   })
   @ValidateIf((o) => o.productCategoryAncestors !== undefined)
   @IsNotIn([null])
   @IsArray()
   @ArrayNotEmpty()
-  @IsString({ each: true })
-  @Matches(/^[1-9]\d*$/, { each: true, message: 'Each ancestor ID must be a positive integer' })
-  productCategoryAncestors?: string[];
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  @Type(() => Number)
+  productCategoryAncestors?: number[];
 
   @ApiProperty({
     description: 'Page number (1-1000)',

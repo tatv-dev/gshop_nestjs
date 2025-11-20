@@ -15,17 +15,17 @@ export class ProductCategoryQueryRepository implements IProductCategoryQueryRepo
   ) {}
 
   async findAll(
-    tenantId: string,
+    tenantId: number,
     productCategoryName?: string,
     activeStatuses?: number[],
-    productCategoryAncestors?: string[],
+    productCategoryAncestors?: number[],
     page?: number,
     size?: number,
   ): Promise<ProductCategory[]> {
     const queryBuilder = this.repository.createQueryBuilder('pc');
 
     // Filter by tenant
-    queryBuilder.where('pc.tenant_id = :tenantId', { tenantId: parseInt(tenantId) });
+    queryBuilder.where('pc.tenant_id = :tenantId', { tenantId });
 
     // Filter by name (search)
     if (productCategoryName) {
@@ -47,7 +47,7 @@ export class ProductCategoryQueryRepository implements IProductCategoryQueryRepo
 
       const ancestorParams: Record<string, number> = {};
       productCategoryAncestors.forEach((ancestorId, index) => {
-        ancestorParams[`ancestor${index}`] = parseInt(ancestorId);
+        ancestorParams[`ancestor${index}`] = ancestorId;
       });
 
       queryBuilder.andWhere(`(${ancestorConditions.join(' OR ')})`, ancestorParams);
@@ -68,15 +68,15 @@ export class ProductCategoryQueryRepository implements IProductCategoryQueryRepo
   }
 
   async count(
-    tenantId: string,
+    tenantId: number,
     productCategoryName?: string,
     activeStatuses?: number[],
-    productCategoryAncestors?: string[],
+    productCategoryAncestors?: number[],
   ): Promise<number> {
     const queryBuilder = this.repository.createQueryBuilder('pc');
 
     // Filter by tenant
-    queryBuilder.where('pc.tenant_id = :tenantId', { tenantId: parseInt(tenantId) });
+    queryBuilder.where('pc.tenant_id = :tenantId', { tenantId });
 
     // Filter by name (search)
     if (productCategoryName) {
@@ -98,7 +98,7 @@ export class ProductCategoryQueryRepository implements IProductCategoryQueryRepo
 
       const ancestorParams: Record<string, number> = {};
       productCategoryAncestors.forEach((ancestorId, index) => {
-        ancestorParams[`ancestor${index}`] = parseInt(ancestorId);
+        ancestorParams[`ancestor${index}`] = ancestorId;
       });
 
       queryBuilder.andWhere(`(${ancestorConditions.join(' OR ')})`, ancestorParams);
@@ -109,15 +109,15 @@ export class ProductCategoryQueryRepository implements IProductCategoryQueryRepo
 
   private toDomain(model: ProductCategoryModel): ProductCategory {
     return new ProductCategory(
-      String(model.id),
+      model.id,
       new ProductCategoryNameVO(model.name),
-      String(model.tenant_id),
-      model.product_category_parent_id ? String(model.product_category_parent_id) : null,
+      model.tenant_id,
+      model.product_category_parent_id ?? null,
       model.level,
-      model.parent_level1_id ? String(model.parent_level1_id) : null,
-      model.parent_level2_id ? String(model.parent_level2_id) : null,
+      model.parent_level1_id ?? null,
+      model.parent_level2_id ?? null,
       model.active_status,
-      model.creator_id ? String(model.creator_id) : null,
+      model.creator_id ?? null,
     );
   }
 }
