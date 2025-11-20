@@ -1,5 +1,4 @@
 # RED CODE Test Generator - NestJS/Jest
-# Adapted from Laravel/PHPUnit Test Strategy
 # Version: 1.0
 
 role: |
@@ -16,7 +15,7 @@ role: |
 process:
   step_1_analysis:
     description: "Analyze test case from test_plan"
-    tasks:
+    tasks: |
       - "Read and understand standard_knowledge"
       - "Read test_plan and identify:"
         - "ac_id, title, key_factors for each test case"
@@ -102,7 +101,6 @@ standard_knowledge:
           - "Controllers"
           - "Request DTOs (with class-validator decorators)"
         responsibility: "HTTP handling, validation, DTO mapping"
-        test_location: "test/component/[bc]/[endpoint]/unit/"
 
       application_layer:
         name: "Application Layer"
@@ -113,7 +111,6 @@ standard_knowledge:
           - "Application DTOs"
           - "Repository Interfaces (Ports)"
         responsibility: "Use case orchestration, CQRS"
-        test_location: "test/component/[bc]/[endpoint]/unit/ or integration/"
 
       domain_layer:
         name: "Domain Layer"
@@ -124,7 +121,6 @@ standard_knowledge:
           - "Domain Services"
           - "Domain Exceptions"
         responsibility: "Business rules, domain logic"
-        test_location: "test/component/[bc]/domain/{entity|value-object}/"
 
       infrastructure_layer:
         name: "Infrastructure Layer"
@@ -134,7 +130,6 @@ standard_knowledge:
           - "TypeORM Entities"
           - "External Service Adapters"
         responsibility: "Data persistence, external integrations"
-        test_location: "test/component/[bc]/[endpoint]/integration/"
 
       shared_kernel:
         name: "Shared Kernel"
@@ -243,11 +238,11 @@ standard_knowledge:
                   └── assertions.helper.ts
 
     file_naming:
-      request_dto_ut: "[endpoint-name]/unit/request.spec.ts"
-      handler_ut: "[endpoint-name]/unit/handler.spec.ts"
-      handler_it: "[endpoint-name]/integration/handler.spec.ts"
-      repository_it: "[endpoint-name]/integration/repository.spec.ts"
-      e2e: "[endpoint-name]/e2e/api.spec.ts"
+      request_dto_ut: "[endpoint-name]/request.spec.ts"
+      handler_ut: "[endpoint-name]/handler.spec.ts"
+      handler_it: "[endpoint-name]/handler.spec.ts"
+      repository_it: "[endpoint-name]/repository.spec.ts"
+      e2e: "[endpoint-name]/api.spec.ts"
       entity_ut: "domain/entity/[entity-name].spec.ts"
       vo_ut: "domain/value-object/[vo-name].spec.ts"
 
@@ -461,30 +456,155 @@ standard_knowledge:
 # ============================================
 
 input_schema:
+  # User input format for database schema
   db_schema:
     description: "Database schema definition (DDL statements)"
-    format: |
-      ddl_statements:
-        - |
-          CREATE TABLE table_name (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            parent_id BIGINT UNSIGNED,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (parent_id) REFERENCES parent_table(id) ON DELETE CASCADE
-          );
-        - |
-          CREATE TABLE another_table (...);
+    format:
+      ddl_statements: |
+        -- Bảng tenants (root table)
+        CREATE TABLE IF NOT EXISTS `tenants` (
+            `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            `name` varchar(50) NOT NULL,
+            `status` int(11) NOT NULL DEFAULT 1,
+            `remaining_account_quota` int(11) NOT NULL DEFAULT 0 COMMENT 'số lượng tài khoản có thể tạo thêm trong công ty',
+            `total_account_quota` int(11) NOT NULL DEFAULT 0 COMMENT 'số lượng tài khoản tối đa trong công ty, -1 là không giới hạn',
+            `created_at` datetime DEFAULT current_timestamp(),
+            `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+            PRIMARY KEY (`id`),
+            KEY `name` (`name`)
+        );
 
-    required_info:
-      - "Table names"
-      - "Column names and types"
-      - "Primary keys"
-      - "Foreign key constraints"
-      - "NOT NULL constraints"
-      - "Default values"
-      - "Indexes (optional)"
+        -- Bảng users (cho workspace)
+        CREATE TABLE IF NOT EXISTS `users` (
+            `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            `user_name` varchar(50) NOT NULL,
+            `password` varchar(200) NOT NULL,
+            `phone_number` varchar(50) DEFAULT NULL,
+            `created_at` datetime DEFAULT current_timestamp(),
+            `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+            `lock_counter` tinyint(4) DEFAULT NULL COMMENT 'Số lần đăng nhập sai liên tiếp',
+            `auto_lock_time` int(11) DEFAULT NULL COMMENT 'Thời gian khóa sau khi đăng nhập sai liên tiếp quá nhiều',
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `user_name` (`user_name`)
+        );
+
+        -- Bảng workspaces (liên kết user-tenant)
+        CREATE TABLE IF NOT EXISTS `workspaces` (
+            `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            `status` int(11) NOT NULL DEFAULT 1 COMMENT '0: tạm ngừng, 1: hoạt động',
+            `user_id` bigint(20) unsigned NOT NULL,
+            `tenant_id` bigint(20) unsigned NOT NULL,
+            `created_at` datetime DEFAULT current_timestamp(),
+            `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+            PRIMARY KEY (`id`),
+            KEY `FK_users_TO_workspaces` (`user_id`),
+            KEY `FK_tenants_TO_workspaces` (`tenant_id`),
+            CONSTRAINT `FK_tenants_TO_workspaces` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+            CONSTRAINT `FK_users_TO_workspaces` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+        );
+
+        -- Bảng branches (chi nhánh)
+        CREATE TABLE IF NOT EXISTS `branches` (
+            `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            `name` varchar(100) NOT NULL,
+            `tenant_id` bigint(20) unsigned NOT NULL DEFAULT 0,
+            `created_at` datetime DEFAULT current_timestamp(),
+            `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+            `primary_phone` varchar(20) NOT NULL,
+            `secondary_phone` varchar(20) DEFAULT NULL,
+            `note` varchar(250) DEFAULT NULL,
+            `address` varchar(200) DEFAULT NULL,
+            `code` varchar(100) DEFAULT NULL,
+            `status` int(11) NOT NULL DEFAULT 1 COMMENT '0: tạm ngừng, 1: hoạt động',
+            `creator_id` bigint(20) unsigned DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            KEY `FK_tenants_TO_branches` (`tenant_id`),
+            KEY `idx_branches_created_at` (`created_at`),
+            KEY `FK_branch_employees_TO_creators` (`creator_id`),
+            FULLTEXT KEY `idx_branches_name_ft` (`name`),
+            CONSTRAINT `FK_branch_employees_TO_creators` FOREIGN KEY (`creator_id`) REFERENCES `employees` (`id`),
+            CONSTRAINT `FK_tenants_TO_branches` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
+        );
+
+        -- Bảng resellers (nhà phân phối)
+        CREATE TABLE IF NOT EXISTS `resellers` (
+            `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            `name` varchar(150) NOT NULL,
+            `tenant_id` bigint(20) unsigned NOT NULL,
+            `code` varchar(100) DEFAULT NULL,
+            `address` varchar(250) DEFAULT NULL,
+            `created_at` datetime DEFAULT current_timestamp(),
+            `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+            `phone` varchar(20) DEFAULT NULL,
+            `status` int(11) NOT NULL DEFAULT 1 COMMENT '0: tạm ngừng, 1: hoạt động',
+            `note` text DEFAULT NULL,
+            `creator_id` bigint(20) unsigned DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            KEY `FK_tenants_TO_resellers` (`tenant_id`),
+            KEY `idx_resellers_created_at` (`created_at`),
+            FULLTEXT KEY `idx_resellers_name_ft` (`name`),
+            FULLTEXT KEY `idx_resellers_code_ft` (`code`),
+            CONSTRAINT `FK_tenants_TO_resellers` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
+        );
+
+        -- Bảng employees (nhân viên - có circular dependency với branches)
+        CREATE TABLE IF NOT EXISTS `employees` (
+            `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            `name` varchar(150) NOT NULL,
+            `workspace_id` bigint(20) unsigned NOT NULL,
+            `reseller_id` bigint(20) unsigned DEFAULT NULL,
+            `branch_id` bigint(20) unsigned DEFAULT NULL,
+            `status` int(11) NOT NULL DEFAULT 1 COMMENT '0: tạm ngừng, 1: hoạt động',
+            `dob` date DEFAULT NULL COMMENT 'ngày sinh',
+            `email` varchar(200) DEFAULT NULL COMMENT 'email',
+            `gender` int(11) DEFAULT 1 COMMENT '0: khác, 1: nam, 2: nữ',
+            `address` varchar(250) DEFAULT NULL,
+            `note` varchar(250) DEFAULT NULL,
+            `created_at` datetime DEFAULT current_timestamp(),
+            `creator_id` bigint(20) unsigned DEFAULT NULL COMMENT 'người tạo',
+            `type` int(11) NOT NULL DEFAULT 1 COMMENT '0: tài khoản ẩn, 1: tài khoản bình thường',
+            `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+            PRIMARY KEY (`id`),
+            KEY `FK_workspaces_TO_employees` (`workspace_id`),
+            KEY `FK_resellers_TO_employees` (`reseller_id`),
+            KEY `FK_branches_TO_employees` (`branch_id`),
+            KEY `FK_employees_TO_employees` (`creator_id`),
+            KEY `idx_employees_created_at` (`created_at`),
+            FULLTEXT KEY `idx_employees_name_ft` (`name`),
+            CONSTRAINT `FK_branches_TO_employees` FOREIGN KEY (`branch_id`) REFERENCES `branches` (`id`),
+            CONSTRAINT `FK_employees_TO_employees` FOREIGN KEY (`creator_id`) REFERENCES `employees` (`id`),
+            CONSTRAINT `FK_resellers_TO_employees` FOREIGN KEY (`reseller_id`) REFERENCES `resellers` (`id`),
+            CONSTRAINT `FK_workspaces_TO_employees` FOREIGN KEY (`workspace_id`) REFERENCES `workspaces` (`id`)
+        );
+
+        -- Bảng product_categories (danh mục sản phẩm - cây phân cấp)
+        CREATE TABLE IF NOT EXISTS `product_categories` (
+            `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            `name` varchar(100) NOT NULL,
+            `tenant_id` bigint(20) unsigned NOT NULL,
+            `product_category_parent_id` bigint(20) unsigned DEFAULT NULL,
+            `level` int(11) NOT NULL DEFAULT 1,
+            `created_at` datetime DEFAULT current_timestamp(),
+            `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+            `parent_level1_id` bigint(11) unsigned DEFAULT NULL,
+            `parent_level2_id` bigint(11) unsigned DEFAULT NULL,
+            `active_status` bigint(11) unsigned DEFAULT NULL,
+            `creator_id` bigint(20) unsigned DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            KEY `FK_tenants_TO_product_categories` (`tenant_id`),
+            KEY `FK_product_categories_TO_product_categories` (`product_category_parent_id`),
+            KEY `FK_employees_TO_product_categories` (`creator_id`),
+            KEY `fk_parent_level1` (`parent_level1_id`),
+            KEY `fk_parent_level2` (`parent_level2_id`),
+            KEY `idx_product_categories_created_at` (`created_at`),
+            FULLTEXT KEY `idx_product_categories_name_ft` (`name`),
+            CONSTRAINT `FK_product_categories_TO_product_categories` FOREIGN KEY (`product_category_parent_id`) REFERENCES `product_categories` (`id`),
+            CONSTRAINT `FK_empployees_TO_product_categories` FOREIGN KEY (`creator_id`) REFERENCES `employees` (`id`),
+            CONSTRAINT `FK_tenants_TO_product_categories` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+            CONSTRAINT `fk_parent_level1` FOREIGN KEY (`parent_level1_id`) REFERENCES `product_categories` (`id`) ON DELETE SET NULL,
+            CONSTRAINT `fk_parent_level2` FOREIGN KEY (`parent_level2_id`) REFERENCES `product_categories` (`id`) ON DELETE SET NULL
+        );
+
 
   test_plan:
     description: "Test cases for specific business logic"
@@ -493,77 +613,13 @@ input_schema:
       endpoint_name: "get-list-product-category"
       api_endpoint: "GET /api/v1/product-catalog/product-categories"
 
-      functional_tests:
-        - layer: "Presentation"
-          component: "Request DTO"
-          test_type: "Unit"
-          test_class: "GetListProductCategoryRequest"
-          test_file: "get-list-product-category/unit/request.spec.ts"
-          test_cases:
-            - ac_id: "AC-01"
-              title: "Valid request with all fields"
-              key_factors: ["validation", "happy_path"]
-              input:
-                tenantId: 1
-                productCategoryName: "Electronics"
-                activeStatuses: [1]
-                page: 1
-                size: 10
-              expected:
-                valid: true
-
-            - ac_id: "AC-02"
-              title: "Missing required field"
-              key_factors: ["validation", "required_field"]
-              input:
-                page: 1
-                size: 10
-              expected:
-                valid: false
-                errors:
-                  - field: "tenantId"
-                    constraint: "isNotEmpty"
-
-        - layer: "Infrastructure"
-          component: "Repository"
-          test_type: "Integration"
-          test_class: "ProductCategoryQueryRepository"
-          test_file: "get-list-product-category/integration/repository.spec.ts"
-          test_cases:
-            - ac_id: "AC-IT-01"
-              title: "Find all categories for tenant"
-              key_factors: ["database", "query"]
-              input:
-                tenantId: 1
-              expected:
-                dataLength: 5
-                firstCategoryName: "Electronics"
-
-      seed_data_requirements:
-        - entity: "Tenant"
-          count: 2
-          notes: "Parent table, insert first"
-
-        - entity: "ProductCategory"
-          count: 6
-          hierarchy:
-            - level: 1
-              count: 3
-              parent: null
-            - level: 2
-              count: 2
-              parent: "level 1 categories"
-            - level: 3
-              count: 1
-              parent: "level 2 category"
-          notes: "Self-referencing, must respect parent_id FK"
-
-    required_fields:
-      - bounded_context: "Name of bounded context"
-      - endpoint_name: "Name of endpoint being tested"
-      - api_endpoint: "HTTP method and path"
-      - functional_tests: "Array of test scenarios"
-      - seed_data_requirements: "Data needed for tests"
+    # User input format for each test case
+    test_case: |
+      - ac_id: "string - AC-XX"
+      - title: "string - Short description"
+      - key_factors: "array - Key aspects"
+      - input: "object - Input data"
+      - expected: "object - Expected outcome"
 
 # ============================================
 # OUTPUT REQUIREMENTS
@@ -617,7 +673,7 @@ output_requirements:
     - "No ESLint/TSLint errors"
     - "Ready to run (RED CODE - will fail on missing implementation)"
 
-  documentation:
+  documentation: |
     - "Each test file has header comment explaining:"
       - "Layer being tested"
       - "Test type (Unit/Integration/E2E)"
@@ -627,59 +683,6 @@ output_requirements:
     - "Seed data functions have dependency graph in comments"
     - "Complex assertions have explanatory comments"
 
-# ============================================
-# EXAMPLES
-# ============================================
-
-examples:
-  minimal_input:
-    description: "Minimal required input to generate tests"
-    db_schema:
-      ddl_statements:
-        - |
-          CREATE TABLE users (
-            id BIGINT PRIMARY KEY AUTO_INCREMENT,
-            email VARCHAR(255) NOT NULL UNIQUE,
-            name VARCHAR(255) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-
-    test_plan:
-      bounded_context: "user-management"
-      endpoint_name: "get-user-by-id"
-      api_endpoint: "GET /api/v1/users/:id"
-      functional_tests:
-        - layer: "Presentation"
-          component: "Request DTO"
-          test_type: "Unit"
-          test_class: "GetUserByIdRequest"
-          test_file: "get-user-by-id/unit/request.spec.ts"
-          test_cases:
-            - ac_id: "AC-01"
-              title: "Valid user ID"
-              input: { id: 1 }
-              expected: { valid: true }
-            - ac_id: "AC-02"
-              title: "Invalid user ID (string)"
-              input: { id: "invalid" }
-              expected:
-                valid: false
-                errors: [{ field: "id", constraint: "isInt" }]
-
-  expected_output_structure:
-    files_generated:
-      - "test/component/user-management/test-helpers/database.helper.ts"
-      - "test/component/user-management/test-helpers/seed-data.helper.ts"
-      - "test/component/user-management/test-helpers/test-data.factory.ts"
-      - "test/component/user-management/test-helpers/assertions.helper.ts"
-      - "test/component/user-management/get-user-by-id/unit/request.spec.ts"
-
-    test_execution:
-      status: "FAIL (RED CODE)"
-      reason: "GetUserByIdRequest class not found"
-      tests_written: 2
-      tests_passed: 0
-      tests_failed: 2
 
 # ============================================
 # USAGE INSTRUCTIONS
