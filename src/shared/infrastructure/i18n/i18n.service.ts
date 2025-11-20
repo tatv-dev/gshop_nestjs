@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import * as vi from './locales/vi.json';
+import viMessages from './locales/vi.json';
 
 export interface I18nMessage {
   title: string;
   detail: string;
 }
 
-type MessageType = 'RFC7807' | 'Validation' | 'Success';
+type MessageType = 'error' | 'validation' | 'success';
 
 interface MessageStructure {
   [type: string]: {
@@ -19,40 +19,33 @@ interface MessageStructure {
 @Injectable()
 export class I18nService {
   private messages: Record<string, MessageStructure> = {
-    vi: vi as MessageStructure,
+    vi: viMessages as MessageStructure,
   };
 
   private currentLocale = 'vi';
 
   /**
    * Translate a message key to localized message
-   * @param messageKey Format: "Type.key" hoặc "Type.key.subkey" hoặc chỉ "key" (mặc định Type=RFC7807)
+   * @param messageKey Format: "type.key" hoặc "type.key.subkey" (e.g., "error.bad_request", "validation.max.string")
    * @param params Parameters for interpolation using :param syntax
    * @returns I18nMessage with title and detail
+   *
+   * Examples:
+   * - translate('error.bad_request') → error type, bad_request key
+   * - translate('validation.required', { attribute: 'email' }) → validation type, required key
+   * - translate('validation.max.string', { attribute: 'name', max: 255 }) → validation type, max key, string subkey
+   * - translate('success.stored', { resource: 'Product' }) → success type, stored key
    */
   translate(messageKey: string, params: Record<string, any> = {}): I18nMessage {
     const parts = messageKey.split('.');
-    let type: string;
-    let key: string;
-    let subKey: string | undefined;
 
-    // Determine type, key, and subKey based on parts
-    if (parts.length === 1) {
-      // Only key provided, default to RFC7807
-      type = 'RFC7807';
-      key = parts[0];
-    } else if (parts.length === 2) {
-      // Type.key format
-      type = parts[0];
-      key = parts[1];
-    } else if (parts.length >= 3) {
-      // Type.key.subKey format
-      type = parts[0];
-      key = parts[1];
-      subKey = parts[2];
-    } else {
+    if (parts.length < 2) {
       return this.getErrorMessage(messageKey);
     }
+
+    const type = parts[0];
+    const key = parts[1];
+    const subKey = parts.length >= 3 ? parts[2] : undefined;
 
     try {
       const typeMessages = this.messages[this.currentLocale][type];

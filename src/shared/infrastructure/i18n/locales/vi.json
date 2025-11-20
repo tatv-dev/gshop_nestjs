@@ -1,5 +1,5 @@
 {
-  "RFC7807": {
+  "error": {
     "bad_request": {
       "title": "Yêu cầu không hợp lệ",
       "detail": "Cấu trúc yêu cầu không đúng định dạng hoặc chứa ký tự không hợp lệ."
@@ -185,7 +185,7 @@
       "detail": "Trạng thái hoạt động chỉ được là 0 (Tạm ngừng) hoặc 1 (Hoạt động)."
     }
   },
-  "Validation": {
+  "validation": {
     "required": {
       "title": "Thiếu thông tin",
       "detail": "Trường :attribute là bắt buộc, vui lòng không để trống."
@@ -309,7 +309,7 @@
       "detail": ":attribute phải là một đường dẫn URL hợp lệ."
     }
   },
-  "Success": {
+  "success": {
     "stored": {
       "title": "Thêm mới thành công",
       "detail": "Dữ liệu :resource đã được tạo mới thành công."

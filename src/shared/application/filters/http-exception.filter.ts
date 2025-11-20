@@ -73,7 +73,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // DomainException - Business rule violations (400)
     if (exception instanceof DomainException) {
-      const messageKey = `RFC7807.${exception.messageKey}`;
+      const messageKey = `error.${exception.messageKey}`;
       const translated = this.i18nService.translate(messageKey, exception.params);
       return {
         type: `https://api.example.com/problems/domain/${exception.messageKey}`,
@@ -87,7 +87,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // ApplicationException - Use case failures (400)
     if (exception instanceof ApplicationException) {
-      const messageKey = `RFC7807.${exception.messageKey}`;
+      const messageKey = `error.${exception.messageKey}`;
       const translated = this.i18nService.translate(messageKey, exception.params);
       return {
         type: `https://api.example.com/problems/application/${exception.messageKey}`,
@@ -101,7 +101,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // InfrastructureException - Technical failures (500)
     if (exception instanceof InfrastructureException) {
-      const messageKey = `RFC7807.${exception.messageKey}`;
+      const messageKey = `error.${exception.messageKey}`;
       const translated = this.i18nService.translate(messageKey, exception.params);
       return {
         type: `https://api.example.com/problems/infrastructure/${exception.messageKey}`,
@@ -115,7 +115,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // ValidationException - Input validation errors (422)
     if (exception instanceof ValidationException) {
-      const translated = this.i18nService.translate('RFC7807.validation_error');
+      const translated = this.i18nService.translate('error.validation_error');
       return {
         type: 'https://api.example.com/problems/validation_error',
         title: translated.title,
@@ -124,7 +124,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         instance: exception.instance || instance,
         timestamp,
         errors: exception.errors.map((error) => {
-          const errorMessageKey = `Validation.${error.messageKey}`;
+          const errorMessageKey = `validation.${error.messageKey}`;
           const errorTranslated = this.i18nService.translate(errorMessageKey, error.params);
           return {
             field: error.field,
@@ -137,7 +137,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // NestJS BadRequestException (from class-validator)
     if (exception instanceof BadRequestException) {
       const exceptionResponse = exception.getResponse();
-      const translated = this.i18nService.translate('RFC7807.validation_error');
+      const translated = this.i18nService.translate('error.validation_error');
 
       // Extract validation errors from class-validator
       const errors: Array<{ field: string; message: string }> = [];
@@ -183,7 +183,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
 
       // Try to get translated message
-      const messageKey = `RFC7807.${this.getMessageKeyFromStatus(status)}`;
+      const messageKey = `error.${this.getMessageKeyFromStatus(status)}`;
       const translated = this.i18nService.translate(messageKey);
       if (translated) {
         title = translated.title;
@@ -205,7 +205,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       exception instanceof Error ? exception.stack : undefined,
     );
 
-    const translated = this.i18nService.translate('RFC7807.internal_error');
+    const translated = this.i18nService.translate('error.internal_error');
     return {
       type: 'https://api.example.com/problems/internal_error',
       title: translated.title,
