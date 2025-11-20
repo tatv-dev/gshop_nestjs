@@ -3,12 +3,7 @@ import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
 import { GetListProductCategoryQuery } from '../queries/get-list-product-category.query';
 import { IProductCategoryQueryRepository } from '../repositories/product-category-query.repository';
-import {
-  PageOverLimitException,
-  PageBelowMinException,
-  SizeOutOfRangeException,
-  PageOutOfRangeException,
-} from '../exceptions/invalid-pagination.exception';
+import { ApplicationException } from '../../../../shared/application/exceptions/application.exception';
 
 export interface ProductCategoryResponseDTO {
   id: number;
@@ -49,17 +44,36 @@ export class GetListProductCategoryQueryHandler
     // Validate page
     const MAX_PAGE = 1000;
     if (page > MAX_PAGE) {
-      throw new PageOverLimitException(page, MAX_PAGE);
+      throw new ApplicationException({
+        messageKey: 'max.numeric',
+        params: {
+          attribute: 'Số trang',
+          max: MAX_PAGE
+        },
+      });
     }
     if (page < 1) {
-      throw new PageBelowMinException(page, 1);
+      throw new ApplicationException({
+        messageKey: 'min.numeric',
+        params: {
+          attribute: 'Số trang',
+          min: 1
+        },
+      });
     }
 
     // Validate size
     const MIN_SIZE = 1;
     const MAX_SIZE = 100;
     if (size < MIN_SIZE || size > MAX_SIZE) {
-      throw new SizeOutOfRangeException(size, MIN_SIZE, MAX_SIZE);
+      throw new ApplicationException({
+        messageKey: 'between.numeric',
+        params: {
+          attribute: 'Kích thước trang',
+          min: MIN_SIZE,
+          max: MAX_SIZE
+        },
+      });
     }
 
     // Get total count for pagination
@@ -75,7 +89,13 @@ export class GetListProductCategoryQueryHandler
 
     // Validate page is not beyond available pages (only if there are results)
     if (total > 0 && page > totalPages) {
-      throw new PageOutOfRangeException(page, totalPages);
+      throw new ApplicationException({
+        messageKey: 'max.numeric',
+        params: {
+          attribute: 'Số trang',
+          max: totalPages
+        },
+      });
     }
 
     // Get paginated data
