@@ -1,5 +1,6 @@
 // src/components/product-catalog/domain/value-objects/product-category-name.vo.spec.ts
 import { ProductCategoryNameVO } from './product-category-name.vo';
+import { DomainException } from '../../../../shared/domain/exceptions/domain.exception';
 
 describe('ProductCategoryNameVO', () => {
   describe('Valid product category names', () => {
@@ -42,34 +43,49 @@ describe('ProductCategoryNameVO', () => {
 
   describe('Invalid product category names', () => {
     it('should throw error for empty string', () => {
-      expect(() => new ProductCategoryNameVO('')).toThrow(
-        'Product category name cannot be empty',
-      );
+      expect(() => new ProductCategoryNameVO('')).toThrow(DomainException);
+      try {
+        new ProductCategoryNameVO('');
+      } catch (error) {
+        expect((error as DomainException).messageKey).toBe('required');
+      }
     });
 
     it('should throw error for null', () => {
-      expect(() => new ProductCategoryNameVO(null as any)).toThrow(
-        'Product category name cannot be empty',
-      );
+      expect(() => new ProductCategoryNameVO(null as any)).toThrow(DomainException);
+      try {
+        new ProductCategoryNameVO(null as any);
+      } catch (error) {
+        expect((error as DomainException).messageKey).toBe('required');
+      }
     });
 
     it('should throw error for undefined', () => {
-      expect(() => new ProductCategoryNameVO(undefined as any)).toThrow(
-        'Product category name cannot be empty',
-      );
+      expect(() => new ProductCategoryNameVO(undefined as any)).toThrow(DomainException);
+      try {
+        new ProductCategoryNameVO(undefined as any);
+      } catch (error) {
+        expect((error as DomainException).messageKey).toBe('required');
+      }
     });
 
     it('should throw error for name exceeding max length (256 chars)', () => {
       const name = 'A'.repeat(256);
-      expect(() => new ProductCategoryNameVO(name)).toThrow(
-        'Product category name cannot exceed 255 characters',
-      );
+      expect(() => new ProductCategoryNameVO(name)).toThrow(DomainException);
+      try {
+        new ProductCategoryNameVO(name);
+      } catch (error) {
+        expect((error as DomainException).messageKey).toBe('max.string');
+      }
     });
 
     it('should throw error for whitespace only', () => {
-      expect(() => new ProductCategoryNameVO('   ')).toThrow(
-        'Product category name cannot be empty',
-      );
+      expect(() => new ProductCategoryNameVO('   ')).toThrow(DomainException);
+      try {
+        new ProductCategoryNameVO('   ');
+      } catch (error) {
+        expect((error as DomainException).messageKey).toBe('required');
+      }
     });
   });
 

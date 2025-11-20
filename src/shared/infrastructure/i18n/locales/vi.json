@@ -1,0 +1,306 @@
+{
+  "error": {
+    "bad_request": {
+      "title": "Yêu cầu không hợp lệ",
+      "detail": "Cấu trúc yêu cầu không đúng định dạng hoặc chứa ký tự không hợp lệ."
+    },
+    "invalid_json_format": {
+      "title": "Định dạng JSON không hợp lệ",
+      "detail": "Dữ liệu gửi lên không phải là chuỗi JSON hợp lệ. Lỗi: :error."
+    },
+    "authentication_required": {
+      "title": "Yêu cầu xác thực",
+      "detail": "Vui lòng đăng nhập để truy cập tài nguyên này."
+    },
+    "auth_token_expired": {
+      "title": "Token đã hết hạn",
+      "detail": "Phiên đăng nhập đã kết thúc vào lúc :expiredAt. Vui lòng đăng nhập lại."
+    },
+    "auth_invalid_credentials": {
+      "title": "Thông tin đăng nhập không đúng",
+      "detail": "Email hoặc mật khẩu không chính xác."
+    },
+    "permission_denied": {
+      "title": "Không có quyền truy cập",
+      "detail": "Bạn không có quyền :permission cần thiết để thực hiện hành động này."
+    },
+    "account_locked": {
+      "title": "Tài khoản bị khóa",
+      "detail": "Tài khoản của bạn đã bị tạm khóa do vi phạm chính sách hoặc đăng nhập sai quá nhiều lần."
+    },
+    "resource_not_found": {
+      "title": "Không tìm thấy tài nguyên",
+      "detail": "Không tìm thấy :resourceType với định danh :resourceId."
+    },
+    "endpoint_not_found": {
+      "title": "Đường dẫn không tồn tại",
+      "detail": "URL :url không tồn tại trong hệ thống API."
+    },
+    "method_not_allowed": {
+      "title": "Phương thức không được phép",
+      "detail": "Phương thức :method không được hỗ trợ cho tài nguyên này. Các phương thức cho phép: :allowedMethods."
+    },
+    "not_acceptable": {
+      "title": "Định dạng không được chấp nhận",
+      "detail": "Server không thể trả về định dạng nội dung như yêu cầu trong header Accept."
+    },
+    "resource_conflict": {
+      "title": "Xung đột dữ liệu",
+      "detail": "Tài nguyên :resource đã tồn tại với giá trị :value. Vui lòng kiểm tra tính duy nhất."
+    },
+    "state_conflict": {
+      "title": "Trạng thái không hợp lệ",
+      "detail": "Không thể thực hiện hành động :action khi tài nguyên đang ở trạng thái :status."
+    },
+    "resource_gone": {
+      "title": "Tài nguyên đã bị xóa",
+      "detail": "Tài nguyên này đã bị xóa vĩnh viễn và không còn khả dụng."
+    },
+    "payload_too_large": {
+      "title": "Dữ liệu quá lớn",
+      "detail": "Kích thước tải lên :size vượt quá giới hạn cho phép là :limit."
+    },
+    "unsupported_media_type": {
+      "title": "Định dạng file không hỗ trợ",
+      "detail": "Định dạng :contentType không được hỗ trợ. Vui lòng sử dụng: :allowedTypes."
+    },
+    "validation_error": {
+      "title": "Lỗi xác thực dữ liệu",
+      "detail": "Dữ liệu đầu vào không hợp lệ."
+    },
+    "missing_parameter": {
+      "title": "Thiếu tham số bắt buộc",
+      "detail": "Tham số :parameter là bắt buộc và không được để trống."
+    },
+    "invalid_date_format": {
+      "title": "Định dạng ngày tháng sai",
+      "detail": "Trường :attribute phải có định dạng :format (Ví dụ: :example)."
+    },
+    "rate_limit_exceeded": {
+      "title": "Vượt quá giới hạn yêu cầu",
+      "detail": "Bạn đã gửi quá nhiều yêu cầu trong thời gian ngắn. Vui lòng thử lại sau :retryAfter giây."
+    },
+    "internal_error": {
+      "title": "Lỗi máy chủ nội bộ",
+      "detail": "Đã xảy ra lỗi không mong muốn phía máy chủ. Mã tham chiếu lỗi: :errorId."
+    },
+    "database_connection_error": {
+      "title": "Lỗi kết nối cơ sở dữ liệu",
+      "detail": "Không thể kết nối tới cơ sở dữ liệu. Vui lòng liên hệ quản trị viên."
+    },
+    "not_implemented": {
+      "title": "Chức năng chưa hỗ trợ",
+      "detail": "Chức năng này chưa được triển khai trên phiên bản hiện tại."
+    },
+    "service_unavailable": {
+      "title": "Dịch vụ tạm ngừng",
+      "detail": "Hệ thống đang bảo trì hoặc quá tải. Vui lòng thử lại sau."
+    },
+    "third_party_error": {
+      "title": "Lỗi dịch vụ bên thứ ba",
+      "detail": "Không thể kết nối tới dịch vụ đối tác :serviceName. Vui lòng thử lại sau."
+    },
+    "wallet_insufficient_balance": {
+      "title": "Số dư không đủ",
+      "detail": "Số dư hiện tại :balance không đủ để thực hiện giao dịch :amount."
+    },
+    "coupon_invalid": {
+      "title": "Mã giảm giá không hợp lệ",
+      "detail": "Mã giảm giá :code không tồn tại, đã hết hạn hoặc chưa đạt điều kiện áp dụng."
+    },
+    "order_cannot_cancel": {
+      "title": "Không thể hủy đơn hàng",
+      "detail": "Đơn hàng #:orderId đang ở trạng thái :status và không thể hủy."
+    },
+    "otp_invalid": {
+      "title": "Mã xác thực sai",
+      "detail": "Mã OTP không chính xác hoặc đã hết hạn. Bạn còn :attempts lần thử."
+    }
+  },
+  "validation": {
+    "required": {
+      "title": "Thiếu thông tin",
+      "detail": "Trường :attribute là bắt buộc, vui lòng không để trống."
+    },
+    "filled": {
+      "title": "Giá trị rỗng",
+      "detail": "Trường :attribute phải có giá trị."
+    },
+    "present": {
+      "title": "Thiếu trường dữ liệu",
+      "detail": "Trường :attribute phải hiện diện trong dữ liệu gửi lên."
+    },
+    "numeric": {
+      "title": "Sai định dạng số",
+      "detail": ":attribute phải là một số."
+    },
+    "integer": {
+      "title": "Sai định dạng số nguyên",
+      "detail": ":attribute phải là một số nguyên."
+    },
+    "string": {
+      "title": "Sai định dạng chuỗi",
+      "detail": ":attribute phải là một chuỗi ký tự."
+    },
+    "boolean": {
+      "title": "Sai định dạng boolean",
+      "detail": ":attribute chỉ được chấp nhận giá trị đúng (true) hoặc sai (false)."
+    },
+    "array": {
+      "title": "Sai định dạng mảng",
+      "detail": ":attribute phải là một mảng."
+    },
+    "email": {
+      "title": "Email không hợp lệ",
+      "detail": ":attribute phải là một địa chỉ email hợp lệ."
+    },
+    "max": {
+      "numeric": {
+        "title": "Giá trị quá lớn",
+        "detail": ":attribute không được lớn hơn :max."
+      },
+      "file": {
+        "title": "File quá lớn",
+        "detail": "Dung lượng :attribute không được vượt quá :max kilobytes."
+      },
+      "string": {
+        "title": "Chuỗi quá dài",
+        "detail": ":attribute không được dài quá :max ký tự."
+      },
+      "array": {
+        "title": "Quá nhiều phần tử",
+        "detail": ":attribute không được có nhiều hơn :max phần tử."
+      }
+    },
+    "min": {
+      "numeric": {
+        "title": "Giá trị quá nhỏ",
+        "detail": ":attribute phải lớn hơn hoặc bằng :min."
+      },
+      "file": {
+        "title": "File quá nhỏ",
+        "detail": "Dung lượng :attribute phải tối thiểu là :min kilobytes."
+      },
+      "string": {
+        "title": "Chuỗi quá ngắn",
+        "detail": ":attribute phải có ít nhất :min ký tự."
+      },
+      "array": {
+        "title": "Quá ít phần tử",
+        "detail": ":attribute phải có ít nhất :min phần tử."
+      }
+    },
+    "between": {
+      "numeric": {
+        "title": "Giá trị ngoài phạm vi",
+        "detail": ":attribute phải nằm trong khoảng từ :min đến :max."
+      },
+      "file": {
+        "title": "Dung lượng ngoài phạm vi",
+        "detail": ":attribute phải có dung lượng từ :min đến :max kilobytes."
+      },
+      "string": {
+        "title": "Độ dài ngoài phạm vi",
+        "detail": ":attribute phải dài từ :min đến :max ký tự."
+      }
+    },
+    "confirmed": {
+      "title": "Xác nhận không khớp",
+      "detail": "Giá trị xác nhận của :attribute không khớp."
+    },
+    "date": {
+      "title": "Ngày tháng không hợp lệ",
+      "detail": ":attribute không phải là định dạng ngày tháng hợp lệ."
+    },
+    "date_format": {
+      "title": "Sai định dạng ngày",
+      "detail": ":attribute không khớp với định dạng :format."
+    },
+    "after": {
+      "title": "Ngày không hợp lệ",
+      "detail": ":attribute phải là một ngày sau ngày :date."
+    },
+    "before": {
+      "title": "Ngày không hợp lệ",
+      "detail": ":attribute phải là một ngày trước ngày :date."
+    },
+    "unique": {
+      "title": "Dữ liệu đã tồn tại",
+      "detail": ":attribute đã được sử dụng trong hệ thống."
+    },
+    "in": {
+      "title": "Giá trị không hợp lệ",
+      "detail": "Giá trị đã chọn cho :attribute không hợp lệ. Các giá trị cho phép: :values."
+    },
+    "regex": {
+      "title": "Định dạng không hợp lệ",
+      "detail": "Định dạng của :attribute không đúng quy tắc."
+    },
+    "url": {
+      "title": "URL không hợp lệ",
+      "detail": ":attribute phải là một đường dẫn URL hợp lệ."
+    }
+  },
+  "success": {
+    "stored": {
+      "title": "Thêm mới thành công",
+      "detail": "Dữ liệu :resource đã được tạo mới thành công."
+    },
+    "updated": {
+      "title": "Cập nhật thành công",
+      "detail": "Thông tin :resource đã được cập nhật."
+    },
+    "deleted": {
+      "title": "Xóa thành công",
+      "detail": "Dữ liệu :resource đã được xóa khỏi hệ thống."
+    },
+    "restored": {
+      "title": "Khôi phục thành công",
+      "detail": "Dữ liệu :resource đã được khôi phục lại."
+    },
+    "login_success": {
+      "title": "Đăng nhập thành công",
+      "detail": "Chào mừng :name quay trở lại hệ thống."
+    },
+    "logout_success": {
+      "title": "Đăng xuất thành công",
+      "detail": "Bạn đã đăng xuất khỏi hệ thống an toàn."
+    },
+    "register_success": {
+      "title": "Đăng ký thành công",
+      "detail": "Tài khoản của bạn đã được tạo. Vui lòng kiểm tra email để kích hoạt."
+    },
+    "password_changed": {
+      "title": "Đổi mật khẩu thành công",
+      "detail": "Mật khẩu của bạn đã được thay đổi. Vui lòng sử dụng mật khẩu mới cho lần đăng nhập sau."
+    },
+    "email_verified": {
+      "title": "Xác thực email thành công",
+      "detail": "Địa chỉ email của bạn đã được xác minh."
+    },
+    "uploaded": {
+      "title": "Tải lên thành công",
+      "detail": "File :filename đã được tải lên máy chủ."
+    },
+    "import_queued": {
+      "title": "Đang xử lý nhập dữ liệu",
+      "detail": "Quá trình nhập dữ liệu đang chạy ngầm. Chúng tôi sẽ thông báo khi hoàn tất."
+    },
+    "import_completed": {
+      "title": "Nhập dữ liệu hoàn tất",
+      "detail": "Đã nhập thành công :count bản ghi vào hệ thống."
+    },
+    "export_completed": {
+      "title": "Xuất dữ liệu thành công",
+      "detail": "File báo cáo đã sẵn sàng để tải xuống."
+    },
+    "action_completed": {
+      "title": "Thao tác thành công",
+      "detail": "Yêu cầu của bạn đã được thực hiện thành công."
+    },
+    "sent": {
+      "title": "Gửi thành công",
+      "detail": "Email/Tin nhắn đã được gửi đến :recipient."
+    }
+  }
+}

@@ -1,13 +1,16 @@
  
 // src/shared/domain/value-objects/email.ts
-import { DomainError } from '../errors/domain.error';
+import { DomainException } from '../exceptions/domain.exception';
 
 export class Email {
   private readonly value: string;
 
   constructor(email: string) {
     if (!this.isValid(email)) {
-      throw new DomainError('Invalid email format');
+      throw new DomainException({
+        messageKey: 'email',
+        params: { attribute: 'Email' },
+      });
     }
     this.value = email.toLowerCase().trim();
   }

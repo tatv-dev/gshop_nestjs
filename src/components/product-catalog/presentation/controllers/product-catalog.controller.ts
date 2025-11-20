@@ -7,6 +7,7 @@ import { GetListProductCategoryQuery } from '../../application/queries/get-list-
 import { GetListProductCategoryDTO } from '../../application/dtos/get-list-product-category.dto';
 import { JwtAuthGuard } from '../../../../shared/infrastructure/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../../shared/infrastructure/decorators/current-user.decorator';
+import { ApplicationException } from '../../../../shared/application/exceptions/application.exception';
 
 @ApiTags('Product Catalog')
 @Controller('api/v1/product-catalog')
@@ -25,16 +26,31 @@ export class ProductCatalogController {
     @CurrentUser() user: any,
   ) {
     // Handle tenantId for both single and multiple workspace scenarios
-    let tenantId: string;
+    let tenantId: number;
 
-    if (user.tenantId) {
-      // Single workspace: tenantId is directly in user object
-      tenantId = user.tenantId.toString();
-    } else if (user.workspaces && user.workspaces.length > 0) {
-      // Multiple workspaces: use first workspace's tenantId
-      tenantId = user.workspaces[0].tenantId.toString();
-    } else {
-      throw new Error('Cannot determine tenant ID from user context');
+    if (user.workspaces && Array.isArray(user.workspaces) && user.workspaces.length > 0) {
+      const firstWorkspace = user.workspaces[0];
+      if (firstWorkspace && firstWorkspace.tenantId !== undefined && firstWorkspace.tenantId !== null) {
+        tenantId = Number(firstWorkspace.tenantId);
+      } else {
+        throw new ApplicationException({
+          messageKey: 'bad_request',
+        });
+      }
+    }
+    else {
+      throw new ApplicationException({
+        messageKey: 'missing_parameter',
+        params: { parameter: 'Tenant ID' },
+      });
+    }
+
+    // Validate tenantId is a valid number
+    if (!Number.isInteger(tenantId) || tenantId <= 0) {
+      throw new ApplicationException({
+        messageKey: 'integer',
+        params: { attribute: 'Tenant ID' },
+      });
     }
 
     const dto = new GetListProductCategoryDTO(

@@ -1,4 +1,6 @@
 // src/components/product-catalog/domain/value-objects/product-category-name.vo.ts
+import { DomainException } from '../../../../shared/domain/exceptions/domain.exception';
+
 export class ProductCategoryNameVO {
   private readonly value: string;
 
@@ -9,11 +11,17 @@ export class ProductCategoryNameVO {
 
   private validate(name: string): void {
     if (!name || name.trim().length === 0) {
-      throw new Error('Product category name cannot be empty');
+      throw new DomainException({
+        messageKey: 'required',
+        params: { attribute: 'tên nhóm hàng' },
+      });
     }
 
     if (name.length > 255) {
-      throw new Error('Product category name cannot exceed 255 characters');
+      throw new DomainException({
+        messageKey: 'max.string',
+        params: { attribute: 'tên nhóm hàng', max: 255 },
+      });
     }
   }
 

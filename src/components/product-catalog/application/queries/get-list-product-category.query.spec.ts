@@ -4,11 +4,10 @@ import { GetListProductCategoryDTO } from '../dtos/get-list-product-category.dto
 
 describe('GetListProductCategoryQuery', () => {
   it('should create query with DTO', () => {
-    const dto = new GetListProductCategoryDTO(
-      '100',
+    const dto = new GetListProductCategoryDTO(100,
       'Electronics',
       [1],
-      ['1'],
+      [1],
       1,
       10,
     );
@@ -18,9 +17,9 @@ describe('GetListProductCategoryQuery', () => {
   });
 
   it('should encapsulate DTO data', () => {
-    const dto = new GetListProductCategoryDTO('100');
+    const dto = new GetListProductCategoryDTO(100);
     const query = new GetListProductCategoryQuery(dto);
 
-    expect(query.dto.tenantId).toBe('100');
+    expect(query.dto.tenantId).toBe(100);
   });
 });
