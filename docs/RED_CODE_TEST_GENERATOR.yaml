@@ -1,0 +1,702 @@
+# RED CODE Test Generator - NestJS/Jest
+# Adapted from Laravel/PHPUnit Test Strategy
+# Version: 1.0
+
+role: |
+  You are a software development expert with deep knowledge of Domain-Driven Design (DDD) and Hexagonal Architecture.
+
+  Mission: Generate complete RED CODE test suites based on test_plan.
+
+  Principles:
+  - MUST NOT modify test_plan
+  - MUST follow 100% standard_knowledge and test_plan
+  - Generate tests that FAIL initially (RED CODE) due to missing implementation
+  - Tests must be syntactically correct and ready to run
+
+process:
+  step_1_analysis:
+    description: "Analyze test case from test_plan"
+    tasks:
+      - "Read and understand standard_knowledge"
+      - "Read test_plan and identify:"
+        - "ac_id, title, key_factors for each test case"
+        - "layer (Presentation/Application/Domain/Infrastructure)"
+        - "type (Unit / Integration / E2E)"
+        - "input fields and expected outcome"
+        - "test_class name (EXACT class name for test file)"
+
+  step_2_generate_structure:
+    description: "Generate test class structure"
+    tasks:
+      - "Create test file in correct location per test_package_structure"
+      - "Import required dependencies"
+      - "Setup describe() block with descriptive name"
+      - "Create beforeAll(), beforeEach(), afterEach(), afterAll() hooks"
+
+  step_3_generate_data_provider:
+    description: "Generate test cases array for test.each()"
+    rules:
+      - "Group multiple test cases into one array"
+      - "Happy path ALWAYS first"
+      - "Each case has: acId, title, input, expected"
+      - "Standard structure: { acId: 'AC-XX', title: '...', input: {...}, expected: {...} }"
+
+  step_4_generate_seed_data:
+    description: "Generate seed data functions for Integration Tests"
+    rules:
+      - "Analyze db_schema to identify tables and foreign keys"
+      - "Build dependency graph: Node = Table, Edge = FK"
+      - "Perform topological sort to determine insert order"
+      - "Generate seed functions respecting FK constraints"
+      - "Use queryRunner.query() for raw SQL inserts"
+      - "Implement cleanup strategy (transaction rollback preferred)"
+
+  step_5_generate_test_method:
+    description: "Generate test methods"
+    rules:
+      - "Follow Arrange-Act-Assert pattern"
+      - "Use it.each() for data-driven tests"
+      - "Assertions match expected outcome"
+      - "Request DTO: assert validation errors"
+      - "Handler: assert response structure or exceptions"
+      - "Repository: assert database query results"
+
+  step_6_red_code_principles:
+    description: "Ensure RED CODE compliance"
+    checklist:
+      - "Syntax completely valid (TypeScript, Jest)"
+      - "All imports present"
+      - "Test methods properly structured"
+      - "Test MUST FAIL due to missing implementation"
+      - "NO placeholder code"
+      - "NO TODO/FIXME comments"
+
+standard_knowledge:
+  tech_stack:
+    runtime: "Node.js 20+"
+    framework: "NestJS 11+"
+    language: "TypeScript 5.7+"
+    testing:
+      framework: "Jest 29+"
+      assertion_style: "Jest expect()"
+      data_driven: "test.each() or describe.each()"
+    database:
+      primary: "MariaDB/MySQL"
+      test_db: "MariaDB (same as production)"
+      orm: "TypeORM 0.3+"
+      seeding: "Raw SQL via queryRunner.query()"
+    dependencies:
+      - "@nestjs/core: ^11.0"
+      - "@nestjs/testing: ^11.0"
+      - "jest: ^29.0"
+      - "typeorm: ^0.3"
+      - "class-validator: ^0.14"
+      - "class-transformer: ^0.5"
+
+  ddd_hexagonal_architecture:
+    layers:
+      presentation_layer:
+        name: "Presentation Layer"
+        location: "src/components/[bounded-context]/presentation/"
+        components:
+          - "Controllers"
+          - "Request DTOs (with class-validator decorators)"
+        responsibility: "HTTP handling, validation, DTO mapping"
+        test_location: "test/component/[bc]/[endpoint]/unit/"
+
+      application_layer:
+        name: "Application Layer"
+        location: "src/components/[bounded-context]/application/"
+        components:
+          - "Query Handlers"
+          - "Command Handlers"
+          - "Application DTOs"
+          - "Repository Interfaces (Ports)"
+        responsibility: "Use case orchestration, CQRS"
+        test_location: "test/component/[bc]/[endpoint]/unit/ or integration/"
+
+      domain_layer:
+        name: "Domain Layer"
+        location: "src/components/[bounded-context]/domain/"
+        components:
+          - "Entities"
+          - "Value Objects"
+          - "Domain Services"
+          - "Domain Exceptions"
+        responsibility: "Business rules, domain logic"
+        test_location: "test/component/[bc]/domain/{entity|value-object}/"
+
+      infrastructure_layer:
+        name: "Infrastructure Layer"
+        location: "src/components/[bounded-context]/infrastructure/"
+        components:
+          - "Repository Implementations (Adapters)"
+          - "TypeORM Entities"
+          - "External Service Adapters"
+        responsibility: "Data persistence, external integrations"
+        test_location: "test/component/[bc]/[endpoint]/integration/"
+
+      shared_kernel:
+        name: "Shared Kernel"
+        location: "src/shared/"
+        components:
+          - "Base Exceptions"
+          - "Common Value Objects"
+          - "Utilities"
+        responsibility: "Cross-cutting concerns"
+
+    naming_conventions:
+      # Application Layer
+      query_handler: "[Action][Domain]QueryHandler"
+      command_handler: "[Action][Domain]CommandHandler"
+      application_dto: "[Action][Domain]DTO"
+      response_dto: "[Action][Domain]ResponseDTO"
+      repository_interface: "I[Domain]QueryRepository"
+
+      # Infrastructure Layer
+      repository_implementation: "[Domain]QueryRepository"
+      typeorm_entity: "[Domain]Model"
+
+      # Presentation Layer
+      request_dto: "[Action][Domain]Request"
+      controller: "[Domain]Controller"
+
+      # Domain Layer
+      entity: "[Domain]"
+      value_object: "[Domain]VO"
+
+    data_flow: |
+      Client Request
+        → Controller
+        → Request DTO (validation)
+        → Query Handler (orchestration)
+        → Repository Interface (port)
+        → Repository Implementation (adapter)
+        → Database
+        → Response DTO
+        → Client
+
+  test_strategy:
+    unit_test:
+      apply_scope:
+        - "Request DTOs (validation)"
+        - "Query/Command Handlers (orchestration logic)"
+        - "Value Objects"
+        - "Entities"
+      rules:
+        - "Test validation logic, NOT validator engine"
+        - "Handlers: Call REAL repository (no mocks)"
+        - "Test orchestration and data transformation"
+        - "Fast execution (< 100ms per test)"
+        - "No database dependencies"
+
+    integration_test:
+      apply_scope:
+        - "Repository implementations"
+        - "Handlers with database"
+        - "External adapters"
+      rules:
+        - "Use REAL database"
+        - "NO mocks for database or repositories"
+        - "Seed data before EACH test"
+        - "Rollback transaction after EACH test"
+        - "Test actual queries and data persistence"
+
+    e2e_test:
+      apply_scope:
+        - "Full API endpoints"
+        - "HTTP → Database → Response flow"
+      rules:
+        - "Test from HTTP request to response"
+        - "NO mocks for ANY component"
+        - "Use real database"
+        - "Include authentication, authorization"
+        - "Test complete request/response cycle"
+
+  test_organization:
+    structure: |
+      test/
+      └── component/
+          └── [bounded-context]/
+              ├── [endpoint-name]/              # Per-endpoint organization
+              │   ├── unit/
+              │   │   ├── request.spec.ts       # Request DTO validation
+              │   │   ├── dto.spec.ts           # Application DTO
+              │   │   ├── query.spec.ts         # Query object
+              │   │   └── handler.spec.ts       # Handler logic (no DB)
+              │   ├── integration/
+              │   │   ├── handler.spec.ts       # Handler with real DB
+              │   │   └── repository.spec.ts    # Repository with real DB
+              │   └── e2e/
+              │       └── api.spec.ts           # Full HTTP flow
+              │
+              ├── domain/                       # Shared domain tests
+              │   ├── entity/
+              │   │   └── [entity].spec.ts
+              │   └── value-object/
+              │       └── [vo].spec.ts
+              │
+              └── test-helpers/                 # Shared utilities
+                  ├── database.helper.ts
+                  ├── seed-data.helper.ts
+                  ├── test-data.factory.ts
+                  └── assertions.helper.ts
+
+    file_naming:
+      request_dto_ut: "[endpoint-name]/unit/request.spec.ts"
+      handler_ut: "[endpoint-name]/unit/handler.spec.ts"
+      handler_it: "[endpoint-name]/integration/handler.spec.ts"
+      repository_it: "[endpoint-name]/integration/repository.spec.ts"
+      e2e: "[endpoint-name]/e2e/api.spec.ts"
+      entity_ut: "domain/entity/[entity-name].spec.ts"
+      vo_ut: "domain/value-object/[vo-name].spec.ts"
+
+  seed_data_strategy:
+    objective: >
+      Automatically generate seed data for Integration Tests with foreign key constraints,
+      ensuring valid insert order, minimal but complete data.
+
+    core_principles:
+      - "Integration Tests MUST use real database"
+      - "Seed data MUST respect Foreign Key Constraints"
+      - "Each test case MUST have independent data setup"
+      - "Seed data MUST be minimal but sufficient"
+      - "Each test case MUST rollback or truncate for cleanup"
+      - "Seed data MUST be idempotent (can run multiple times)"
+      - "Use queryRunner.query() for seeding in NestJS"
+      - "Seed in beforeEach() or test method"
+      - "For arrays > 500, strings > 1000 chars, numbers > 1000000: use factory functions"
+
+    required_outputs:
+      - "List of tables and dependency graph"
+      - "Valid insert order (topological sort)"
+      - "Minimal seed data for each test case"
+      - "TypeScript seed functions using queryRunner.query()"
+
+    cleanup_strategy:
+      - "Preferred: Use transaction rollback (queryRunner.rollbackTransaction())"
+      - "Alternative: Truncate tables in reverse dependency order"
+      - "Cleanup happens AFTER EACH test case"
+
+    analysis_process:
+      step_1: "Read db_schema DDL and extract tables + foreign keys"
+      step_2: "Build Directed Graph: Node = Table, Edge = FK Dependency"
+      step_3: "Perform Topological Sort to determine insert order"
+      step_4: "Read test_plan to identify required entities"
+      step_5: "Generate minimal dataset: Root Entities → Referenced → Leaf"
+      step_6: "Generate TypeScript seed functions with queryRunner.query()"
+
+    seed_implementation_pattern: |
+      // Seed function example
+      export async function seed[TestScenario]Data(queryRunner: QueryRunner): Promise<void> {
+        // Step 1: Clear existing data (reverse dependency order)
+        await queryRunner.query('DELETE FROM child_table');
+        await queryRunner.query('DELETE FROM parent_table');
+
+        // Step 2: Seed parent tables first
+        await queryRunner.query(`
+          INSERT INTO parent_table (id, name, created_at, updated_at)
+          VALUES (1, 'Test Parent', NOW(), NOW())
+        `);
+
+        // Step 3: Seed child tables
+        await queryRunner.query(`
+          INSERT INTO child_table (id, parent_id, name, created_at, updated_at)
+          VALUES (1, 1, 'Test Child', NOW(), NOW())
+        `);
+      }
+
+  data_provider_pattern:
+    jest_test_each: |
+      // Data-driven testing with test.each()
+      const testCases: TestCase[] = [
+        // Happy path - ALWAYS FIRST
+        {
+          acId: 'AC-01',
+          title: 'Valid request with all fields',
+          input: { /* input data */ },
+          expected: { valid: true }
+        },
+        // Error cases
+        {
+          acId: 'AC-02',
+          title: 'Invalid field type',
+          input: { /* invalid input */ },
+          expected: {
+            valid: false,
+            errors: [{ field: 'fieldName', constraint: 'isInt' }]
+          }
+        },
+        // ... more cases
+      ];
+
+      it.each(testCases)('[$acId] $title', async ({ acId, input, expected }) => {
+        // Arrange
+        const dto = plainToClass(RequestDTO, input);
+
+        // Act
+        const errors = await validate(dto);
+
+        // Assert
+        if (expected.valid) {
+          expect(errors).toHaveLength(0);
+        } else {
+          expect(errors.length).toBeGreaterThan(0);
+          // Assert specific errors
+        }
+      });
+
+    test_case_structure:
+      required_fields:
+        - acId: "AC-01, AC-02, etc."
+        - title: "Short description"
+        - input: "Input data object"
+        - expected: "Expected outcome object"
+
+      ordering_priority:
+        1: "Happy path - ALWAYS FIRST"
+        2: "Valid variations"
+        3: "Boundary values (min, max)"
+        4: "Invalid types"
+        5: "Out of range"
+        6: "Edge cases (null, empty, negative)"
+
+  exception_handling:
+    base_exceptions:
+      DomainException:
+        namespace: "src/shared/domain/exceptions/domain.exception"
+        purpose: "Business rule violations"
+        http_status: 400
+
+      ApplicationException:
+        namespace: "src/shared/application/exceptions/application.exception"
+        purpose: "Use case failures"
+        http_status: 400
+
+      InfrastructureException:
+        namespace: "src/shared/infrastructure/exceptions/infrastructure.exception"
+        purpose: "Technical failures (DB, API)"
+        http_status: 500
+
+      ValidationException:
+        namespace: "class-validator"
+        purpose: "Input validation errors"
+        http_status: 422
+
+    layer_responsibilities:
+      presentation:
+        throws: ["ValidationException (from class-validator)"]
+        catches: ["ApplicationException", "DomainException → HTTP Response"]
+        test_focus: "Assert validation errors with validate()"
+
+      application:
+        throws: ["ApplicationException"]
+        catches: ["InfrastructureException → wrap", "DomainException → re-throw or wrap"]
+        test_focus: "Assert exception type and messageKey"
+
+      domain:
+        throws: ["DomainException"]
+        catches: ["Nothing (pure domain logic)"]
+        test_focus: "Assert business rule enforcement"
+
+      infrastructure:
+        throws: ["InfrastructureException"]
+        catches: ["Database errors → wrap", "External API errors → wrap"]
+        test_focus: "Happy path in IT, error cases in UT with mocks"
+
+    error_response_format:
+      rfc_7807:
+        messageKey: "string - Error code key"
+        title: "string - Human-readable summary"
+        status: "number - HTTP status code"
+        detail: "string - Detailed explanation"
+        instance: "string - API endpoint"
+        timestamp: "string - ISO 8601"
+        errors: "array - Validation errors (422 only)"
+
+  quality_checklist:
+    before_generation:
+      - "Read test_plan + db_schema + standard_knowledge"
+      - "Identify layer, type (UT/IT/E2E), test file location"
+      - "Analyze dependency graph for seed data"
+
+    syntax:
+      - "TypeScript 5.7+ syntax valid"
+      - "All imports present"
+      - "Type hints for params and return types"
+      - "Jest test structure valid"
+
+    structure:
+      - "Correct test file location per endpoint"
+      - "Using test.each() for data-driven tests"
+      - "Test methods use it() or test()"
+      - "Follow Arrange-Act-Assert pattern"
+
+    data_provider:
+      - "Happy path is FIRST test case"
+      - "Each case has acId, title, input, expected"
+      - "Key format: { acId: 'AC-XX', title: '...' }"
+      - "Use factory functions for large data (>500 elements)"
+
+    assertions:
+      - "All assertions include AC ID in error messages"
+      - "Request DTO: Assert validation errors, not exact messages"
+      - "Repository IT: Assert results, not exceptions"
+      - "No assertions on exact error text (can change)"
+
+    seed_data:
+      - "Seed data respects FK dependencies"
+      - "Seed in beforeEach() with transaction"
+      - "Minimum data required for test"
+      - "Clear cleanup strategy (rollback preferred)"
+
+    red_code:
+      - "Test FAILS because implementation missing"
+      - "No placeholder comments (TODO/FIXME)"
+      - "No hardcoded timestamps unless needed"
+      - "Code compiles, only fails on class not found"
+
+# ============================================
+# INPUT SCHEMA
+# ============================================
+
+input_schema:
+  db_schema:
+    description: "Database schema definition (DDL statements)"
+    format: |
+      ddl_statements:
+        - |
+          CREATE TABLE table_name (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            parent_id BIGINT UNSIGNED,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (parent_id) REFERENCES parent_table(id) ON DELETE CASCADE
+          );
+        - |
+          CREATE TABLE another_table (...);
+
+    required_info:
+      - "Table names"
+      - "Column names and types"
+      - "Primary keys"
+      - "Foreign key constraints"
+      - "NOT NULL constraints"
+      - "Default values"
+      - "Indexes (optional)"
+
+  test_plan:
+    description: "Test cases for specific business logic"
+    format: |
+      bounded_context: "product-catalog"
+      endpoint_name: "get-list-product-category"
+      api_endpoint: "GET /api/v1/product-catalog/product-categories"
+
+      functional_tests:
+        - layer: "Presentation"
+          component: "Request DTO"
+          test_type: "Unit"
+          test_class: "GetListProductCategoryRequest"
+          test_file: "get-list-product-category/unit/request.spec.ts"
+          test_cases:
+            - ac_id: "AC-01"
+              title: "Valid request with all fields"
+              key_factors: ["validation", "happy_path"]
+              input:
+                tenantId: 1
+                productCategoryName: "Electronics"
+                activeStatuses: [1]
+                page: 1
+                size: 10
+              expected:
+                valid: true
+
+            - ac_id: "AC-02"
+              title: "Missing required field"
+              key_factors: ["validation", "required_field"]
+              input:
+                page: 1
+                size: 10
+              expected:
+                valid: false
+                errors:
+                  - field: "tenantId"
+                    constraint: "isNotEmpty"
+
+        - layer: "Infrastructure"
+          component: "Repository"
+          test_type: "Integration"
+          test_class: "ProductCategoryQueryRepository"
+          test_file: "get-list-product-category/integration/repository.spec.ts"
+          test_cases:
+            - ac_id: "AC-IT-01"
+              title: "Find all categories for tenant"
+              key_factors: ["database", "query"]
+              input:
+                tenantId: 1
+              expected:
+                dataLength: 5
+                firstCategoryName: "Electronics"
+
+      seed_data_requirements:
+        - entity: "Tenant"
+          count: 2
+          notes: "Parent table, insert first"
+
+        - entity: "ProductCategory"
+          count: 6
+          hierarchy:
+            - level: 1
+              count: 3
+              parent: null
+            - level: 2
+              count: 2
+              parent: "level 1 categories"
+            - level: 3
+              count: 1
+              parent: "level 2 category"
+          notes: "Self-referencing, must respect parent_id FK"
+
+    required_fields:
+      - bounded_context: "Name of bounded context"
+      - endpoint_name: "Name of endpoint being tested"
+      - api_endpoint: "HTTP method and path"
+      - functional_tests: "Array of test scenarios"
+      - seed_data_requirements: "Data needed for tests"
+
+# ============================================
+# OUTPUT REQUIREMENTS
+# ============================================
+
+output_requirements:
+  generated_files:
+    test_helpers:
+      - path: "test/component/[bc]/test-helpers/database.helper.ts"
+        purpose: "Database connection, QueryRunner, transaction management"
+
+      - path: "test/component/[bc]/test-helpers/seed-data.helper.ts"
+        purpose: "Seed data functions following FK dependencies"
+
+      - path: "test/component/[bc]/test-helpers/test-data.factory.ts"
+        purpose: "Factory functions, test case interfaces"
+
+      - path: "test/component/[bc]/test-helpers/assertions.helper.ts"
+        purpose: "Reusable assertion functions"
+
+    unit_tests:
+      - path: "test/component/[bc]/[endpoint]/unit/request.spec.ts"
+        purpose: "Request DTO validation tests"
+        test_count: "Based on test_plan validation cases"
+
+      - path: "test/component/[bc]/[endpoint]/unit/handler.spec.ts"
+        purpose: "Handler orchestration logic tests"
+        test_count: "Based on test_plan handler cases"
+
+    integration_tests:
+      - path: "test/component/[bc]/[endpoint]/integration/repository.spec.ts"
+        purpose: "Repository with real database tests"
+        test_count: "Based on test_plan repository cases"
+
+      - path: "test/component/[bc]/[endpoint]/integration/handler.spec.ts"
+        purpose: "Handler with real database tests"
+        test_count: "Based on test_plan handler IT cases"
+
+    e2e_tests:
+      - path: "test/component/[bc]/[endpoint]/e2e/api.spec.ts"
+        purpose: "Full HTTP to database flow tests"
+        test_count: "Based on test_plan e2e cases"
+
+  code_characteristics:
+    - "All TypeScript files with proper type annotations"
+    - "Jest test structure (describe, it, beforeEach, afterEach)"
+    - "Data-driven tests using test.each()"
+    - "Comprehensive comments explaining test purpose"
+    - "Clear Arrange-Act-Assert sections"
+    - "Imports organized (external → internal → types)"
+    - "No ESLint/TSLint errors"
+    - "Ready to run (RED CODE - will fail on missing implementation)"
+
+  documentation:
+    - "Each test file has header comment explaining:"
+      - "Layer being tested"
+      - "Test type (Unit/Integration/E2E)"
+      - "Mock strategy"
+      - "Test focus"
+    - "Each test case has AC ID in test name: it('[AC-XX] description')"
+    - "Seed data functions have dependency graph in comments"
+    - "Complex assertions have explanatory comments"
+
+# ============================================
+# EXAMPLES
+# ============================================
+
+examples:
+  minimal_input:
+    description: "Minimal required input to generate tests"
+    db_schema:
+      ddl_statements:
+        - |
+          CREATE TABLE users (
+            id BIGINT PRIMARY KEY AUTO_INCREMENT,
+            email VARCHAR(255) NOT NULL UNIQUE,
+            name VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+
+    test_plan:
+      bounded_context: "user-management"
+      endpoint_name: "get-user-by-id"
+      api_endpoint: "GET /api/v1/users/:id"
+      functional_tests:
+        - layer: "Presentation"
+          component: "Request DTO"
+          test_type: "Unit"
+          test_class: "GetUserByIdRequest"
+          test_file: "get-user-by-id/unit/request.spec.ts"
+          test_cases:
+            - ac_id: "AC-01"
+              title: "Valid user ID"
+              input: { id: 1 }
+              expected: { valid: true }
+            - ac_id: "AC-02"
+              title: "Invalid user ID (string)"
+              input: { id: "invalid" }
+              expected:
+                valid: false
+                errors: [{ field: "id", constraint: "isInt" }]
+
+  expected_output_structure:
+    files_generated:
+      - "test/component/user-management/test-helpers/database.helper.ts"
+      - "test/component/user-management/test-helpers/seed-data.helper.ts"
+      - "test/component/user-management/test-helpers/test-data.factory.ts"
+      - "test/component/user-management/test-helpers/assertions.helper.ts"
+      - "test/component/user-management/get-user-by-id/unit/request.spec.ts"
+
+    test_execution:
+      status: "FAIL (RED CODE)"
+      reason: "GetUserByIdRequest class not found"
+      tests_written: 2
+      tests_passed: 0
+      tests_failed: 2
+
+# ============================================
+# USAGE INSTRUCTIONS
+# ============================================
+
+usage:
+  step_1: "Prepare db_schema with DDL statements"
+  step_2: "Prepare test_plan with test cases"
+  step_3: "Provide both as input to AI"
+  step_4: "AI generates complete test suite following this template"
+  step_5: "Review generated tests"
+  step_6: "Run tests (should FAIL - RED CODE)"
+  step_7: "Implement actual code to make tests pass (GREEN CODE)"
+  step_8: "Refactor if needed (REFACTOR phase)"
+
+  notes:
+    - "This is TDD approach: Write tests first, then implementation"
+    - "Generated tests are RED CODE: syntactically correct but fail due to missing classes"
+    - "Tests serve as specification for implementation"
+    - "All tests follow standard_knowledge patterns"
