@@ -20,7 +20,7 @@ import { I18nService } from '../../infrastructure/i18n/i18n.service';
  * https://datatracker.ietf.org/doc/html/rfc7807
  */
 export interface ProblemDetails {
-  type: string;          // URI reference that identifies the problem type
+  messageKey: string;    // Message key for i18n lookup
   title: string;         // Short, human-readable summary
   status: number;        // HTTP status code
   detail: string;        // Human-readable explanation
@@ -77,7 +77,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const messageKey = this.getFullMessageKey(exception.messageKey);
       const translated = this.i18nService.translate(messageKey, exception.params);
       return {
-        type: `https://api.example.com/problems/domain/${exception.messageKey}`,
+        messageKey: exception.messageKey,
         title: translated.title,
         status: exception.httpStatus,
         detail: translated.detail,
@@ -91,7 +91,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const messageKey = this.getFullMessageKey(exception.messageKey);
       const translated = this.i18nService.translate(messageKey, exception.params);
       return {
-        type: `https://api.example.com/problems/application/${exception.messageKey}`,
+        messageKey: exception.messageKey,
         title: translated.title,
         status: exception.httpStatus,
         detail: translated.detail,
@@ -105,7 +105,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const messageKey = this.getFullMessageKey(exception.messageKey);
       const translated = this.i18nService.translate(messageKey, exception.params);
       return {
-        type: `https://api.example.com/problems/infrastructure/${exception.messageKey}`,
+        messageKey: exception.messageKey,
         title: translated.title,
         status: exception.httpStatus,
         detail: translated.detail,
@@ -118,7 +118,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof ValidationException) {
       const translated = this.i18nService.translate('error.validation_error');
       return {
-        type: 'https://api.example.com/problems/validation_error',
+        messageKey: 'validation_error',
         title: translated.title,
         status: exception.httpStatus,
         detail: translated.detail,
@@ -159,7 +159,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
 
       return {
-        type: 'https://api.example.com/problems/validation_error',
+        messageKey: 'validation_error',
         title: translated.title,
         status: HttpStatus.UNPROCESSABLE_ENTITY,
         detail: translated.detail,
@@ -184,14 +184,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
 
       // Try to get translated message
-      const messageKey = `error.${this.getMessageKeyFromStatus(status)}`;
+      const messageKeyShort = this.getMessageKeyFromStatus(status);
+      const messageKey = `error.${messageKeyShort}`;
       const translated = this.i18nService.translate(messageKey);
       if (translated) {
         title = translated.title;
       }
 
       return {
-        type: `https://api.example.com/problems/http/${status}`,
+        messageKey: messageKeyShort,
         title,
         status,
         detail,
@@ -208,7 +209,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const translated = this.i18nService.translate('error.internal_error');
     return {
-      type: 'https://api.example.com/problems/internal_error',
+      messageKey: 'internal_error',
       title: translated.title,
       status: HttpStatus.INTERNAL_SERVER_ERROR,
       detail: translated.detail,
