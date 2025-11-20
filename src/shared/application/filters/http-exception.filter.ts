@@ -73,7 +73,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // DomainException - Business rule violations (400)
     if (exception instanceof DomainException) {
-      const messageKey = `error.${exception.messageKey}`;
+      // Auto-detect type: validation messages vs error messages
+      const messageKey = this.getFullMessageKey(exception.messageKey);
       const translated = this.i18nService.translate(messageKey, exception.params);
       return {
         type: `https://api.example.com/problems/domain/${exception.messageKey}`,
@@ -87,7 +88,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // ApplicationException - Use case failures (400)
     if (exception instanceof ApplicationException) {
-      const messageKey = `error.${exception.messageKey}`;
+      const messageKey = this.getFullMessageKey(exception.messageKey);
       const translated = this.i18nService.translate(messageKey, exception.params);
       return {
         type: `https://api.example.com/problems/application/${exception.messageKey}`,
@@ -101,7 +102,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // InfrastructureException - Technical failures (500)
     if (exception instanceof InfrastructureException) {
-      const messageKey = `error.${exception.messageKey}`;
+      const messageKey = this.getFullMessageKey(exception.messageKey);
       const translated = this.i18nService.translate(messageKey, exception.params);
       return {
         type: `https://api.example.com/problems/infrastructure/${exception.messageKey}`,
@@ -214,6 +215,24 @@ export class AllExceptionsFilter implements ExceptionFilter {
       instance,
       timestamp,
     };
+  }
+
+  /**
+   * Auto-detect message type and return full message key
+   * Validation standard keys: required, filled, present, numeric, integer, string, boolean, array, email,
+   *                           max, min, between, confirmed, date, date_format, after, before, unique, in, regex, url
+   * All others are error messages
+   */
+  private getFullMessageKey(messageKey: string): string {
+    const validationKeys = [
+      'required', 'filled', 'present', 'numeric', 'integer', 'string', 'boolean', 'array', 'email',
+      'max', 'min', 'between', 'confirmed', 'date', 'date_format', 'after', 'before', 'unique', 'in', 'regex', 'url'
+    ];
+
+    // Check if messageKey starts with any validation key
+    const isValidation = validationKeys.some(key => messageKey === key || messageKey.startsWith(`${key}.`));
+
+    return isValidation ? `validation.${messageKey}` : `error.${messageKey}`;
   }
 
   private getMessageKeyFromStatus(status: number): string {

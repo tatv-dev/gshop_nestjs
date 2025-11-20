@@ -47,7 +47,7 @@ describe('ProductCategoryNameVO', () => {
       try {
         new ProductCategoryNameVO('');
       } catch (error) {
-        expect((error as DomainException).messageKey).toBe('product_category_name_empty');
+        expect((error as DomainException).messageKey).toBe('required');
       }
     });
 
@@ -56,7 +56,7 @@ describe('ProductCategoryNameVO', () => {
       try {
         new ProductCategoryNameVO(null as any);
       } catch (error) {
-        expect((error as DomainException).messageKey).toBe('product_category_name_empty');
+        expect((error as DomainException).messageKey).toBe('required');
       }
     });
 
@@ -65,7 +65,7 @@ describe('ProductCategoryNameVO', () => {
       try {
         new ProductCategoryNameVO(undefined as any);
       } catch (error) {
-        expect((error as DomainException).messageKey).toBe('product_category_name_empty');
+        expect((error as DomainException).messageKey).toBe('required');
       }
     });
 
@@ -75,7 +75,7 @@ describe('ProductCategoryNameVO', () => {
       try {
         new ProductCategoryNameVO(name);
       } catch (error) {
-        expect((error as DomainException).messageKey).toBe('product_category_name_too_long');
+        expect((error as DomainException).messageKey).toBe('max.string');
       }
     });
 
@@ -84,7 +84,7 @@ describe('ProductCategoryNameVO', () => {
       try {
         new ProductCategoryNameVO('   ');
       } catch (error) {
-        expect((error as DomainException).messageKey).toBe('product_category_name_empty');
+        expect((error as DomainException).messageKey).toBe('required');
       }
     });
   });

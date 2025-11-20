@@ -3,8 +3,11 @@ import { ApplicationException } from '../../../../shared/application/exceptions/
 export class PageOverLimitException extends ApplicationException {
   constructor(page: number, limit: number, instance?: string) {
     super({
-      messageKey: 'page_over_limit',
-      params: { page, limit },
+      messageKey: 'max.numeric',
+      params: {
+        attribute: 'Số trang',
+        max: limit
+      },
       instance,
     });
     this.name = 'PageOverLimitException';
@@ -14,8 +17,11 @@ export class PageOverLimitException extends ApplicationException {
 export class PageBelowMinException extends ApplicationException {
   constructor(page: number, min: number, instance?: string) {
     super({
-      messageKey: 'page_min',
-      params: { page, min },
+      messageKey: 'min.numeric',
+      params: {
+        attribute: 'Số trang',
+        min
+      },
       instance,
     });
     this.name = 'PageBelowMinException';
@@ -25,8 +31,12 @@ export class PageBelowMinException extends ApplicationException {
 export class SizeOutOfRangeException extends ApplicationException {
   constructor(size: number, min: number, max: number, instance?: string) {
     super({
-      messageKey: 'size_between',
-      params: { size, min, max },
+      messageKey: 'between.numeric',
+      params: {
+        attribute: 'Kích thước trang',
+        min,
+        max
+      },
       instance,
     });
     this.name = 'SizeOutOfRangeException';
@@ -36,8 +46,11 @@ export class SizeOutOfRangeException extends ApplicationException {
 export class PageOutOfRangeException extends ApplicationException {
   constructor(page: number, totalPages: number, instance?: string) {
     super({
-      messageKey: 'page_out_of_range',
-      params: { page, totalPages },
+      messageKey: 'max.numeric',
+      params: {
+        attribute: 'Số trang',
+        max: totalPages
+      },
       instance,
     });
     this.name = 'PageOutOfRangeException';

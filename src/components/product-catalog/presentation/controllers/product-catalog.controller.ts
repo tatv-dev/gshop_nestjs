@@ -39,20 +39,22 @@ export class ProductCatalogController {
         tenantId = Number(firstWorkspace.tenantId);
       } else {
         throw new ApplicationException({
-          messageKey: 'tenant_id_invalid_workspace',
+          messageKey: 'bad_request',
         });
       }
     }
     else {
       throw new ApplicationException({
-        messageKey: 'tenant_id_not_found',
+        messageKey: 'missing_parameter',
+        params: { parameter: 'Tenant ID' },
       });
     }
 
     // Validate tenantId is a valid number
     if (!Number.isInteger(tenantId) || tenantId <= 0) {
       throw new ApplicationException({
-        messageKey: 'tenant_id_must_be_positive',
+        messageKey: 'integer',
+        params: { attribute: 'Tenant ID' },
       });
     }
 

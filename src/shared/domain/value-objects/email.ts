@@ -8,8 +8,8 @@ export class Email {
   constructor(email: string) {
     if (!this.isValid(email)) {
       throw new DomainException({
-        messageKey: 'invalid_email_format',
-        params: { email },
+        messageKey: 'email',
+        params: { attribute: 'Email' },
       });
     }
     this.value = email.toLowerCase().trim();

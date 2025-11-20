@@ -12,13 +12,15 @@ export class ProductCategoryNameVO {
   private validate(name: string): void {
     if (!name || name.trim().length === 0) {
       throw new DomainException({
-        messageKey: 'product_category_name_empty',
+        messageKey: 'required',
+        params: { attribute: 'tên nhóm hàng' },
       });
     }
 
     if (name.length > 255) {
       throw new DomainException({
-        messageKey: 'product_category_name_too_long',
+        messageKey: 'max.string',
+        params: { attribute: 'tên nhóm hàng', max: 255 },
       });
     }
   }
