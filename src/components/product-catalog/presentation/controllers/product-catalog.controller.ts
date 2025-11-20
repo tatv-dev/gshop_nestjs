@@ -25,25 +25,18 @@ export class ProductCatalogController {
     @Query() request: GetListProductCategoryRequest,
     @CurrentUser() user: any,
   ) {
-    // Debug: Log user object to see what we're receiving
-    console.log('[DEBUG] User object:', JSON.stringify(user, null, 2));
-
     // Handle tenantId for both single and multiple workspace scenarios
     let tenantId: number;
 
     // Try to get tenantId from user object (single workspace scenario)
     if (user.tenantId !== undefined && user.tenantId !== null) {
-      console.log('[DEBUG] user.tenantId:', user.tenantId, 'type:', typeof user.tenantId);
       tenantId = Number(user.tenantId);
-      console.log('[DEBUG] After conversion:', tenantId, 'isInteger:', Number.isInteger(tenantId));
     }
     // Try to get tenantId from first workspace (multiple workspaces scenario)
     else if (user.workspaces && Array.isArray(user.workspaces) && user.workspaces.length > 0) {
       const firstWorkspace = user.workspaces[0];
-      console.log('[DEBUG] firstWorkspace.tenantId:', firstWorkspace.tenantId, 'type:', typeof firstWorkspace.tenantId);
       if (firstWorkspace && firstWorkspace.tenantId !== undefined && firstWorkspace.tenantId !== null) {
         tenantId = Number(firstWorkspace.tenantId);
-        console.log('[DEBUG] After conversion:', tenantId, 'isInteger:', Number.isInteger(tenantId));
       } else {
         throw new ApplicationException({
           messageKey: 'bad_request',
@@ -59,7 +52,6 @@ export class ProductCatalogController {
 
     // Validate tenantId is a valid number
     if (!Number.isInteger(tenantId) || tenantId <= 0) {
-      console.log('[DEBUG] Validation failed - tenantId:', tenantId, 'isInteger:', Number.isInteger(tenantId), 'isPositive:', tenantId > 0);
       throw new ApplicationException({
         messageKey: 'integer',
         params: { attribute: 'Tenant ID' },
