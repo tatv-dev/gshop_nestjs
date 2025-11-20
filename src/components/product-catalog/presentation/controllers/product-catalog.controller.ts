@@ -28,12 +28,7 @@ export class ProductCatalogController {
     // Handle tenantId for both single and multiple workspace scenarios
     let tenantId: number;
 
-    // Try to get tenantId from user object (single workspace scenario)
-    if (user.tenantId !== undefined && user.tenantId !== null) {
-      tenantId = Number(user.tenantId);
-    }
-    // Try to get tenantId from first workspace (multiple workspaces scenario)
-    else if (user.workspaces && Array.isArray(user.workspaces) && user.workspaces.length > 0) {
+    if (user.workspaces && Array.isArray(user.workspaces) && user.workspaces.length > 0) {
       const firstWorkspace = user.workspaces[0];
       if (firstWorkspace && firstWorkspace.tenantId !== undefined && firstWorkspace.tenantId !== null) {
         tenantId = Number(firstWorkspace.tenantId);

@@ -24,12 +24,10 @@ export interface ProductCategoryResponseDTO {
 
 export interface GetListProductCategoryResponseDTO {
   data: ProductCategoryResponseDTO[];
-  pagination: {
-    page: number;
-    size: number;
-    total: number;
-    totalPages: number;
-  };
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
 }
 
 @QueryHandler(GetListProductCategoryQuery)
@@ -105,12 +103,10 @@ export class GetListProductCategoryQueryHandler
 
     return {
       data,
-      pagination: {
         page,
         size,
         total,
         totalPages,
-      },
     };
   }
 }

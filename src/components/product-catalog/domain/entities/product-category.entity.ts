@@ -14,7 +14,7 @@ export class ProductCategory {
     public readonly activeStatus: number,
     public readonly creatorId: number | null,
   ) {
-    this.validateBusinessRules();
+    // this.validateBusinessRules();
   }
 
   private validateBusinessRules(): void {

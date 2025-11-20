@@ -64,6 +64,8 @@ export class ProductCategoryQueryRepository implements IProductCategoryQueryRepo
 
     const models = await queryBuilder.getMany();
 
+    console.log('Fetched ProductCategoryModels:', JSON.stringify(models, null, 2));
+
     return models.map((model) => this.toDomain(model));
   }
 
