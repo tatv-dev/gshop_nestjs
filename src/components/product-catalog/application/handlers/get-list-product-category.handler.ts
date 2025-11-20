@@ -3,6 +3,12 @@ import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
 import { GetListProductCategoryQuery } from '../queries/get-list-product-category.query';
 import { IProductCategoryQueryRepository } from '../repositories/product-category-query.repository';
+import {
+  PageOverLimitException,
+  PageBelowMinException,
+  SizeOutOfRangeException,
+  PageOutOfRangeException,
+} from '../exceptions/invalid-pagination.exception';
 
 export interface ProductCategoryResponseDTO {
   id: number;
@@ -38,6 +44,26 @@ export class GetListProductCategoryQueryHandler
   async execute(query: GetListProductCategoryQuery): Promise<GetListProductCategoryResponseDTO> {
     const { dto } = query;
 
+    // Validate pagination parameters
+    const page = dto.page || 1;
+    const size = dto.size || 10;
+
+    // Validate page
+    const MAX_PAGE = 1000;
+    if (page > MAX_PAGE) {
+      throw new PageOverLimitException(page, MAX_PAGE);
+    }
+    if (page < 1) {
+      throw new PageBelowMinException(page, 1);
+    }
+
+    // Validate size
+    const MIN_SIZE = 1;
+    const MAX_SIZE = 100;
+    if (size < MIN_SIZE || size > MAX_SIZE) {
+      throw new SizeOutOfRangeException(size, MIN_SIZE, MAX_SIZE);
+    }
+
     // Get total count for pagination
     const total = await this.repository.count(
       dto.tenantId,
@@ -45,6 +71,14 @@ export class GetListProductCategoryQueryHandler
       dto.activeStatuses,
       dto.productCategoryAncestors,
     );
+
+    // Calculate total pages
+    const totalPages = Math.ceil(total / size);
+
+    // Validate page is not beyond available pages (only if there are results)
+    if (total > 0 && page > totalPages) {
+      throw new PageOutOfRangeException(page, totalPages);
+    }
 
     // Get paginated data
     const categories = await this.repository.findAll(
@@ -68,11 +102,6 @@ export class GetListProductCategoryQueryHandler
       activeStatus: category.activeStatus,
       creatorId: category.creatorId,
     }));
-
-    // Calculate pagination metadata
-    const page = dto.page || 1;
-    const size = dto.size || 10;
-    const totalPages = Math.ceil(total / size);
 
     return {
       data,

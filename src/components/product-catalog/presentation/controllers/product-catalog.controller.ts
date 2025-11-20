@@ -7,6 +7,7 @@ import { GetListProductCategoryQuery } from '../../application/queries/get-list-
 import { GetListProductCategoryDTO } from '../../application/dtos/get-list-product-category.dto';
 import { JwtAuthGuard } from '../../../../shared/infrastructure/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../../shared/infrastructure/decorators/current-user.decorator';
+import { ApplicationException } from '../../../../shared/application/exceptions/application.exception';
 
 @ApiTags('Product Catalog')
 @Controller('api/v1/product-catalog')
@@ -37,16 +38,22 @@ export class ProductCatalogController {
       if (firstWorkspace && firstWorkspace.tenantId !== undefined && firstWorkspace.tenantId !== null) {
         tenantId = Number(firstWorkspace.tenantId);
       } else {
-        throw new Error('First workspace does not contain valid tenant ID');
+        throw new ApplicationException({
+          messageKey: 'tenant_id_invalid_workspace',
+        });
       }
     }
     else {
-      throw new Error('Cannot determine tenant ID from user context');
+      throw new ApplicationException({
+        messageKey: 'tenant_id_not_found',
+      });
     }
 
     // Validate tenantId is a valid number
     if (!Number.isInteger(tenantId) || tenantId <= 0) {
-      throw new Error('Tenant ID must be a positive integer');
+      throw new ApplicationException({
+        messageKey: 'tenant_id_must_be_positive',
+      });
     }
 
     const dto = new GetListProductCategoryDTO(

@@ -4,6 +4,7 @@ import { QueryBus } from '@nestjs/cqrs';
 import { ProductCatalogController } from './product-catalog.controller';
 import { GetListProductCategoryRequest } from '../requests/get-list-product-category.request';
 import { GetListProductCategoryQuery } from '../../application/queries/get-list-product-category.query';
+import { ApplicationException } from '../../../../shared/application/exceptions/application.exception';
 
 describe('ProductCatalogController', () => {
   let controller: ProductCatalogController;
@@ -181,7 +182,7 @@ describe('ProductCatalogController', () => {
       } as any;
 
       await expect(controller.getList(request, mockUserWithoutTenant)).rejects.toThrow(
-        'Cannot determine tenant ID from user context',
+        ApplicationException,
       );
     });
 
@@ -195,7 +196,7 @@ describe('ProductCatalogController', () => {
       } as any;
 
       await expect(controller.getList(request, mockUserWithNullTenantId)).rejects.toThrow(
-        'First workspace does not contain valid tenant ID',
+        ApplicationException,
       );
     });
 
@@ -208,7 +209,7 @@ describe('ProductCatalogController', () => {
       } as any;
 
       await expect(controller.getList(request, mockUserWithUndefinedTenantId)).rejects.toThrow(
-        'First workspace does not contain valid tenant ID',
+        ApplicationException,
       );
     });
 

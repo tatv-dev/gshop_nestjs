@@ -1,5 +1,6 @@
 // src/components/product-catalog/domain/entities/product-category.entity.ts
 import { ProductCategoryNameVO } from '../value-objects/product-category-name.vo';
+import { DomainException } from '../../../../shared/domain/exceptions/domain.exception';
 
 export class ProductCategory {
   constructor(
@@ -19,33 +20,45 @@ export class ProductCategory {
   private validateBusinessRules(): void {
     // Validate tenant ID
     if (!Number.isInteger(this.tenantId) || this.tenantId <= 0) {
-      throw new Error('Tenant ID must be a positive integer');
+      throw new DomainException({
+        messageKey: 'invalid_tenant_id',
+      });
     }
 
     // Validate level (1-3)
     if (this.level < 1 || this.level > 3) {
-      throw new Error('Level must be between 1 and 3');
+      throw new DomainException({
+        messageKey: 'invalid_level',
+      });
     }
 
     // Level 1 cannot have a parent
     if (this.level === 1 && this.productCategoryParentId !== null) {
-      throw new Error('Level 1 category cannot have a parent');
+      throw new DomainException({
+        messageKey: 'level1_cannot_have_parent',
+      });
     }
 
     // Level 2 and 3 must have a parent
     if ((this.level === 2 || this.level === 3) && this.productCategoryParentId === null) {
-      throw new Error('Level 2 and 3 categories must have a parent');
+      throw new DomainException({
+        messageKey: 'level23_must_have_parent',
+      });
     }
 
     // Validate active status (0 or 1)
     if (this.activeStatus !== 0 && this.activeStatus !== 1) {
-      throw new Error('Active status must be 0 or 1');
+      throw new DomainException({
+        messageKey: 'invalid_active_status',
+      });
     }
 
     // Validate creator ID (if provided)
     if (this.creatorId !== null) {
       if (!Number.isInteger(this.creatorId) || this.creatorId <= 0) {
-        throw new Error('Creator ID must be a positive integer');
+        throw new DomainException({
+          messageKey: 'invalid_creator_id',
+        });
       }
     }
   }

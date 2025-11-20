@@ -1,6 +1,7 @@
 // src/components/product-catalog/domain/entities/product-category.entity.spec.ts
 import { ProductCategory } from './product-category.entity';
 import { ProductCategoryNameVO } from '../value-objects/product-category-name.vo';
+import { DomainException } from '../../../../shared/domain/exceptions/domain.exception';
 
 describe('ProductCategory Entity', () => {
   describe('Entity creation', () => {
@@ -69,7 +70,7 @@ describe('ProductCategory Entity', () => {
             null,
             1, 5,
           ),
-      ).toThrow('Tenant ID must be a positive integer');
+      ).toThrow(DomainException);
     });
 
     it('should throw error for invalid tenant ID (negative)', () => {
@@ -83,7 +84,7 @@ describe('ProductCategory Entity', () => {
             null,
             1, 5,
           ),
-      ).toThrow('Tenant ID must be a positive integer');
+      ).toThrow(DomainException);
     });
 
     it('should throw error for invalid level (zero)', () => {
@@ -97,7 +98,7 @@ describe('ProductCategory Entity', () => {
             null,
             1, 5,
           ),
-      ).toThrow('Level must be between 1 and 3');
+      ).toThrow(DomainException);
     });
 
     it('should throw error for invalid level (greater than 3)', () => {
@@ -111,7 +112,7 @@ describe('ProductCategory Entity', () => {
             null,
             1, 5,
           ),
-      ).toThrow('Level must be between 1 and 3');
+      ).toThrow(DomainException);
     });
 
     it('should throw error when level 1 has a parent', () => {
@@ -125,7 +126,7 @@ describe('ProductCategory Entity', () => {
             null,
             1, 5,
           ),
-      ).toThrow('Level 1 category cannot have a parent');
+      ).toThrow(DomainException);
     });
 
     it('should throw error when level 2 or 3 has no parent', () => {
@@ -138,7 +139,7 @@ describe('ProductCategory Entity', () => {
             null,
             1, 5,
           ),
-      ).toThrow('Level 2 and 3 categories must have a parent');
+      ).toThrow(DomainException);
     });
 
     it('should throw error for invalid active status', () => {
@@ -153,7 +154,7 @@ describe('ProductCategory Entity', () => {
             2, // only 0 or 1 allowed
             5,
           ),
-      ).toThrow('Active status must be 0 or 1');
+      ).toThrow(DomainException);
     });
 
     it('should throw error for invalid creator ID (zero)', () => {
@@ -167,7 +168,7 @@ describe('ProductCategory Entity', () => {
             null,
             1, 0,
           ),
-      ).toThrow('Creator ID must be a positive integer');
+      ).toThrow(DomainException);
     });
 
     it('should allow null creator ID for migrated data', () => {
