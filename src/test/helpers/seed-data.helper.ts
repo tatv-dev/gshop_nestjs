@@ -41,8 +41,8 @@ export async function seedProductCategoryTestData(queryRunner: QueryRunner): Pro
       (?, 'Other Tenant E2E', 1, NOW(), NOW())
   `, [TEST_TENANT_ID, TEST_OTHER_TENANT_ID]);
 
-  // 2. Seed users (password hash for 'Test@123456' - adjust if needed)
-  const passwordHash = '$2b$10$N9qo8uLOickgx2ZMRZoMye.IjD0Lk6h9ymgYlZy.c5.WKlOYCvpFi';
+  // 2. Seed users (bcrypt hash for 'Test@123456')
+  const passwordHash = '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y';
   await queryRunner.query(`
     INSERT INTO users (id, user_name, password, created_at, updated_at)
     VALUES
