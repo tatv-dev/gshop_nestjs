@@ -33,6 +33,12 @@ export async function seedProductCategoryTestData(queryRunner: QueryRunner): Pro
 
   await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
 
+  // 0. Seed software (required for refresh_tokens FK)
+  await queryRunner.query(`
+    INSERT IGNORE INTO softwares (id, name, created_at, updated_at)
+    VALUES (1, 'Test Software', NOW(), NOW())
+  `);
+
   // 1. Seed tenants
   await queryRunner.query(`
     INSERT INTO tenants (id, name, status, created_at, updated_at)
