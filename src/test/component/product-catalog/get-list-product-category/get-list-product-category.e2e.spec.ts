@@ -44,7 +44,7 @@ describe('GetListProductCategory - E2E Tests', () => {
         softwareId: TEST_USER_CREDENTIALS.softwareId,
       });
 
-    accessToken = loginResponse.body?.data?.accessToken || loginResponse.body?.accessToken || '';
+    accessToken = loginResponse.body?.access_token || loginResponse.body?.data?.access_token || '';
   });
 
   beforeEach(async () => {
