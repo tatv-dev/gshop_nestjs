@@ -1,9 +1,9 @@
 // src/components/product-catalog/application/repositories/product-category-query.repository.ts
-import { ProductCategoryQueryResult } from '../interfaces/product-category-query-result.interface';
+import { ProductCategoryModel } from '../../infrastructure/entities/product-category.model';
 
 /**
- * Query repository - chỉ query thuần túy, không map to domain
- * Trả về raw data (plain object) để handler xử lý mapping sang DTO
+ * Query repository - chỉ query thuần túy
+ * Trả về TypeORM models để handler xử lý mapping sang DTO response
  */
 export interface IProductCategoryQueryRepository {
   findAll(
@@ -13,7 +13,7 @@ export interface IProductCategoryQueryRepository {
     productCategoryAncestors?: number[],
     page?: number,
     size?: number,
-  ): Promise<ProductCategoryQueryResult[]>;
+  ): Promise<ProductCategoryModel[]>;
 
   count(
     tenantId: number,

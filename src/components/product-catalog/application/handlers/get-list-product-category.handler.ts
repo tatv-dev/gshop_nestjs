@@ -4,26 +4,10 @@ import { Inject } from '@nestjs/common';
 import { GetListProductCategoryQuery } from '../queries/get-list-product-category.query';
 import { IProductCategoryQueryRepository } from '../repositories/product-category-query.repository';
 import { ApplicationException } from '../../../../shared/application/exceptions/application.exception';
-
-export interface ProductCategoryResponseDTO {
-  id: number;
-  name: string;
-  tenantId: number;
-  productCategoryParentId: number | null;
-  level: number;
-  parentLevel1Id: number | null;
-  parentLevel2Id: number | null;
-  activeStatus: number;
-  creatorId: number | null;
-}
-
-export interface GetListProductCategoryResponseDTO {
-  data: ProductCategoryResponseDTO[];
-  page: number;
-  size: number;
-  total: number;
-  totalPages: number;
-}
+import {
+  ProductCategoryResponseDTO,
+  GetListProductCategoryResponseDTO,
+} from '../../presentation/responses/get-list-product-category.response';
 
 @QueryHandler(GetListProductCategoryQuery)
 export class GetListProductCategoryQueryHandler
@@ -98,8 +82,8 @@ export class GetListProductCategoryQueryHandler
       });
     }
 
-    // Get paginated data (raw query results)
-    const queryResults = await this.repository.findAll(
+    // Get paginated data (TypeORM models)
+    const models = await this.repository.findAll(
       dto.tenantId,
       dto.productCategoryName,
       dto.activeStatuses,
@@ -108,25 +92,19 @@ export class GetListProductCategoryQueryHandler
       dto.size,
     );
 
-    // Map raw query results to response DTOs
-    const data: ProductCategoryResponseDTO[] = queryResults.map((result) => ({
-      id: result.id,
-      name: result.name,
-      tenantId: result.tenant_id,
-      productCategoryParentId: result.product_category_parent_id,
-      level: result.level,
-      parentLevel1Id: result.parent_level1_id,
-      parentLevel2Id: result.parent_level2_id,
-      activeStatus: result.active_status,
-      creatorId: result.creator_id,
+    // Map models to response DTOs (snake_case → camelCase)
+    const data: ProductCategoryResponseDTO[] = models.map((model) => ({
+      id: Number(model.id),
+      name: model.name,
+      tenantId: Number(model.tenant_id),
+      productCategoryParentId: model.product_category_parent_id ? Number(model.product_category_parent_id) : null,
+      level: Number(model.level),
+      parentLevel1Id: model.parent_level1_id ? Number(model.parent_level1_id) : null,
+      parentLevel2Id: model.parent_level2_id ? Number(model.parent_level2_id) : null,
+      activeStatus: Number(model.active_status),
+      creatorId: model.creator_id ? Number(model.creator_id) : null,
     }));
 
-    return {
-      data,
-        page,
-        size,
-        total,
-        totalPages,
-    };
+    return GetListProductCategoryResponseDTO.create(data, page, size, total, totalPages);
   }
 }
