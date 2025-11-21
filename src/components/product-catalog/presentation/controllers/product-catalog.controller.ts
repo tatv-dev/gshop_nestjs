@@ -26,7 +26,7 @@ export class ProductCatalogController {
     @CurrentUser() user: any,
   ) {
     // Get tenantId from JWT token (single workspace: user.tenantId, multi-workspace: user.workspaces[0].tenantId)
-    let tenantId: number | undefined = user.tenantId;
+    let tenantId: number | undefined = Number(user.tenantId);
 
     if (!tenantId && user.workspaces?.length > 0) {
       tenantId = user.workspaces[0].tenantId;

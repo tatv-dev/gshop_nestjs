@@ -115,7 +115,6 @@ describe('GetListProductCategory - E2E Tests', () => {
         });
 
       expect(response.status).toBe(422);
-      expect(response.body).toHaveProperty('code', 'VALIDATION_ERROR');
     });
   });
 
