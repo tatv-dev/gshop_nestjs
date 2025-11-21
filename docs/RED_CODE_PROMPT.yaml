@@ -208,43 +208,35 @@ standard_knowledge:
         - "Include authentication, authorization"
         - "Test complete request/response cycle"
 
-  test_organization:
-    structure: |
-      test/
-      └── component/
-          └── [bounded-context]/
-              ├── [endpoint-name]/              # Per-endpoint organization
-              │   ├── unit/
-              │   │   ├── request.spec.ts       # Request DTO validation
-              │   │   ├── dto.spec.ts           # Application DTO
-              │   │   ├── query.spec.ts         # Query object
-              │   │   └── handler.spec.ts       # Handler logic (no DB)
-              │   ├── integration/
-              │   │   ├── handler.spec.ts       # Handler with real DB
-              │   │   └── repository.spec.ts    # Repository with real DB
-              │   └── e2e/
-              │       └── api.spec.ts           # Full HTTP flow
-              │
-              ├── domain/                       # Shared domain tests
-              │   ├── entity/
-              │   │   └── [entity].spec.ts
-              │   └── value-object/
-              │       └── [vo].spec.ts
-              │
-              └── test-helpers/                 # Shared utilities
-                  ├── database.helper.ts
-                  ├── seed-data.helper.ts
-                  ├── test-data.factory.ts
-                  └── assertions.helper.ts
+  file_location_mapping:
+    query_interface:
+      file: "[endpoint]-query.repository.ts"
+      path: "src/components/<BC>/application/repositories/"
+      test_path: "test/<BC>/application/repositories/"
+      test_file: "[endpoint]-query.repository.spec.ts"
+      note: "Interface là Port thuộc Application Layer (DDD + Hexagon)"
 
-    file_naming:
-      request_dto_ut: "[endpoint-name]/request.spec.ts"
-      handler_ut: "[endpoint-name]/handler.spec.ts"
-      handler_it: "[endpoint-name]/handler.spec.ts"
-      repository_it: "[endpoint-name]/repository.spec.ts"
-      e2e: "[endpoint-name]/api.spec.ts"
-      entity_ut: "domain/entity/[entity-name].spec.ts"
-      vo_ut: "domain/value-object/[vo-name].spec.ts"
+    repository_implementation:
+      file: "[endpoint]-query.repository.ts"
+      path: "src/components/<BC>/infrastructure/repositories/"
+      test_path: "test/<BC>/infrastructure/repositories/"
+      test_file: "[endpoint]-query.repository.it.spec.ts"
+      note: "Implementation là Adapter thuộc Infrastructure Layer"
+
+    request:
+      file: "[action]-[domain].request.ts"
+      path: "src/components/<BC>/presentation/request/"
+      test_path: "test/<BC>/presentation/request/"
+      test_file: "[endpoint].request.spec.ts"
+      note: "DTO / Request đến từ Presentation Layer (Controller nhận vào)"
+
+    query_handler:
+      file: "[action]-[domain].query.ts"
+      path: "src/components/<BC>/application/queries/"
+      test_path: "test/<BC>/application/queries/"
+      test_file: "[action]-[domain].query.ut.spec.ts"
+      test_file_integration: "[action]-[domain].query.it.spec.ts"
+      note: "QueryHandler thuộc Application Layer trong CQRS"
 
   seed_data_strategy:
     objective: >
@@ -641,18 +633,27 @@ output_requirements:
         purpose: "Reusable assertion functions"
 
     unit_tests:
-      - path: "test/component/[bc]/[endpoint]UT.spec.ts"
-        purpose: "Handler orchestration logic tests"
-        test_count: "Based on test_plan handler cases"
+      - path: "test/<BC>/presentation/request/[endpoint].request.spec.ts"
+        purpose: "Unit test validate cho Request/DTO layer"
+        test_count: "Dựa theo test_plan validation"
 
-      - path: "test/component/[bc]/[endpoint]IT.spec.ts"
-        purpose: "Handler with real database tests"
-        test_count: "Based on test_plan handler IT cases"
+      - path: "test/<BC>/application/repositories/[endpoint]-query.repository.spec.ts"
+        purpose: "Unit test cho Interface contract (nếu có mock behavior)"
+        test_count: "Tùy nghiệp vụ (thường rất ít)"
+
+    integration_tests:
+      - path: "test/<BC>/application/queries/[action]-[domain].query.it.spec.ts"
+        purpose: "Integration test cho QueryHandler chạy với real repository & real DB"
+        test_count: "Dựa theo test_plan IT của handler"
+
+      - path: "test/<BC>/infrastructure/repositories/[endpoint]-query.repository.it.spec.ts"
+        purpose: "Kiểm thử repository implementation với real database"
+        test_count: "Dựa theo test_plan repository"
 
     e2e_tests:
-      - path: "test/component/[bc]/[endpoint]E2E.spec.ts"
-        purpose: "Full HTTP to database flow tests"
-        test_count: "Based on test_plan e2e cases"
+      - path: "test/<BC>/e2e/[endpoint].e2e.spec.ts"
+        purpose: "E2E test toàn trình: HTTP → Controller → Handler → Repository → DB"
+        test_count: "Dựa theo test_plan E2E cases"
 
   code_characteristics:
     - "All TypeScript files with proper type annotations"
