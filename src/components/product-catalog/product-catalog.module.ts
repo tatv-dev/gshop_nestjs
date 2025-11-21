@@ -4,7 +4,7 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProductCategoryModel } from './infrastructure/entities/product-category.model';
 import { ProductCategoryQueryRepository } from './infrastructure/repositories/product-category-query.repository';
-import { GetListProductCategoryQueryHandler } from './application/handlers/get-list-product-category.handler';
+import { GetListProductCategoryQueryHandler } from './application/queries/get-list-product-category.query';
 import { ProductCatalogController } from './presentation/controllers/product-catalog.controller';
 
 const QueryHandlers = [GetListProductCategoryQueryHandler];
