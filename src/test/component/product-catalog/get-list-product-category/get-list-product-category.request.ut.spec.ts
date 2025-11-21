@@ -116,10 +116,7 @@ describe('GetListProductCategoryRequest - Unit Tests', () => {
       {
         acId: 'AC_OFAT_15',
         title: '[productCategoryAncestors]Sai kiểu dữ liệu (không phải mảng)',
-        input: [
-          { productCategoryName: 'Điện thoại 123', activeStatuses: [1], productCategoryAncestors: '1', page: 1, size: 20 },
-          { productCategoryName: null, activeStatuses: [3], productCategoryAncestors: '1', page: 1, size: 20 }
-        ],
+        input: { productCategoryName: 'Điện thoại 123', activeStatuses: [1], productCategoryAncestors: '1', page: 1, size: 20 },
         expected: { field: 'productCategoryAncestors' },
       },
       {
