@@ -1,0 +1,1248 @@
+
+test_plan:
+  test_suite: GetListProductCategory
+  testcase: |
+    # BASE CASE
+    - id: AC_OFAT_00
+      title: "[BASE]<Case cơ sở hợp lệ>"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected: "Validation Passed. DTO được tạo thành công với các giá trị đã được chuẩn hoá (nếu có)."
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    # OFAT TESTS - productCategoryName
+    - id: AC_OFAT_01
+      title: "[productCategoryName]Sai kiểu dữ liệu"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: 123
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: productCategoryName, code: invalid_type, message: "Trường productCategoryName sai kiểu dữ liệu."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_02
+      title: "[productCategoryName]Null"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: null
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: productCategoryName, code: null_not_allowed, message: "Trường productCategoryName không được phép là null."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_03
+      title: "[productCategoryName]Chuỗi rỗng/blank"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: ""
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: productCategoryName, code: empty_or_blank, message: "Trường productCategoryName không được rỗng hoặc chỉ chứa khoảng trắng."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_04
+      title: "[productCategoryName]Chứa ký tự Punctuation (IV-P)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "iPhone!"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: productCategoryName, code: pattern_mismatch, message: "Giá trị của productCategoryName không khớp định dạng yêu cầu."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_05
+      title: "[productCategoryName]Chứa ký tự Symbol/emoji (IV-S)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "😃"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: productCategoryName, code: pattern_mismatch, message: "Giá trị của productCategoryName không khớp định dạng yêu cầu."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_06
+      title: "[productCategoryName]Chứa Control/Mark ngoài whitelist (IV-C/Z/M)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "A\u0007B"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: productCategoryName, code: whitespace_violation, message: "Giá trị của productCategoryName vi phạm chính sách khoảng trắng/ký tự điều khiển."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_07
+      title: "[productCategoryName]Vi phạm policy khoảng trắng (whitespace)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: " Điện thoại 123 "
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected: "Validation Passed. DTO có 'productCategoryName' được trim thành 'Điện thoại 123'."
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_08
+      title: "[productCategoryName]Sai chuẩn hoá Unicode (EP-UNICODE-NORM)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Cafe\u0301"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected: "Validation Passed. DTO có 'productCategoryName' được chuẩn hoá thành 'Café'."
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    # OFAT TESTS - activeStatuses
+    - id: AC_OFAT_09
+      title: "[activeStatuses]Sai kiểu dữ liệu (không phải mảng)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: "1"
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: activeStatuses, code: array_expected, message: "Trường activeStatuses phải là mảng."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_10
+      title: "[activeStatuses]Null"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: null
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: activeStatuses, code: null_not_allowed, message: "Trường activeStatuses không được phép là null."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_11
+      title: "[activeStatuses]Phần tử sai kiểu"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: ["1", true]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: activeStatuses, code: array_element_invalid_type, message: "Một hoặc nhiều phần tử trong activeStatuses sai kiểu dữ liệu."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_12
+      title: "[activeStatuses]Phần tử ngoài {0,1}"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [2]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: activeStatuses, code: array_element_invalid_value, message: "Một hoặc nhiều phần tử trong activeStatuses có giá trị không hợp lệ."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_13
+      title: "[activeStatuses]Trùng phần tử"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1, 1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: activeStatuses, code: duplicate_items, message: "Các phần tử trong activeStatuses bị trùng lặp (yêu cầu duy nhất)."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_14
+      title: "[activeStatuses]Trùng key (duplicate_param)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: activeStatuses, code: duplicate_parameter, message: "Tham số activeStatuses bị trùng lặp."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    # OFAT TESTS - productCategoryAncestors
+    - id: AC_OFAT_15
+      title: "[productCategoryAncestors]Sai kiểu dữ liệu (không phải mảng)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: "1"
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: productCategoryAncestors, code: array_expected, message: "Trường productCategoryAncestors phải là mảng."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_16
+      title: "[productCategoryAncestors]Null"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: null
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: productCategoryAncestors, code: null_not_allowed, message: "Trường productCategoryAncestors không được phép là null."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_17
+      title: "[productCategoryAncestors]Phần tử sai kiểu"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1, "abc"]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: productCategoryAncestors, code: array_element_invalid_type, message: "Một hoặc nhiều phần tử trong productCategoryAncestors sai kiểu dữ liệu."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_18
+      title: "[productCategoryAncestors]Phần tử giá trị không hợp lệ"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1, "abc"]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: productCategoryAncestors, code: array_element_invalid_type, message: "Một hoặc nhiều phần tử trong productCategoryAncestors sai kiểu dữ liệu."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_19
+      title: "[productCategoryAncestors]Trùng phần tử"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1, 1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: productCategoryAncestors, code: duplicate_items, message: "Các phần tử trong productCategoryAncestors bị trùng lặp (yêu cầu duy nhất)."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_20
+      title: "[productCategoryAncestors]Vượt giới hạn độ dài mảng (>9999)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: "{{array_length_10000}}"
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: productCategoryAncestors, code: item_count_out_of_range, message: "Số phần tử của productCategoryAncestors ngoài giới hạn cho phép."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_21
+      title: "[productCategoryAncestors]ID không tồn tại (invalid_reference)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [999999]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: productCategoryAncestors, code: array_element_invalid_value, message: "Một hoặc nhiều phần tử trong productCategoryAncestors có giá trị không hợp lệ."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_22
+      title: "[productCategoryAncestors]ID sai state/scope/tenant"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [123]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: productCategoryAncestors, code: array_element_invalid_value, message: "Một hoặc nhiều phần tử trong productCategoryAncestors có giá trị không hợp lệ."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    # OFAT TESTS - tenantId
+    - id: AC_OFAT_23
+      title: "[tenantId]Thiếu field (missing)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: tenantId, code: missing, message: "Trường tenantId là trường bắt buộc."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_24
+      title: "[tenantId]Sai kiểu dữ liệu"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: "12"
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: tenantId, code: invalid_type, message: "Trường tenantId sai kiểu dữ liệu."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_25
+      title: "[tenantId]Null"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: null
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: tenantId, code: null_not_allowed, message: "Trường tenantId không được phép là null."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_26
+      title: "[tenantId]Chuỗi rỗng/blank"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: ""
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: tenantId, code: empty_or_blank, message: "Trường tenantId không được rỗng hoặc chỉ chứa khoảng trắng."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_27
+      title: "[tenantId]Sai scope/tenant hiện tại (forbidden processing)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: "{{tenant_id_other}}"
+        page: 1
+        size: 20
+      expected:
+        status: 403
+        code: PERMISSION_DENIED
+        title: "Access Denied"
+        detail: "Bạn không có quyền thực hiện hành động này."
+        errors: []
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_28
+      title: "[tenantId]Trùng key (duplicate_param)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: tenantId, code: duplicate_parameter, message: "Tham số tenantId bị trùng lặp."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    # OFAT TESTS - page
+    - id: AC_OFAT_29
+      title: "[page]Sai kiểu dữ liệu"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: "2"
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: page, code: invalid_type, message: "Trường page sai kiểu dữ liệu."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_30
+      title: "[page]Null"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: null
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: page, code: null_not_allowed, message: "Trường page không được phép là null."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_31
+      title: "[page]Chuỗi rỗng/blank"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: ""
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: page, code: empty_or_blank, message: "Trường page không được rỗng hoặc chỉ chứa khoảng trắng."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_32
+      title: "[page]Ngoài khoảng [1,1000]"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 0
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: page, code: out_of_range, message: "Giá trị của page nằm ngoài phạm vi cho phép."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_33
+      title: "[page]Trùng key (duplicate_param)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: page, code: duplicate_parameter, message: "Tham số page bị trùng lặp."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    # OFAT TESTS - size
+    - id: AC_OFAT_34
+      title: "[size]Sai kiểu dữ liệu"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: "10"
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: size, code: invalid_type, message: "Trường size sai kiểu dữ liệu."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_35
+      title: "[size]Null"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: null
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: size, code: null_not_allowed, message: "Trường size không được phép là null."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_36
+      title: "[size]Chuỗi rỗng/blank"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: ""
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: size, code: empty_or_blank, message: "Trường size không được rỗng hoặc chỉ chứa khoảng trắng."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_37
+      title: "[size]Ngoài khoảng [1,500]"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 0
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: size, code: out_of_range, message: "Giá trị của size nằm ngoài phạm vi cho phép."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    - id: AC_OFAT_38
+      title: "[size]Trùng key (duplicate_param)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        status: 422
+        code: VALIDATION_ERROR
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        errors: [{field: size, code: duplicate_parameter, message: "Tham số size bị trùng lặp."}]
+      layer: contract
+      type: UTRequest
+      test_class: GetListProductCategoryRequest
+
+    # PAIRWISE TESTS
+    - id: AC_Pairwise_01
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        tenantId: 11
+        page: 2
+        size: 10
+      expected:
+        total: <count_theo_seed_data>
+        page: 2
+        size: 10
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: <0_or_1>}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_02
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        productCategoryAncestors: []
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_theo_seed_data>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: <0_or_1>}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_03
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_theo_seed_data>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: <0_or_1>}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_04
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        productCategoryAncestors: [1, 2]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_theo_seed_data>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: <0_or_1>}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_05
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: []
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_theo_seed_data>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: <0_or_1>}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_06
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: []
+        productCategoryAncestors: []
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_theo_seed_data>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: <0_or_1>}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_07
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: []
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_theo_seed_data>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: <0_or_1>}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_08
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: []
+        productCategoryAncestors: [1, 2]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_theo_seed_data>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: <0_or_1>}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_09
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [0]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_theo_seed_data>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: 0}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_10
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [0]
+        productCategoryAncestors: []
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_theo_seed_data>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: 0}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_11
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [0]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_theo_seed_data>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: 0}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_12
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [0]
+        productCategoryAncestors: [1, 2]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected: "1. (Interface Rule): repo.find() được gọi với DTO chứa (name, [0], [1,2]). 2. (Mapping Rule): Response DTO trả về có cấu trúc: {total: ..., page: 1, size: 20, productCategories: [{productCategoryId: <id>, productCategoryName: '...', productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: '<name_or_null>', creatorName: '...', createdAt: '<timestamp>', activeStatus: 0}, ...]}"
+      layer: application
+      type: UTQueryHandler
+      test_class: GetListProductCategoryQueryHandler
+
+    - id: AC_Pairwise_13
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected: "1. (Interface Rule): repo.find() được gọi với DTO chứa (name, [1]). 2. (Mapping Rule): Response DTO trả về có cấu trúc: {total: ..., page: 1, size: 20, productCategories: [{productCategoryId: <id>, productCategoryName: '...', productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: '<name_or_null>', creatorName: '...', createdAt: '<timestamp>', activeStatus: 1}, ...]}"
+      layer: application
+      type: UTQueryHandler
+      test_class: GetListProductCategoryQueryHandler
+
+    - id: AC_Pairwise_14
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: []
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_theo_seed_data>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: 1}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_15
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_theo_seed_data>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: 1}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_16
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1, 2]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected: "(Integration Rule) Handler gọi repo thật. (Data Mapping Rule): Output DTO có cấu trúc: {total: ..., page: 1, size: 20, productCategories: [{productCategoryId: <id>, productCategoryName: '...', productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: '<name_or_null>', creatorName: '...', createdAt: '<timestamp>', activeStatus: 1}, ...]}"
+      layer: application
+      type: ITQueryHandler
+      test_class: GetListProductCategoryQueryHandler
+
+    - id: AC_Pairwise_17
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [0, 1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected: "(Integration Rule) Handler gọi repo thật. (Data Mapping Rule): Output DTO có cấu trúc: {total: ..., page: 1, size: 20, productCategories: [{productCategoryId: <id>, productCategoryName: '...', productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: '<name_or_null>', creatorName: '...', createdAt: '<timestamp>', activeStatus: <0_or_1>}, ...]}"
+      layer: application
+      type: ITQueryHandler
+      test_class: GetListProductCategoryQueryHandler
+
+    - id: AC_Pairwise_18
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [0, 1]
+        productCategoryAncestors: []
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_theo_seed_data>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: <0_or_1>}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_19
+      title: "Pairwise: activeStatuses × productCategoryAncestors"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [0, 1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_theo_seed_data>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: <0_or_1>}]
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    - id: AC_Pairwise_20
+      title: "Pairwise: activeStatuses × productCategoryAncestors (chọn case 'không dữ liệu' ở expected)"
+      key_factors: [productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [0, 1]
+        productCategoryAncestors: [1, 2]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: 0
+        page: 1
+        size: 20
+        items: []
+      layer: outboundDB
+      type: ITQueryRepository
+      test_class: GetListProductCategoryQueryRepository
+
+    # E2E TESTS
+    - id: AC_E2E_01
+      title: "[E2E-Happy path (có data)]Truy vấn danh mục theo tên + trạng thái + ancestor"
+      key_factors: [auth, productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        auth:
+          access_token: "{{token_valid}}"
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1, 0]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: <count_gt_0>
+        page: 1
+        size: 20
+        items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: <0_or_1>}]
+      layer: contract
+      type: E2E
+      test_class: GetListProductCategoryE2E
+
+    - id: AC_E2E_02
+      title: "[E2E-Happy path (không data)]Tìm với điều kiện hợp lệ nhưng không khớp"
+      key_factors: [auth, productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        auth:
+          access_token: "{{token_valid}}"
+        productCategoryName: "Tên danh mục không tồn tại XYZ"
+        activeStatuses: []
+        productCategoryAncestors: []
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        total: 0
+        page: 1
+        size: 20
+        items: []
+      layer: contract
+      type: E2E
+      test_class: GetListProductCategoryE2E
+
+    - id: AC_E2E_03
+      title: "[E2E-Validation 422]Input sai định dạng"
+      key_factors: [auth, productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        auth:
+          access_token: "{{token_valid}}"
+        productCategoryName: ""
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        type: "about:blank"
+        status: 422
+        code: "VALIDATION_ERROR"
+        title: "Validation Failed"
+        detail: "Dữ liệu đầu vào không hợp lệ."
+        instance: "<request_path>"
+        traceId: "<traceId>"
+        errors: [{field: "productCategoryName", code: "empty_or_blank", message: "Trường productCategoryName không được rỗng hoặc chỉ chứa khoảng trắng."}]
+      layer: contract
+      type: E2E
+      test_class: GetListProductCategoryE2E
+
+    - id: AC_E2E_04
+      title: "[E2E-Unauthorized 401]Không đăng nhập/Token không hợp lệ"
+      key_factors: [auth, productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        auth:
+          access_token: null
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        type: "about:blank"
+        status: 401
+        code: "AUTH_INVALID_TOKEN"
+        title: "Authentication Required"
+        detail: "Token xác thực không hợp lệ hoặc đã hết hạn."
+        instance: "<request_path>"
+        traceId: "<traceId>"
+        errors: []
+      layer: contract
+      type: E2E
+      test_class: GetListProductCategoryE2E
+
+    - id: AC_E2E_05
+      title: "[E2E-Forbidden 403]Đăng nhập không đủ quyền/sai scope"
+      key_factors: [auth, productCategoryName, activeStatuses, productCategoryAncestors, tenantId, page, size]
+      input:
+        auth:
+          access_token: "{{token_no_scope}}"
+        productCategoryName: "Điện thoại 123"
+        activeStatuses: [1]
+        productCategoryAncestors: [1]
+        tenantId: 11
+        page: 1
+        size: 20
+      expected:
+        type: "about:blank"
+        status: 403
+        code: "PERMISSION_DENIED"
+        title: "Access Denied"
+        detail: "Bạn không có quyền thực hiện hành động này."
+        instance: "<request_path>"
+        traceId: "<traceId>"
+        errors: []
+      layer: contract
+      type: E2E
+      test_class: GetListProductCategoryE2E

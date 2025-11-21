@@ -1,0 +1,276 @@
+test_cases:
+  - id: AC_OFAT_01
+    title: return error message when <productCategoryName> is provided as non-string
+    layer: contract
+    type: UTRequest
+    testClass: GetListProductCategoryRequest
+    input:
+      productCategoryName: 123
+      activeStatuses: [1]
+      productCategoryAncestors: [1]
+      tenantId: 11
+      page: 1
+      size: 20
+    expected:
+      messageKey: validation_error.wrong_type_string
+
+  - id: AC_OFAT_02
+    title: return error message when <productCategoryName> is null
+    layer: contract
+    type: UTRequest
+    testClass: GetListProductCategoryRequest
+    input:
+      productCategoryName: null
+      activeStatuses: [1]
+      productCategoryAncestors: [1]
+      tenantId: 11
+      page: 1
+      size: 20
+    expected:
+      messageKey: validation_error.null
+
+  - id: AC_OFAT_03
+    title: return error message when <productCategoryName> is blank
+    layer: contract
+    type: UTRequest
+    testClass: GetListProductCategoryRequest
+    input:
+      productCategoryName: ""
+      activeStatuses: [1]
+      productCategoryAncestors: [1]
+      tenantId: 11
+      page: 1
+      size: 20
+    expected:
+      messageKey: validation_error.blank.string
+
+  - id: AC_OFAT_04
+    title: return error message when <productCategoryName> is empty
+    layer: contract
+    type: UTRequest
+    testClass: GetListProductCategoryRequest
+    input:
+      productCategoryName: ""
+      activeStatuses: [1]
+      productCategoryAncestors: [1]
+      tenantId: 11
+      page: 1
+      size: 20
+    expected:
+      messageKey: validation_error.empty.string
+
+  - id: AC_OFAT_05
+    title: return error message when <activeStatuses> is provided as non-array
+    layer: contract
+    type: UTRequest
+    testClass: GetListProductCategoryRequest
+    input:
+      productCategoryName: Điện thoại 123
+      activeStatuses: "1"
+      productCategoryAncestors: [1]
+      tenantId: 11
+      page: 1
+      size: 20
+    expected:
+      messageKey: validation_error.wrong_type_array
+
+  - id: AC_OFAT_06
+    title: return error message when <activeStatuses> array contains items of invalid type
+    layer: contract
+    type: UTRequest
+    testClass: GetListProductCategoryRequest
+    input:
+      productCategoryName: Điện thoại 123
+      activeStatuses: ["1", true]
+      productCategoryAncestors: [1]
+      tenantId: 11
+      page: 1
+      size: 20
+    expected:
+      messageKey: validation_error.wrong_element_type.array
+
+  - id: AC_OFAT_07
+    title: return error message when <activeStatuses> array contains duplicate elements
+    layer: contract
+    type: UTRequest
+    testClass: GetListProductCategoryRequest
+    input:
+      productCategoryName: Điện thoại 123
+      activeStatuses: [1, 1]
+      productCategoryAncestors: [1]
+      tenantId: 11
+      page: 1
+      size: 20
+    expected:
+      messageKey: validation_error.array_duplicate_items
+
+  - id: AC_Pairwise_01
+    title: return successful request when Pairwise between activeStatuses and productCategoryAncestors
+    layer: outboundDB
+    type: ITQueryRepository
+    testClass: GetListProductCategoryQueryRepository
+    input:
+      activeStatuses: [0]
+      productCategoryAncestors: [1, 2]
+      tenantId: 11
+      page: 2
+      size: 10
+    expected:
+      messageKey: success.getData
+
+  - id: AC_Pairwise_02
+    title: return successful request when Pairwise between productCategoryAncestors and productCategoryName
+    layer: application
+    type: UTQueryHandler
+    testClass: GetListProductCategoryQueryHandler
+    input:
+      productCategoryName: Điện thoại 123
+      productCategoryAncestors: [1, 2]
+      tenantId: 11
+      page: 1
+      size: 20
+    expected:
+      messageKey: success.getData
+
+  - id: AC_Pairwise_03
+    title: return successful request when Pairwise between activeStatuses and productCategoryName
+    layer: application
+    type: ITQueryHandler
+    testClass: GetListProductCategoryQueryHandler
+    input:
+      productCategoryName: Điện thoại 123
+      activeStatuses: [0, 1]
+      tenantId: 11
+      page: 1
+      size: 20
+    expected:
+      messageKey: success.getData
+
+  - id: AC_E2E_01
+    title: return successful response when user inputs valid data
+    layer: contract
+    type: E2E
+    testClass: GetListProductCategoryE2E
+    input:
+      auth:
+        access_token: "{{token_valid}}"
+      productCategoryName: Điện thoại 123
+      activeStatuses: [1, 0]
+      productCategoryAncestors: [1]
+      tenantId: 11
+      page: 1
+      size: 20
+    expected:
+      message: List productCategory is searched successfully
+      timestamp: "YYYY-MM-DDThh:mm:ss+TZ"
+      data:
+        total: 2
+        page: 1
+        size: 20
+        items:
+          productCategories:
+            - productCategoryId: 1
+              productCategoryName: Điện thoại 123
+              productCategoryParentId: null
+              productCategoryGrandParentId: null
+              productCategoryGrandParentName: null
+              creatorName: TaTV
+              createdAt: "2025-11-21T15:16:33+07:00"
+              activeStatus: 1
+            - productCategoryId: 2
+              productCategoryName: Điện thoại 12311111
+              productCategoryParentId: 1
+              productCategoryGrandParentId: null
+              productCategoryGrandParentName: null
+              creatorName: NhanNT
+              createdAt: "2025-11-21T15:16:33+07:00"
+              activeStatus: 0
+
+  - id: AC_E2E_02
+    title: return successful response when user inputs valid data but no data is matched
+    layer: contract
+    type: E2E
+    testClass: GetListProductCategoryE2E
+    input:
+      auth:
+        access_token: "{{token_valid}}"
+      productCategoryName: Tên danh mục không tồn tại XYZ
+      activeStatuses: []
+      productCategoryAncestors: []
+      tenantId: 11
+      page: 1
+      size: 20
+    expected:
+      message: List productCategory is searched successfully
+      timestamp: "2025-11-21T15:16:33+07:00"
+      data:
+        total: 0
+        page: 1
+        size: 20
+        items:
+          productCategories: []
+
+  - id: AC_E2E_03
+    title: return error response when user inputs invalid data
+    layer: contract
+    type: E2E
+    testClass: GetListProductCategoryE2E
+    input:
+      auth:
+        access_token: "{{token_valid}}"
+      productCategoryName: 123
+      activeStatuses: [1, 1]
+      productCategoryAncestors: [1]
+      tenantId: 11
+      page: 1
+      size: 20
+    expected:
+      title: Lỗi xác thực dữ liệu
+      detail: Dữ liệu đầu vào không hợp lệ. Vui lòng kiểm tra lại các trường thông tin.
+      status: 422
+      messageKey: validation_error.general
+      errors:
+        - field: productCategoryName
+          message: productCategoryName must be string.
+        - field: activeStatuses
+          message: activeStatuses array must contain unique elements
+
+  - id: AC_E2E_04
+    title: return error response when Token is expired
+    layer: contract
+    type: E2E
+    testClass: GetListProductCategoryE2E
+    input:
+      auth:
+        access_token: null
+      productCategoryName: Điện thoại 123
+      activeStatuses: [1]
+      productCategoryAncestors: [1]
+      tenantId: 11
+      page: 1
+      size: 20
+    expected:
+      title: Token is expired
+      detail: "Phiên đăng nhập đã kết thúc vào lúc :expiredAt. Vui lòng đăng nhập lại."
+      status: 401
+      messageKey: auth_error.auth_token_expired
+
+  - id: AC_E2E_05
+    title: return error response when Permission is denied
+    layer: contract
+    type: E2E
+    testClass: GetListProductCategoryE2E
+    input:
+      auth:
+        access_token: "{{token_no_scope}}"
+      productCategoryName: Điện thoại 123
+      activeStatuses: [1]
+      productCategoryAncestors: [1]
+      tenantId: 11
+      page: 1
+      size: 20
+    expected:
+      title: Permission is denied
+      detail: "Bạn không có quyền :permission cần thiết để thực hiện hành động này."
+      status: 403
+      messageKey: auth_error.forbidden
