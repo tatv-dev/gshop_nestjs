@@ -10,7 +10,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import request from 'supertest';
 import { AppModule } from '../../../../app.module';
-import { seedProductCategoryTestData, TEST_USER_CREDENTIALS } from '../../../helpers/seed-data.helper';
+import { seedProductCategoryTestData, TEST_USER_CREDENTIALS } from './seed-data.helper';
 
 describe('GetListProductCategory - E2E Tests', () => {
   let app: INestApplication;

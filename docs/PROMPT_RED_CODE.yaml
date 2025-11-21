@@ -408,7 +408,8 @@ implementation_knowledge:
       unit: "src/test/component/[bc]/[feature]/[component].ut.spec.ts"
       integration: "src/test/component/[bc]/[feature]/[component].it.spec.ts"
       e2e: "src/test/component/[bc]/[feature]/[component].e2e.spec.ts"
-      helpers: "src/test/helpers/"
+      seed_data: "src/test/component/[bc]/[feature]/seed-data.helper.ts"
+      note: "Each feature has its own seed-data.helper.ts in the same directory as test files"
 
   import_rules:
     relative_paths:
@@ -494,7 +495,7 @@ implementation_knowledge:
       import { DataSource, QueryRunner } from 'typeorm';
       import request from 'supertest';
       import { AppModule } from '../../../../app.module';
-      import { seedTestData, TEST_USER_CREDENTIALS } from '../../../helpers/seed-data.helper';
+      import { seedTestData, TEST_USER_CREDENTIALS } from './seed-data.helper';
 
       describe('[Feature] E2E Tests', () => {
         let app: INestApplication;
