@@ -4,8 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProductCategoryModel } from '../entities/product-category.model';
 import { IProductCategoryQueryRepository } from '../../application/repositories/product-category-query.repository';
-import { ProductCategory } from '../../domain/entities/product-category.entity';
-import { ProductCategoryNameVO } from '../../domain/value-objects/product-category-name.vo';
+import { ProductCategoryQueryResult } from '../../application/interfaces/product-category-query-result.interface';
 
 @Injectable()
 export class ProductCategoryQueryRepository implements IProductCategoryQueryRepository {
@@ -21,7 +20,7 @@ export class ProductCategoryQueryRepository implements IProductCategoryQueryRepo
     productCategoryAncestors?: number[],
     page?: number,
     size?: number,
-  ): Promise<ProductCategory[]> {
+  ): Promise<ProductCategoryQueryResult[]> {
     const queryBuilder = this.repository.createQueryBuilder('pc');
 
     // Filter by tenant
@@ -66,7 +65,8 @@ export class ProductCategoryQueryRepository implements IProductCategoryQueryRepo
 
     console.log('Fetched ProductCategoryModels:', JSON.stringify(models, null, 2));
 
-    return models.map((model) => this.toDomain(model));
+    // Trả về raw data, không map to domain
+    return models.map((model) => this.toQueryResult(model));
   }
 
   async count(
@@ -109,17 +109,21 @@ export class ProductCategoryQueryRepository implements IProductCategoryQueryRepo
     return await queryBuilder.getCount();
   }
 
-  private toDomain(model: ProductCategoryModel): ProductCategory {
-    return new ProductCategory(
-      Number(model.id),
-      new ProductCategoryNameVO(model.name),
-      Number(model.tenant_id),
-      model.product_category_parent_id ? Number(model.product_category_parent_id) : null,
-      Number(model.level),
-      model.parent_level1_id ? Number(model.parent_level1_id) : null,
-      model.parent_level2_id ? Number(model.parent_level2_id) : null,
-      Number(model.active_status),
-      model.creator_id ? Number(model.creator_id) : null,
-    );
+  /**
+   * Convert model to plain query result
+   * Không map to domain entity, chỉ trả về plain object
+   */
+  private toQueryResult(model: ProductCategoryModel): ProductCategoryQueryResult {
+    return {
+      id: Number(model.id),
+      name: model.name,
+      tenant_id: Number(model.tenant_id),
+      product_category_parent_id: model.product_category_parent_id ? Number(model.product_category_parent_id) : null,
+      level: Number(model.level),
+      parent_level1_id: model.parent_level1_id ? Number(model.parent_level1_id) : null,
+      parent_level2_id: model.parent_level2_id ? Number(model.parent_level2_id) : null,
+      active_status: Number(model.active_status),
+      creator_id: model.creator_id ? Number(model.creator_id) : null,
+    };
   }
 }

@@ -98,8 +98,8 @@ export class GetListProductCategoryQueryHandler
       });
     }
 
-    // Get paginated data
-    const categories = await this.repository.findAll(
+    // Get paginated data (raw query results)
+    const queryResults = await this.repository.findAll(
       dto.tenantId,
       dto.productCategoryName,
       dto.activeStatuses,
@@ -108,17 +108,17 @@ export class GetListProductCategoryQueryHandler
       dto.size,
     );
 
-    // Map entities to response DTOs
-    const data: ProductCategoryResponseDTO[] = categories.map((category) => ({
-      id: category.id,
-      name: category.getName(),
-      tenantId: category.tenantId,
-      productCategoryParentId: category.productCategoryParentId,
-      level: category.level,
-      parentLevel1Id: category.parentLevel1Id,
-      parentLevel2Id: category.parentLevel2Id,
-      activeStatus: category.activeStatus,
-      creatorId: category.creatorId,
+    // Map raw query results to response DTOs
+    const data: ProductCategoryResponseDTO[] = queryResults.map((result) => ({
+      id: result.id,
+      name: result.name,
+      tenantId: result.tenant_id,
+      productCategoryParentId: result.product_category_parent_id,
+      level: result.level,
+      parentLevel1Id: result.parent_level1_id,
+      parentLevel2Id: result.parent_level2_id,
+      activeStatus: result.active_status,
+      creatorId: result.creator_id,
     }));
 
     return {

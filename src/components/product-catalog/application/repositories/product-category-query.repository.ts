@@ -1,6 +1,10 @@
 // src/components/product-catalog/application/repositories/product-category-query.repository.ts
-import { ProductCategory } from '../../domain/entities/product-category.entity';
+import { ProductCategoryQueryResult } from '../interfaces/product-category-query-result.interface';
 
+/**
+ * Query repository - chỉ query thuần túy, không map to domain
+ * Trả về raw data (plain object) để handler xử lý mapping sang DTO
+ */
 export interface IProductCategoryQueryRepository {
   findAll(
     tenantId: number,
@@ -9,7 +13,7 @@ export interface IProductCategoryQueryRepository {
     productCategoryAncestors?: number[],
     page?: number,
     size?: number,
-  ): Promise<ProductCategory[]>;
+  ): Promise<ProductCategoryQueryResult[]>;
 
   count(
     tenantId: number,
