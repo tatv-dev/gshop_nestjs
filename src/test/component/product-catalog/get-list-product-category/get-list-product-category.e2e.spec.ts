@@ -41,9 +41,10 @@ describe('GetListProductCategory - E2E Tests', () => {
       .send({
         username: TEST_USER_CREDENTIALS.username,
         password: TEST_USER_CREDENTIALS.password,
+        softwareId: TEST_USER_CREDENTIALS.softwareId,
       });
 
-    accessToken = loginResponse.body?.accessToken || loginResponse.body?.access_token || '';
+    accessToken = loginResponse.body?.data?.accessToken || loginResponse.body?.accessToken || '';
   });
 
   beforeEach(async () => {

@@ -15,6 +15,7 @@ export const TEST_EMPLOYEE_ID = 100001;
 export const TEST_USER_CREDENTIALS = {
   username: 'test_user_e2e',
   password: 'Test@123456',
+  softwareId: 1,
 };
 
 export async function seedProductCategoryTestData(queryRunner: QueryRunner): Promise<void> {
