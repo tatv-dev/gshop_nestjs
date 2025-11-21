@@ -164,6 +164,40 @@ standard_knowledge:
         - "Login to get real access token"
         - "Seed user data before login"
 
+    handler_test_strategy:
+      description: "Determine when to generate Handler UT vs IT tests"
+      unit_test_only:
+        condition: "Handler only does simple data mapping (pass-through from repository to response)"
+        examples:
+          - "Handler calls repository and returns result directly"
+          - "Handler maps entity fields to DTO without transformation"
+          - "No business logic, no calculations, no conditional processing"
+        test_file: "[feature].handler.ut.spec.ts"
+        mock: "Mock repository interface"
+
+      integration_test_required:
+        condition: "Handler has business logic or processing in DTO response mapping"
+        examples:
+          - "Handler performs calculations on data"
+          - "Handler applies business rules to filter/transform data"
+          - "Handler aggregates data from multiple sources"
+          - "Handler has conditional logic based on data values"
+          - "Response DTO has computed/derived fields"
+        test_files:
+          - "[feature].handler.ut.spec.ts (mock repository)"
+          - "[feature].handler.it.spec.ts (real database)"
+
+      decision_flowchart: |
+        1. Does handler have business logic beyond simple mapping?
+           - YES -> Generate both UT and IT
+           - NO -> Generate UT only
+        2. Does response DTO have computed/derived fields?
+           - YES -> Generate both UT and IT
+           - NO -> Check step 1
+        3. Does handler aggregate or transform data?
+           - YES -> Generate both UT and IT
+           - NO -> Generate UT only
+
   data_management:
     seed_data_strategy:
       principles:
