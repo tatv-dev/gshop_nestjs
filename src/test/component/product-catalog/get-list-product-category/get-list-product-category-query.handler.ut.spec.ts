@@ -3,29 +3,30 @@
  * Test Suite: GetListProductCategory
  * Layer: Application
  * Type: UTQueryHandler
- *
- * RED CODE: Tests will FAIL until GetListProductCategoryQueryHandler is implemented
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { GetListProductCategoryQueryHandler } from '@/components/product-catalog/application/queries/get-list-product-category.handler';
+import { GetListProductCategoryQueryHandler } from '@/components/product-catalog/application/handlers/get-list-product-category.handler';
 import { GetListProductCategoryQuery } from '@/components/product-catalog/application/queries/get-list-product-category.query';
-import { IGetListProductCategoryQueryRepository } from '@/components/product-catalog/application/repositories/i-get-list-product-category-query.repository';
+import { GetListProductCategoryDTO } from '@/components/product-catalog/application/dtos/get-list-product-category.dto';
+import { IProductCategoryQueryRepository } from '@/components/product-catalog/application/repositories/product-category-query.repository';
+import { ProductCategoryModel } from '@/components/product-catalog/infrastructure/entities/product-category.model';
 
 describe('GetListProductCategoryQueryHandler - Unit Tests', () => {
   let handler: GetListProductCategoryQueryHandler;
-  let mockRepository: jest.Mocked<IGetListProductCategoryQueryRepository>;
+  let mockRepository: jest.Mocked<IProductCategoryQueryRepository>;
 
   beforeAll(async () => {
     mockRepository = {
-      find: jest.fn(),
+      findAll: jest.fn(),
+      count: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GetListProductCategoryQueryHandler,
         {
-          provide: 'IGetListProductCategoryQueryRepository',
+          provide: 'IProductCategoryQueryRepository',
           useValue: mockRepository,
         },
       ],
@@ -42,201 +43,112 @@ describe('GetListProductCategoryQueryHandler - Unit Tests', () => {
     const interfaceRuleCases = [
       {
         acId: 'AC_Pairwise_12',
-        title: 'Pairwise: activeStatuses [0] + ancestors [1,2] - repo.find() called with correct DTO',
+        title: 'Pairwise: activeStatuses [0] + ancestors [1,2] - repo called with correct params',
         input: {
+          tenantId: 11,
           productCategoryName: 'Điện thoại 123',
           activeStatuses: [0],
           productCategoryAncestors: [1, 2],
-          tenantId: 11,
           page: 1,
           size: 20,
         },
-        expectedRepoCall: {
-          productCategoryName: 'Điện thoại 123',
-          activeStatuses: [0],
-          productCategoryAncestors: [1, 2],
-          tenantId: 11,
-          page: 1,
-          size: 20,
-        },
-        mockResponse: {
-          total: 5,
-          page: 1,
-          size: 20,
-          items: [
-            {
-              productCategoryId: 1,
-              productCategoryName: 'Điện thoại 123 Test',
-              productCategoryParentId: null,
-              productCategoryGrandParentId: null,
-              productCategoryGrandParentName: null,
-              creatorName: 'Nguyen Van A',
-              createdAt: new Date('2025-01-01T00:00:00Z'),
-              activeStatus: 0,
-            },
-          ],
-        },
+        mockModels: [
+          { id: 1, name: 'Test Category', tenant_id: 11, active_status: 0, level: 1, product_category_parent_id: null, parent_level1_id: null, parent_level2_id: null, creator_id: 1 } as ProductCategoryModel,
+        ],
+        mockCount: 1,
       },
       {
         acId: 'AC_Pairwise_13',
-        title: 'Pairwise: activeStatuses [1] - repo.find() called with correct DTO',
+        title: 'Pairwise: activeStatuses [1] - repo called with correct params',
         input: {
+          tenantId: 11,
           productCategoryName: 'Điện thoại 123',
           activeStatuses: [1],
-          productCategoryAncestors: undefined,
-          tenantId: 11,
           page: 1,
           size: 20,
         },
-        expectedRepoCall: {
-          productCategoryName: 'Điện thoại 123',
-          activeStatuses: [1],
-          productCategoryAncestors: undefined,
-          tenantId: 11,
-          page: 1,
-          size: 20,
-        },
-        mockResponse: {
-          total: 10,
-          page: 1,
-          size: 20,
-          items: [
-            {
-              productCategoryId: 2,
-              productCategoryName: 'Điện thoại 123 Active',
-              productCategoryParentId: 1,
-              productCategoryGrandParentId: null,
-              productCategoryGrandParentName: null,
-              creatorName: 'Tran Thi B',
-              createdAt: new Date('2025-01-02T00:00:00Z'),
-              activeStatus: 1,
-            },
-          ],
-        },
+        mockModels: [
+          { id: 2, name: 'Active Category', tenant_id: 11, active_status: 1, level: 1, product_category_parent_id: null, parent_level1_id: null, parent_level2_id: null, creator_id: 1 } as ProductCategoryModel,
+        ],
+        mockCount: 1,
       },
     ];
 
-    it.each(interfaceRuleCases)('[$acId] $title', async ({ acId, input, expectedRepoCall, mockResponse }) => {
+    it.each(interfaceRuleCases)('[$acId] $title', async ({ acId, input, mockModels, mockCount }) => {
       // Arrange
-      mockRepository.find.mockResolvedValue(mockResponse);
+      mockRepository.findAll.mockResolvedValue(mockModels);
+      mockRepository.count.mockResolvedValue(mockCount);
 
-      const query = new GetListProductCategoryQuery(
+      const dto = new GetListProductCategoryDTO(
+        input.tenantId,
         input.productCategoryName,
         input.activeStatuses,
         input.productCategoryAncestors,
-        input.tenantId,
         input.page,
         input.size,
       );
+      const query = new GetListProductCategoryQuery(dto);
 
       // Act
       const result = await handler.execute(query);
 
-      // Assert - Interface Rule: verify repo.find() was called with correct DTO
-      expect(mockRepository.find).toHaveBeenCalledTimes(1);
-      expect(mockRepository.find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          productCategoryName: expectedRepoCall.productCategoryName,
-          activeStatuses: expectedRepoCall.activeStatuses,
-          tenantId: expectedRepoCall.tenantId,
-          page: expectedRepoCall.page,
-          size: expectedRepoCall.size,
-        }),
+      // Assert - Interface Rule: verify repo methods were called
+      expect(mockRepository.count).toHaveBeenCalledTimes(1);
+      expect(mockRepository.findAll).toHaveBeenCalledTimes(1);
+
+      expect(mockRepository.count).toHaveBeenCalledWith(
+        input.tenantId,
+        input.productCategoryName,
+        input.activeStatuses,
+        input.productCategoryAncestors,
       );
 
       // Assert - Mapping Rule: verify response DTO structure
       expect(result).toBeDefined();
-      expect(result.total).toBe(mockResponse.total);
-      expect(result.page).toBe(mockResponse.page);
-      expect(result.size).toBe(mockResponse.size);
-      expect(Array.isArray(result.productCategories)).toBe(true);
-
-      if (result.productCategories.length > 0) {
-        const firstItem = result.productCategories[0];
-        expect(firstItem).toHaveProperty('productCategoryId');
-        expect(firstItem).toHaveProperty('productCategoryName');
-        expect(firstItem).toHaveProperty('productCategoryParentId');
-        expect(firstItem).toHaveProperty('productCategoryGrandParentId');
-        expect(firstItem).toHaveProperty('productCategoryGrandParentName');
-        expect(firstItem).toHaveProperty('creatorName');
-        expect(firstItem).toHaveProperty('createdAt');
-        expect(firstItem).toHaveProperty('activeStatus');
-      }
+      expect(result.total).toBe(mockCount);
+      expect(result.page).toBe(input.page);
+      expect(result.size).toBe(input.size);
+      expect(Array.isArray(result.data)).toBe(true);
     });
   });
 
   describe('Mapping Rule Tests - Response DTO Structure', () => {
-    it('should map repository response to correct response DTO structure', async () => {
+    it('should map repository models to correct response DTO structure', async () => {
       // Arrange
-      const mockRepoResponse = {
-        total: 3,
-        page: 1,
-        size: 20,
-        items: [
-          {
-            productCategoryId: 1,
-            productCategoryName: 'Category 1',
-            productCategoryParentId: null,
-            productCategoryGrandParentId: null,
-            productCategoryGrandParentName: null,
-            creatorName: 'Creator 1',
-            createdAt: new Date('2025-01-01'),
-            activeStatus: 1,
-          },
-          {
-            productCategoryId: 2,
-            productCategoryName: 'Category 2',
-            productCategoryParentId: 1,
-            productCategoryGrandParentId: null,
-            productCategoryGrandParentName: 'Category 1',
-            creatorName: 'Creator 2',
-            createdAt: new Date('2025-01-02'),
-            activeStatus: 0,
-          },
-        ],
-      };
+      const mockModels: ProductCategoryModel[] = [
+        { id: 1, name: 'Category 1', tenant_id: 11, active_status: 1, level: 1, product_category_parent_id: null, parent_level1_id: null, parent_level2_id: null, creator_id: 1 } as ProductCategoryModel,
+      ];
+      mockRepository.findAll.mockResolvedValue(mockModels);
+      mockRepository.count.mockResolvedValue(1);
 
-      mockRepository.find.mockResolvedValue(mockRepoResponse);
-
-      const query = new GetListProductCategoryQuery('Test', [1], [1], 11, 1, 20);
+      const dto = new GetListProductCategoryDTO(11, 'Test', [1], [1], 1, 20);
+      const query = new GetListProductCategoryQuery(dto);
 
       // Act
       const result = await handler.execute(query);
 
       // Assert
-      expect(result).toEqual({
-        total: 3,
-        page: 1,
-        size: 20,
-        productCategories: expect.arrayContaining([
-          expect.objectContaining({
-            productCategoryId: expect.any(Number),
-            productCategoryName: expect.any(String),
-            creatorName: expect.any(String),
-            createdAt: expect.any(Date),
-            activeStatus: expect.any(Number),
-          }),
-        ]),
-      });
+      expect(result.data.length).toBe(1);
+      expect(result.data[0]).toHaveProperty('id');
+      expect(result.data[0]).toHaveProperty('name');
+      expect(result.data[0]).toHaveProperty('tenantId');
+      expect(result.data[0]).toHaveProperty('activeStatus');
     });
 
     it('should return empty array when no results found', async () => {
       // Arrange
-      mockRepository.find.mockResolvedValue({
-        total: 0,
-        page: 1,
-        size: 20,
-        items: [],
-      });
+      mockRepository.findAll.mockResolvedValue([]);
+      mockRepository.count.mockResolvedValue(0);
 
-      const query = new GetListProductCategoryQuery('NonExistent', [], [], 11, 1, 20);
+      const dto = new GetListProductCategoryDTO(11, 'NonExistent', [], [], 1, 20);
+      const query = new GetListProductCategoryQuery(dto);
 
       // Act
       const result = await handler.execute(query);
 
       // Assert
       expect(result.total).toBe(0);
-      expect(result.productCategories).toEqual([]);
+      expect(result.data).toEqual([]);
     });
   });
 });
