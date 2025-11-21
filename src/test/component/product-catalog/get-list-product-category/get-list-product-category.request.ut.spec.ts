@@ -7,7 +7,7 @@
 
 import { validate, ValidationError } from 'class-validator';
 import { plainToClass } from 'class-transformer';
-import { GetListProductCategoryRequest } from '@/components/product-catalog/presentation/requests/get-list-product-category.request';
+import { GetListProductCategoryRequest } from '../../../../components/product-catalog/presentation/requests/get-list-product-category.request';
 
 describe('GetListProductCategoryRequest - Unit Tests', () => {
   const findErrorByProperty = (errors: ValidationError[], property: string): ValidationError | undefined => {
