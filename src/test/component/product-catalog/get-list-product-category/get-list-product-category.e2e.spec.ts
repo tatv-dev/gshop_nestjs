@@ -65,7 +65,7 @@ describe('GetListProductCategory - E2E Tests', () => {
   describe('Happy Path Tests', () => {
     it('[AC_E2E_01] Happy path (có data) - Truy vấn danh mục theo tên + trạng thái + ancestor', async () => {
       const response = await request(app.getHttpServer())
-        .get('/api/product-categories')
+        .get('/api/v1/product-catalog/product-categories')
         .set('Authorization', `Bearer ${accessToken}`)
         .query({
           productCategoryName: 'Điện thoại 123',
@@ -85,7 +85,7 @@ describe('GetListProductCategory - E2E Tests', () => {
 
     it('[AC_E2E_02] Happy path (không data) - Tìm với điều kiện hợp lệ nhưng không khớp', async () => {
       const response = await request(app.getHttpServer())
-        .get('/api/product-categories')
+        .get('/api/v1/product-catalog/product-categories')
         .set('Authorization', `Bearer ${accessToken}`)
         .query({
           productCategoryName: 'Tên danh mục không tồn tại XYZ',
@@ -105,7 +105,7 @@ describe('GetListProductCategory - E2E Tests', () => {
   describe('Validation Error Tests (422)', () => {
     it('[AC_E2E_03] Validation 422 - Input sai định dạng', async () => {
       const response = await request(app.getHttpServer())
-        .get('/api/product-categories')
+        .get('/api/v1/product-catalog/product-categories')
         .set('Authorization', `Bearer ${accessToken}`)
         .query({
           productCategoryName: '',
@@ -124,7 +124,7 @@ describe('GetListProductCategory - E2E Tests', () => {
   describe('Authentication Error Tests (401)', () => {
     it('[AC_E2E_04] Unauthorized 401 - Không đăng nhập/Token không hợp lệ', async () => {
       const response = await request(app.getHttpServer())
-        .get('/api/product-categories')
+        .get('/api/v1/product-catalog/product-categories')
         .query({
           productCategoryName: 'Điện thoại 123',
           activeStatuses: [1],
@@ -142,7 +142,7 @@ describe('GetListProductCategory - E2E Tests', () => {
     it.skip('[AC_E2E_05] Forbidden 403 - Đăng nhập không đủ quyền/sai scope', async () => {
       // TODO: Requires a user without proper scope/permissions to be seeded
       const response = await request(app.getHttpServer())
-        .get('/api/product-categories')
+        .get('/api/v1/product-catalog/product-categories')
         .set('Authorization', 'Bearer invalid_scope_token')
         .query({
           productCategoryName: 'Điện thoại 123',
