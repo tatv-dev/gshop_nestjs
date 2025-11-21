@@ -10,7 +10,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import request from 'supertest';
 import { AppModule } from '../../../../app.module';
-import { seedProductCategoryTestData, TEST_TENANT_ID, TEST_USER_CREDENTIALS } from '../../../helpers/seed-data.helper';
+import { seedProductCategoryTestData, TEST_USER_CREDENTIALS } from '../../../helpers/seed-data.helper';
 
 describe('GetListProductCategory - E2E Tests', () => {
   let app: INestApplication;
@@ -72,7 +72,6 @@ describe('GetListProductCategory - E2E Tests', () => {
           productCategoryName: 'Điện thoại 123',
           activeStatuses: [1, 0],
           productCategoryAncestors: [1],
-          tenantId: TEST_TENANT_ID,
           page: 1,
           size: 20,
         });
@@ -92,7 +91,6 @@ describe('GetListProductCategory - E2E Tests', () => {
           productCategoryName: 'Tên danh mục không tồn tại XYZ',
           activeStatuses: [],
           productCategoryAncestors: [],
-          tenantId: TEST_TENANT_ID,
           page: 1,
           size: 20,
         });
@@ -112,7 +110,6 @@ describe('GetListProductCategory - E2E Tests', () => {
           productCategoryName: '',
           activeStatuses: [1],
           productCategoryAncestors: [1],
-          tenantId: TEST_TENANT_ID,
           page: 1,
           size: 20,
         });
@@ -130,7 +127,6 @@ describe('GetListProductCategory - E2E Tests', () => {
           productCategoryName: 'Điện thoại 123',
           activeStatuses: [1],
           productCategoryAncestors: [1],
-          tenantId: TEST_TENANT_ID,
           page: 1,
           size: 20,
         });
@@ -149,7 +145,6 @@ describe('GetListProductCategory - E2E Tests', () => {
           productCategoryName: 'Điện thoại 123',
           activeStatuses: [1],
           productCategoryAncestors: [1],
-          tenantId: TEST_TENANT_ID,
           page: 1,
           size: 20,
         });
