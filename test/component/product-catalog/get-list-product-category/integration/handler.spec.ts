@@ -29,7 +29,7 @@ import { assertGetListResponse } from '../../test-helpers/assertions.helper';
  *
  * Test Focus:
  * - Complete use case flow: Handler → Repository → Database
- * - Data transformation: DB model → Domain entity → Response DTO
+ * - Data transformation: DB model (snake_case) → Response DTO (camelCase)
  * - Pagination calculation with real data
  * - Filter and search with real queries
  * - Exception handling with real scenarios

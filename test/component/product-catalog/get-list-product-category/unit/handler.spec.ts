@@ -373,6 +373,156 @@ describe('GetListProductCategoryQueryHandler - Unit Test', () => {
   });
 
   /**
+   * Test Cases: Data Transformation (Models → Response DTOs)
+   * Handler MUST map ProductCategoryModel (snake_case) to ProductCategoryResponseDTO (camelCase)
+   */
+  describe('Data Transformation', () => {
+    it('[AC-H-35] Maps ProductCategoryModel to ProductCategoryResponseDTO correctly', async () => {
+      // Arrange: Mock repository to return ProductCategoryModel[] with snake_case fields
+      const mockModels = [
+        {
+          id: 1,
+          name: 'Electronics',
+          tenant_id: 1,
+          product_category_parent_id: null,
+          level: 0,
+          parent_level1_id: null,
+          parent_level2_id: null,
+          active_status: 1,
+          creator_id: 100,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+        {
+          id: 2,
+          name: 'Computers',
+          tenant_id: 1,
+          product_category_parent_id: 1,
+          level: 1,
+          parent_level1_id: 1,
+          parent_level2_id: null,
+          active_status: 1,
+          creator_id: 100,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+      ];
+
+      (repository.count as jest.Mock).mockResolvedValue(2);
+      (repository.findAll as jest.Mock).mockResolvedValue(mockModels);
+
+      const dto = new GetListProductCategoryDTO(1, undefined, undefined, undefined, 1, 10);
+      const query = new GetListProductCategoryQuery(dto);
+
+      // Act
+      const result = await handler.execute(query);
+
+      // Assert: Verify camelCase mapping
+      expect(result.data).toHaveLength(2);
+
+      const firstItem = result.data[0];
+      expect(firstItem.id).toBe(1);
+      expect(firstItem.name).toBe('Electronics');
+      expect(firstItem.tenantId).toBe(1); // snake_case → camelCase
+      expect(firstItem.productCategoryParentId).toBe(null);
+      expect(firstItem.level).toBe(0);
+      expect(firstItem.parentLevel1Id).toBe(null);
+      expect(firstItem.parentLevel2Id).toBe(null);
+      expect(firstItem.activeStatus).toBe(1);
+      expect(firstItem.creatorId).toBe(100);
+
+      const secondItem = result.data[1];
+      expect(secondItem.id).toBe(2);
+      expect(secondItem.name).toBe('Computers');
+      expect(secondItem.tenantId).toBe(1);
+      expect(secondItem.productCategoryParentId).toBe(1);
+      expect(secondItem.level).toBe(1);
+      expect(secondItem.parentLevel1Id).toBe(1);
+      expect(secondItem.parentLevel2Id).toBe(null);
+      expect(secondItem.activeStatus).toBe(1);
+      expect(secondItem.creatorId).toBe(100);
+    });
+
+    it('[AC-H-36] Handles null values correctly in mapping', async () => {
+      // Arrange: Model with null values
+      const mockModels = [
+        {
+          id: 1,
+          name: 'Electronics',
+          tenant_id: 1,
+          product_category_parent_id: null,
+          level: 0,
+          parent_level1_id: null,
+          parent_level2_id: null,
+          active_status: 1,
+          creator_id: null, // null creator
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+      ];
+
+      (repository.count as jest.Mock).mockResolvedValue(1);
+      (repository.findAll as jest.Mock).mockResolvedValue(mockModels);
+
+      const dto = new GetListProductCategoryDTO(1, undefined, undefined, undefined, 1, 10);
+      const query = new GetListProductCategoryQuery(dto);
+
+      // Act
+      const result = await handler.execute(query);
+
+      // Assert: Null values should be preserved
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].productCategoryParentId).toBeNull();
+      expect(result.data[0].parentLevel1Id).toBeNull();
+      expect(result.data[0].parentLevel2Id).toBeNull();
+      expect(result.data[0].creatorId).toBeNull();
+    });
+
+    it('[AC-H-37] Converts numeric strings to numbers', async () => {
+      // Arrange: Model with string numbers (simulating DB bigint returned as strings)
+      const mockModels = [
+        {
+          id: '999999999999', // bigint as string
+          name: 'Test Category',
+          tenant_id: '1',
+          product_category_parent_id: '888888888888',
+          level: '2',
+          parent_level1_id: '111111111111',
+          parent_level2_id: '222222222222',
+          active_status: '1',
+          creator_id: '333333333333',
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+      ];
+
+      (repository.count as jest.Mock).mockResolvedValue(1);
+      (repository.findAll as jest.Mock).mockResolvedValue(mockModels);
+
+      const dto = new GetListProductCategoryDTO(1, undefined, undefined, undefined, 1, 10);
+      const query = new GetListProductCategoryQuery(dto);
+
+      // Act
+      const result = await handler.execute(query);
+
+      // Assert: All numeric fields should be converted to numbers
+      const item = result.data[0];
+      expect(typeof item.id).toBe('number');
+      expect(typeof item.tenantId).toBe('number');
+      expect(typeof item.productCategoryParentId).toBe('number');
+      expect(typeof item.level).toBe('number');
+      expect(typeof item.parentLevel1Id).toBe('number');
+      expect(typeof item.parentLevel2Id).toBe('number');
+      expect(typeof item.activeStatus).toBe('number');
+      expect(typeof item.creatorId).toBe('number');
+
+      expect(item.id).toBe(999999999999);
+      expect(item.tenantId).toBe(1);
+      expect(item.productCategoryParentId).toBe(888888888888);
+    });
+  });
+
+  /**
    * Test Cases: Repository Calls
    * Verify handler calls repository with correct parameters
    */

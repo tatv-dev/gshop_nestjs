@@ -26,7 +26,7 @@ import { assertGetListResponse, assertEmptyResponse, assertProductCategoryFields
  *
  * Test Focus:
  * - Query execution with real database
- * - Data mapping from DB model to Domain entity
+ * - Returns ProductCategoryModel[] (TypeORM entities) without mapping
  * - Filtering, pagination, search logic
  * - Empty result handling
  */
