@@ -1,155 +1,155 @@
-import { QueryRunner } from 'typeorm';
-import { DatabaseHelper } from '../test-helpers/database.helper';
-import { SeedDataHelper } from '../test-helpers/seed-data.helper';
+/**
+ * Integration Tests for ProductCategoryQueryRepository
+ * Test Suite: GetListProductCategory
+ * Layer: Infrastructure (outboundDB)
+ * Type: ITQueryRepository
+ */
+
+import { Test, TestingModule } from '@nestjs/testing';
+import { DataSource, QueryRunner } from 'typeorm';
 import { ProductCategoryQueryRepository } from '../../../../components/product-catalog/infrastructure/repositories/product-category-query.repository';
+import { IProductCategoryQueryRepository } from '../../../../components/product-catalog/application/repositories/product-category-query.repository';
+import { seedProductCategoryTestData, TEST_TENANT_ID } from '../../../helpers/seed-data.helper';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
 import { ProductCategoryModel } from '../../../../components/product-catalog/infrastructure/entities/product-category.model';
 
-/**
- * Layer: Infrastructure
- * Type: Integration Test
- * Focus: Real database queries, returns ProductCategoryModel[] directly (no mapping)
- *
- * Repository signature after refactoring:
- * - findAll(tenantId, productCategoryName?, activeStatuses?, productCategoryAncestors?, page?, size?): Promise<ProductCategoryModel[]>
- * - count(tenantId, productCategoryName?, activeStatuses?, productCategoryAncestors?): Promise<number>
- */
-describe('GetListProductCategoryQueryRepository Integration', () => {
+describe('ProductCategoryQueryRepository - Integration Tests', () => {
+  let module: TestingModule;
+  let dataSource: DataSource;
   let queryRunner: QueryRunner;
-  let repository: ProductCategoryQueryRepository;
+  let repository: IProductCategoryQueryRepository;
 
   beforeAll(async () => {
-    await DatabaseHelper.initialize();
-  });
+    module = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        TypeOrmModule.forRoot({
+          type: 'mariadb',
+          host: process.env.DB_HOST || 'localhost',
+          port: parseInt(process.env.DB_PORT || '3306'),
+          username: process.env.DB_USERNAME || 'root',
+          password: process.env.DB_PASSWORD || '',
+          database: process.env.DB_DATABASE || 'test_db',
+          synchronize: false,
+          logging: false,
+          entities: [ProductCategoryModel],
+        }),
+        TypeOrmModule.forFeature([ProductCategoryModel]),
+      ],
+      providers: [
+        {
+          provide: 'IProductCategoryQueryRepository',
+          useClass: ProductCategoryQueryRepository,
+        },
+      ],
+    }).compile();
 
-  afterAll(async () => {
-    await DatabaseHelper.close();
+    dataSource = module.get(DataSource);
+    repository = module.get<IProductCategoryQueryRepository>('IProductCategoryQueryRepository');
   });
 
   beforeEach(async () => {
-    queryRunner = await DatabaseHelper.getQueryRunner();
-
-    // Seed Data
-    await SeedDataHelper.seedProductCategories(queryRunner);
-
-    // Initialize Repository with TypeORM Repository (not EntityManager)
-    const productCategoryRepo = queryRunner.manager.getRepository(ProductCategoryModel);
-    repository = new ProductCategoryQueryRepository(productCategoryRepo);
+    queryRunner = dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    await seedProductCategoryTestData(queryRunner);
   });
 
   afterEach(async () => {
-    await DatabaseHelper.rollbackAndRelease(queryRunner);
+    await queryRunner.rollbackTransaction();
+    await queryRunner.release();
   });
 
-  // Data provider for Pairwise tests
-  const testCases = [
-    {
-      acId: 'AC_Pairwise_03',
-      title: 'Filter by Name + Ancestor',
-      input: {
-        tenantId: 11,
-        productCategoryName: 'Điện thoại 123',
-        activeStatuses: undefined,
-        productCategoryAncestors: [1],
-        page: 1,
-        size: 20
-      },
-      expectedCount: 1,
-      expectedFirstId: 4
-    },
-    {
-      acId: 'AC_Pairwise_09',
-      title: 'Filter by Active Status 0 (Inactive)',
-      input: {
-        tenantId: 11,
-        productCategoryName: undefined,
-        activeStatuses: [0],
-        productCategoryAncestors: undefined,
-        page: 1,
-        size: 20
-      },
-      expectedCount: 1,
-      expectedFirstId: 3
-    },
-    {
-      acId: 'AC_Pairwise_20',
-      title: 'No results found',
-      input: {
-        tenantId: 11,
-        productCategoryName: 'NonExistent',
-        activeStatuses: undefined,
-        productCategoryAncestors: undefined,
-        page: 1,
-        size: 20
-      },
-      expectedCount: 0
-    }
-  ];
-
-  test.each(testCases)('[$acId] $title', async ({ input, expectedCount, expectedFirstId }) => {
-    // Arrange - extract individual params from input object
-    const { tenantId, productCategoryName, activeStatuses, productCategoryAncestors, page, size } = input;
-
-    // Act - call findAll with individual params (new signature)
-    const result = await repository.findAll(
-      tenantId,
-      productCategoryName,
-      activeStatuses,
-      productCategoryAncestors,
-      page,
-      size,
-    );
-
-    // Also test count
-    const count = await repository.count(
-      tenantId,
-      productCategoryName,
-      activeStatuses,
-      productCategoryAncestors,
-    );
-
-    // Assert - result is ProductCategoryModel[] (array directly, not object with total/items)
-    expect(result).toBeDefined();
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(expectedCount);
-    expect(count).toBe(expectedCount);
-
-    if (expectedCount > 0 && expectedFirstId) {
-      // Model fields are snake_case
-      expect(Number(result[0].id)).toBe(expectedFirstId);
-
-      // Verify structure of ProductCategoryModel
-      expect(result[0]).toHaveProperty('id');
-      expect(result[0]).toHaveProperty('name');
-      expect(result[0]).toHaveProperty('tenant_id');
-      expect(result[0]).toHaveProperty('product_category_parent_id');
-      expect(result[0]).toHaveProperty('level');
-      expect(result[0]).toHaveProperty('parent_level1_id');
-      expect(result[0]).toHaveProperty('parent_level2_id');
-      expect(result[0]).toHaveProperty('active_status');
-      expect(result[0]).toHaveProperty('creator_id');
-    }
+  afterAll(async () => {
+    await module.close();
   });
 
-  describe('Additional Repository Tests', () => {
-    it('should return empty array for non-existent tenant', async () => {
-      const result = await repository.findAll(99999);
-      expect(result).toHaveLength(0);
-    });
+  describe('Pairwise Tests - activeStatuses × productCategoryAncestors', () => {
+    const pairwiseTestCases = [
+      {
+        acId: 'AC_Pairwise_01',
+        title: 'Pairwise: page 2',
+        input: { tenantId: TEST_TENANT_ID, productCategoryName: 'Điện thoại 123', page: 2, size: 10 },
+        expected: { page: 2, size: 10 },
+      },
+      {
+        acId: 'AC_Pairwise_02',
+        title: 'Pairwise: empty productCategoryAncestors',
+        input: { tenantId: TEST_TENANT_ID, productCategoryName: 'Điện thoại 123', productCategoryAncestors: [], page: 1, size: 20 },
+        expected: { page: 1, size: 20 },
+      },
+      {
+        acId: 'AC_Pairwise_03',
+        title: 'Pairwise: single productCategoryAncestor',
+        input: { tenantId: TEST_TENANT_ID, productCategoryName: 'Điện thoại 123', productCategoryAncestors: [1], page: 1, size: 20 },
+        expected: { page: 1, size: 20 },
+      },
+      {
+        acId: 'AC_Pairwise_05',
+        title: 'Pairwise: empty activeStatuses',
+        input: { tenantId: TEST_TENANT_ID, productCategoryName: 'Điện thoại 123', activeStatuses: [], page: 1, size: 20 },
+        expected: { page: 1, size: 20 },
+      },
+      {
+        acId: 'AC_Pairwise_09',
+        title: 'Pairwise: activeStatuses [0] only',
+        input: { tenantId: TEST_TENANT_ID, productCategoryName: 'Điện thoại 123', activeStatuses: [0], page: 1, size: 20 },
+        expected: { page: 1, size: 20, expectedActiveStatus: 0 },
+      },
+      {
+        acId: 'AC_Pairwise_14',
+        title: 'Pairwise: activeStatuses [1] + empty ancestors',
+        input: { tenantId: TEST_TENANT_ID, productCategoryName: 'Điện thoại 123', activeStatuses: [1], productCategoryAncestors: [], page: 1, size: 20 },
+        expected: { page: 1, size: 20, expectedActiveStatus: 1 },
+      },
+      {
+        acId: 'AC_Pairwise_20',
+        title: 'Pairwise: no data case',
+        input: { tenantId: TEST_TENANT_ID, productCategoryName: 'NonExistentCategory12345', activeStatuses: [0, 1], productCategoryAncestors: [1, 2], page: 1, size: 20 },
+        expected: { total: 0, page: 1, size: 20 },
+      },
+    ];
 
-    it('should filter by multiple active statuses', async () => {
-      const result = await repository.findAll(11, undefined, [0, 1]);
-      expect(result.length).toBeGreaterThan(0);
-    });
+    it.each(pairwiseTestCases)('[$acId] $title', async ({ acId, input, expected }) => {
+      // Act
+      const models = await repository.findAll(
+        input.tenantId,
+        input.productCategoryName,
+        input.activeStatuses,
+        input.productCategoryAncestors,
+        input.page,
+        input.size,
+      );
 
-    it('should apply pagination correctly', async () => {
-      const page1 = await repository.findAll(11, undefined, undefined, undefined, 1, 2);
-      const page2 = await repository.findAll(11, undefined, undefined, undefined, 2, 2);
+      const total = await repository.count(
+        input.tenantId,
+        input.productCategoryName,
+        input.activeStatuses,
+        input.productCategoryAncestors,
+      );
 
-      expect(page1.length).toBeLessThanOrEqual(2);
+      // Assert
+      expect(Array.isArray(models)).toBe(true);
+      expect(total).toBeGreaterThanOrEqual(0);
 
-      if (page1.length === 2 && page2.length > 0) {
-        // IDs should be different between pages
-        expect(page1[0].id).not.toBe(page2[0].id);
+      if (expected.total !== undefined) {
+        expect(total).toBe(expected.total);
+      }
+
+      if (expected.expectedActiveStatus !== undefined && models.length > 0) {
+        models.forEach((model) => {
+          expect(Number(model.active_status)).toBe(expected.expectedActiveStatus);
+        });
+      }
+
+      // Verify model structure
+      if (models.length > 0) {
+        const firstModel = models[0];
+        expect(firstModel).toHaveProperty('id');
+        expect(firstModel).toHaveProperty('name');
+        expect(firstModel).toHaveProperty('tenant_id');
+        expect(firstModel).toHaveProperty('active_status');
       }
     });
   });

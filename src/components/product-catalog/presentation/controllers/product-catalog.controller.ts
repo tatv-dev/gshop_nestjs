@@ -25,31 +25,17 @@ export class ProductCatalogController {
     @Query() request: GetListProductCategoryRequest,
     @CurrentUser() user: any,
   ) {
-    // Handle tenantId for both single and multiple workspace scenarios
-    let tenantId: number;
+    // Get tenantId from JWT token (single workspace: user.tenantId, multi-workspace: user.workspaces[0].tenantId)
+    let tenantId: number | undefined = Number(user.tenantId);
 
-    if (user.workspaces && Array.isArray(user.workspaces) && user.workspaces.length > 0) {
-      const firstWorkspace = user.workspaces[0];
-      if (firstWorkspace && firstWorkspace.tenantId !== undefined && firstWorkspace.tenantId !== null) {
-        tenantId = Number(firstWorkspace.tenantId);
-      } else {
-        throw new ApplicationException({
-          messageKey: 'bad_request',
-        });
-      }
+    if (!tenantId && user.workspaces?.length > 0) {
+      tenantId = user.workspaces[0].tenantId;
     }
-    else {
+
+    if (!tenantId || !Number.isInteger(tenantId) || tenantId <= 0) {
       throw new ApplicationException({
         messageKey: 'missing_parameter',
         params: { parameter: 'Tenant ID' },
-      });
-    }
-
-    // Validate tenantId is a valid number
-    if (!Number.isInteger(tenantId) || tenantId <= 0) {
-      throw new ApplicationException({
-        messageKey: 'integer',
-        params: { attribute: 'Tenant ID' },
       });
     }
 
