@@ -1,116 +1,575 @@
-# PROMPT_RED_CODE.yaml
-# Rules and patterns for generating complete RED CODE test suites
-# Based on lessons learned from GetListProductCategory implementation
+role: |
+  You are a software development expert with deep knowledge of Domain-Driven Design (DDD) and Hexagonal Architecture.
 
-version: "1.0"
-description: |
-  This document defines rules for generating RED CODE tests following TDD principles
-  in a NestJS + TypeORM + MariaDB + DDD/Hexagonal Architecture codebase.
+  Mission: Generate complete RED CODE test suites based on test_plan.
 
-# =============================================================================
-# 1. IMPORT & MODULE RESOLUTION RULES
-# =============================================================================
-import_rules:
-  - rule: "USE_RELATIVE_PATHS"
-    description: "Always use relative paths (../../) instead of alias paths (@/)"
-    bad_example: "import { MyService } from '@/components/my-module/service'"
-    good_example: "import { MyService } from '../../../../components/my-module/service'"
+  Principles:
+  - MUST NOT modify test_plan
+  - MUST follow 100% standard_knowledge and test_plan
+  - Generate tests that FAIL initially (RED CODE) due to missing implementation
+  - Tests must be syntactically correct and ready to run
 
-  - rule: "MATCH_EXISTING_IMPLEMENTATION"
-    description: "Before writing tests, read existing implementation files to get correct class names and paths"
-    note: "Class names may differ from feature name (e.g., ProductCategoryQueryRepository not GetListProductCategoryQueryRepository)"
+core_principles:
+  immutable_rules:
+    - "MUST NOT modify test_plan"
+    - "MUST follow 100% standard_knowledge and test_plan"
+    - "Generate tests that FAIL initially (RED CODE) due to missing implementation"
+    - "Tests must be syntactically correct and ready to run"
+    - "NO placeholder code, NO TODO/FIXME comments"
 
-  - rule: "SUPERTEST_IMPORT"
-    description: "Use default import for supertest"
-    bad_example: "import * as request from 'supertest'"
-    good_example: "import request from 'supertest'"
+  tdd_workflow:
+    red_phase: "Write failing tests first"
+    green_phase: "Implement minimal code to pass"
+    refactor_phase: "Improve code quality"
 
-# =============================================================================
-# 2. SEED DATA RULES
-# =============================================================================
-seed_data_rules:
-  - rule: "HIGH_ID_RANGE"
-    description: "Use IDs >= 100000 for test data to avoid conflicts with existing production/dev data"
-    example: |
+process:
+  step_1_analysis:
+    description: "Analyze test case from test_plan"
+    tasks: |
+      - "Read and understand standard_knowledge"
+      - "Read test_plan and identify:"
+        - "ac_id, title, key_factors for each test case"
+        - "layer (Presentation/Application/Domain/Infrastructure)"
+        - "type (Unit / Integration / E2E)"
+        - "input fields and expected outcome"
+        - "test_class name (EXACT class name for test file)"
+      - "Read existing implementation files to get correct class names and paths"
+      - "Check controller for endpoint URL and which fields come from JWT"
+
+  step_2_generate_structure:
+    description: "Generate test class structure"
+    tasks:
+      - "Create test file in correct location per test_package_structure"
+      - "Import required dependencies using RELATIVE PATHS (not @/ aliases)"
+      - "Setup describe() block with descriptive name"
+      - "Create beforeAll(), beforeEach(), afterEach(), afterAll() hooks"
+      - "Use correct import syntax: import request from 'supertest' (default import)"
+
+  step_3_generate_data_provider:
+    description: "Generate test cases array for test.each()"
+    rules:
+      - "Group multiple test cases into one array"
+      - "Happy path ALWAYS first"
+      - "Each case has: acId, title, input, expected"
+      - "Standard structure: { acId: 'AC-XX', title: '...', input: {...}, expected: {...} }"
+
+  step_4_generate_seed_data:
+    description: "Generate seed data functions for Integration Tests"
+    rules:
+      - "Analyze db_schema to identify tables and foreign keys"
+      - "Build dependency graph: Node = Table, Edge = FK"
+      - "Perform topological sort to determine insert order"
+      - "Generate seed functions respecting FK constraints"
+      - "Use queryRunner.query() for raw SQL inserts"
+      - "Implement cleanup strategy (transaction rollback preferred)"
+      - "Use IDs >= 100000 for all test data to avoid conflicts"
+      - "Use INSERT IGNORE for shared data like softwares table"
+      - "Generate correct bcrypt hash for test user passwords"
+      - "Seed all FK dependencies: softwares -> tenants -> users -> workspaces -> employees -> etc"
+
+  step_5_generate_test_method:
+    description: "Generate test methods"
+    rules:
+      - "Follow Arrange-Act-Assert pattern"
+      - "Use it.each() for data-driven tests"
+      - "Assertions match expected outcome"
+      - "Request DTO: assert validation errors"
+      - "Handler: assert response structure or exceptions"
+      - "Repository: assert database query results"
+
+  step_6_red_code_principles:
+    description: "Ensure RED CODE compliance"
+    checklist:
+      - "Syntax completely valid (TypeScript, Jest)"
+      - "All imports present using RELATIVE PATHS"
+      - "Test methods properly structured"
+      - "Test MUST FAIL due to missing implementation"
+      - "NO placeholder code"
+      - "NO TODO/FIXME comments"
+
+  step_7_e2e_auth_setup:
+    description: "Setup authentication for E2E tests"
+    rules:
+      - "Seed user data BEFORE login in beforeAll()"
+      - "Login via POST /api/v1/auth/login with username, password, softwareId"
+      - "Extract token using snake_case field: response.body.access_token"
+      - "Fields like tenantId are decoded from JWT, NOT passed as query params"
+      - "Read controller to find which fields come from @CurrentUser() decorator"
+
+  step_8_request_dto_transform:
+    description: "Handle query string array transformation"
+    rules:
+      - "Query params like activeStatuses=[1,0] come as strings"
+      - "Add @Transform decorator to parse string arrays to int arrays"
+      - "Transform function must handle: Array, '[1,0]' string, '1,0' string formats"
+
+standard_knowledge:
+  architecture_principles:
+    ddd_layers:
+      presentation:
+        responsibility: "Handle user interaction, validation, DTO mapping"
+        components: ["Controllers", "Request DTOs", "Validators"]
+
+      application:
+        responsibility: "Use case orchestration, CQRS implementation"
+        components: ["Query Handlers", "Command Handlers", "Application DTOs", "Repository Interfaces (Ports)"]
+
+      domain:
+        responsibility: "Business rules, domain logic"
+        components: ["Entities", "Value Objects", "Domain Services", "Domain Events"]
+
+      infrastructure:
+        responsibility: "External concerns, data persistence"
+        components: ["Repository Implementations (Adapters)", "ORM Entities", "External Service Clients"]
+
+    hexagonal_pattern:
+      ports: "Interfaces defined in Application/Domain layer"
+      adapters: "Implementations in Infrastructure layer"
+      dependency_rule: "Dependencies point inward (Infrastructure → Application → Domain)"
+
+  test_strategy:
+    unit_test:
+      scope:
+        - "Business logic in isolation"
+        - "Validation rules"
+        - "Value objects"
+        - "Domain entities"
+      characteristics:
+        - "No external dependencies"
+        - "Fast execution (< 100ms)"
+        - "Mock external services"
+        - "Test one component at a time"
+
+    integration_test:
+      scope:
+        - "Repository implementations"
+        - "Database interactions"
+        - "External service adapters"
+      characteristics:
+        - "Use REAL database"
+        - "NO mocks for database"
+        - "Seed data before EACH test"
+        - "Rollback transaction after EACH test"
+
+    e2e_test:
+      scope:
+        - "Complete user workflows"
+        - "API endpoint to database"
+        - "Cross-layer interactions"
+      characteristics:
+        - "Test from entry point to persistence"
+        - "NO mocks for ANY component"
+        - "Use real database"
+        - "Include authentication/authorization"
+        - "Login to get real access token"
+        - "Seed user data before login"
+
+  data_management:
+    seed_data_strategy:
+      principles:
+        - "Integration Tests MUST use real database"
+        - "Seed data MUST respect referential integrity"
+        - "Each test MUST have independent data setup"
+        - "Seed data MUST be minimal but sufficient"
+        - "Each test MUST rollback or cleanup"
+        - "Seed data MUST be idempotent"
+        - "For large datasets (>500 items), use factory functions"
+        - "Use IDs >= 100000 to avoid conflicts with existing data"
+
+      process:
+        step_1: "Extract entities and relationships from schema"
+        step_2: "Build dependency graph"
+        step_3: "Perform topological sort for insert order"
+        step_4: "Identify required entities from test_plan"
+        step_5: "Generate minimal dataset"
+        step_6: "Implement seed functions"
+
+      cleanup_strategy:
+        preferred: "Transaction rollback"
+        alternative: "Truncate tables in reverse dependency order"
+        timing: "AFTER EACH test case"
+
+      fk_dependency_order:
+        - "softwares (required for refresh_tokens)"
+        - "tenants"
+        - "users"
+        - "workspaces (references users, tenants)"
+        - "resellers (references tenants)"
+        - "employees (references workspaces, resellers)"
+        - "branches (references tenants, employees)"
+        - "domain_tables (references tenants, employees)"
+
+    test_data_pattern:
+      ordering_priority:
+        1: "Happy path - ALWAYS FIRST"
+        2: "Valid variations"
+        3: "Boundary values (min, max)"
+        4: "Invalid types"
+        5: "Out of range"
+        6: "Edge cases (null, empty, negative)"
+
+      required_fields:
+        - acId: "Test case identifier (AC-01, AC-02, etc.)"
+        - title: "Short description of test scenario"
+        - input: "Input data object"
+        - expected: "Expected outcome object"
+
+  exception_handling:
+    layer_responsibilities:
+      presentation:
+        throws: ["Validation errors"]
+        catches: ["Application exceptions → HTTP responses", "Domain exceptions → HTTP responses"]
+        test_focus: "Assert validation errors"
+
+      application:
+        throws: ["Application exceptions"]
+        catches: ["Infrastructure exceptions → wrap", "Domain exceptions → re-throw or wrap"]
+        test_focus: "Assert exception type and error code"
+
+      domain:
+        throws: ["Domain exceptions"]
+        catches: ["Nothing (pure domain logic)"]
+        test_focus: "Assert business rule enforcement"
+
+      infrastructure:
+        throws: ["Infrastructure exceptions"]
+        catches: ["Database errors → wrap", "External API errors → wrap"]
+        test_focus: "Happy path in IT, error cases in UT with mocks"
+
+  quality_checklist:
+    before_generation:
+      - "Read test_plan + db_schema + standard_knowledge"
+      - "Read existing implementation files to get correct class names and paths"
+      - "Identify layer, type (UT/IT/E2E), test file location"
+      - "Analyze dependency graph for seed data"
+      - "Check controller for endpoint URL and JWT-decoded fields"
+      - "Check existing seed data helpers for reusable patterns"
+
+    syntax:
+      - "Language syntax valid"
+      - "All imports present using RELATIVE PATHS"
+      - "Type annotations (if applicable)"
+      - "Test framework structure valid"
+      - "Use default import for supertest: import request from 'supertest'"
+
+    structure:
+      - "Correct test file location per architecture"
+      - "Using data-driven testing approach"
+      - "Follow Arrange-Act-Assert pattern"
+
+    assertions:
+      - "All assertions include AC ID in error messages"
+      - "Assert behavior, not implementation details"
+      - "No assertions on exact error text (can change)"
+
+    red_code:
+      - "Test FAILS because implementation missing"
+      - "No placeholder comments"
+      - "Code compiles/parses correctly"
+      - "Only fails on class/function not found"
+
+  input_schema:
+    db_schema:
+      description: "Database schema definition"
+      format: "DDL statements or ORM models"
+
+    test_plan:
+      required_fields:
+        - test_suite: "Name of test suite"
+        - testcase: "Array of test cases with AC IDs"
+
+    output_requirements:
+      test_organization:
+        - "Separate files for Unit/Integration/E2E tests"
+        - "Test helpers for common operations"
+        - "Seed data functions in separate module"
+        - "Factory functions for complex test data"
+
+      code_quality:
+        - "Proper type annotations"
+        - "Comprehensive comments"
+        - "Clear test names with AC IDs"
+        - "Organized imports"
+        - "No linting errors"
+        - "Ready to run (RED CODE)"
+
+implementation_knowledge:
+  tech_stack:
+    language:
+      name: "TypeScript"
+      version: "5.7+"
+
+    runtime:
+      name: "Node.js"
+      version: "20+"
+
+    framework:
+      name: "NestJS"
+      version: "11+"
+
+    testing_framework:
+      name: "Jest"
+      version: "29+"
+      assertion_style: "expect() / Matchers"
+      data_driven_syntax: "test.each() / describe.each()"
+
+    database:
+      primary: "MariaDB/MySQL"
+      test_database: "MariaDB (same as production)"
+      orm:
+        name: "TypeORM"
+        version: "0.3+"
+      seeding_method: "Raw SQL via queryRunner.query()"
+
+    validation:
+      library: "class-validator"
+      version: "0.14+"
+      transformer: "class-transformer 0.5+"
+
+    dependencies:
+      - "@nestjs/core: ^11.0"
+      - "@nestjs/testing: ^11.0"
+      - "jest: ^29.0"
+      - "typeorm: ^0.3"
+      - "class-validator: ^0.14"
+      - "class-transformer: ^0.5"
+
+  naming_conventions:
+    application_layer:
+      query_handler: "[Action][Domain]QueryHandler"
+      command_handler: "[Action][Domain]CommandHandler"
+      application_dto: "[Action][Domain]DTO"
+      response_dto: "[Action][Domain]ResponseDTO"
+      repository_interface: "I[Domain]QueryRepository"
+
+    infrastructure_layer:
+      repository_implementation: "[Domain]QueryRepository"
+      typeorm_entity: "[Domain]Model"
+
+    presentation_layer:
+      request_dto: "[Action][Domain]Request"
+      controller: "[Domain]Controller"
+
+    domain_layer:
+      entity: "[Domain]"
+      value_object: "[Domain]VO"
+
+  file_structure:
+    source_code:
+      presentation: "src/components/[bounded-context]/presentation/"
+      request: "src/components/[bounded-context]/presentation/requests/"
+      response: "src/components/[bounded-context]/presentation/responses/"
+      application: "src/components/[bounded-context]/application/"
+      repository_interface: "src/components/[bounded-context]/application/repositories/"
+      query_handle: "src/components/[bounded-context]/application/queries/"
+      command_handle: "src/components/[bounded-context]/application/commands/"
+      domain: "src/components/[bounded-context]/domain/"
+      domain_entity: "src/components/[bounded-context]/domain/entities/"
+      infrastructure: "src/components/[bounded-context]/infrastructure/"
+      model_eloquent_entity: "src/components/[bounded-context]/infrastructure/entities/"
+      repository_implementation: "src/components/[bounded-context]/infrastructure/repositories/"
+      shared: "src/shared/"
+
+    test_code:
+      unit: "src/test/component/[bc]/[feature]/[component].ut.spec.ts"
+      integration: "src/test/component/[bc]/[feature]/[component].it.spec.ts"
+      e2e: "src/test/component/[bc]/[feature]/[component].e2e.spec.ts"
+      helpers: "src/test/helpers/"
+
+  import_rules:
+    relative_paths:
+      rule: "ALWAYS use relative paths instead of @/ aliases"
+      bad: "import { MyService } from '@/components/my-module/service'"
+      good: "import { MyService } from '../../../../components/my-module/service'"
+
+    supertest_import:
+      rule: "Use default import for supertest"
+      bad: "import * as request from 'supertest'"
+      good: "import request from 'supertest'"
+
+    match_implementation:
+      rule: "Read existing files to get correct class names"
+      note: "Class names may differ (e.g., ProductCategoryQueryRepository not GetListProductCategoryQueryRepository)"
+
+  test_patterns:
+    unit_test_template: |
+      import { validate } from 'class-validator';
+      import { plainToClass } from 'class-transformer';
+
+      describe('[TestSuiteName]', () => {
+        const testCases = [
+          {
+            acId: 'AC-01',
+            title: 'Happy path',
+            input: { /* data */ },
+            expected: { valid: true }
+          },
+        ];
+
+        it.each(testCases)('[$acId] $title', async ({ input, expected }) => {
+          const dto = plainToClass(RequestDTO, input);
+          const errors = await validate(dto);
+
+          if (expected.valid) {
+            expect(errors).toHaveLength(0);
+          } else {
+            expect(errors.length).toBeGreaterThan(0);
+          }
+        });
+      });
+
+    integration_test_template: |
+      import { Test } from '@nestjs/testing';
+      import { DataSource, QueryRunner } from 'typeorm';
+
+      describe('[Repository] Integration Tests', () => {
+        let dataSource: DataSource;
+        let queryRunner: QueryRunner;
+        let repository: YourRepository;
+
+        beforeAll(async () => {
+          const module = await Test.createTestingModule({
+          }).compile();
+
+          dataSource = module.get(DataSource);
+          repository = module.get(YourRepository);
+        });
+
+        beforeEach(async () => {
+          queryRunner = dataSource.createQueryRunner();
+          await queryRunner.connect();
+          await queryRunner.startTransaction();
+          await seedTestData(queryRunner);
+        });
+
+        afterEach(async () => {
+          await queryRunner.rollbackTransaction();
+          await queryRunner.release();
+        });
+
+        it('[AC-01] Should return results', async () => {
+          const params = {};
+          const result = await repository.findSomething(params);
+          expect(result).toBeDefined();
+        });
+      });
+
+    e2e_test_template: |
+      import { Test, TestingModule } from '@nestjs/testing';
+      import { INestApplication, ValidationPipe } from '@nestjs/common';
+      import { DataSource, QueryRunner } from 'typeorm';
+      import request from 'supertest';
+      import { AppModule } from '../../../../app.module';
+      import { seedTestData, TEST_USER_CREDENTIALS } from '../../../helpers/seed-data.helper';
+
+      describe('[Feature] E2E Tests', () => {
+        let app: INestApplication;
+        let dataSource: DataSource;
+        let queryRunner: QueryRunner;
+        let accessToken: string;
+
+        beforeAll(async () => {
+          const moduleFixture: TestingModule = await Test.createTestingModule({
+            imports: [AppModule],
+          }).compile();
+
+          app = moduleFixture.createNestApplication();
+          app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+          await app.init();
+
+          dataSource = moduleFixture.get(DataSource);
+
+          const seedRunner = dataSource.createQueryRunner();
+          await seedRunner.connect();
+          await seedTestData(seedRunner);
+          await seedRunner.release();
+
+          const loginResponse = await request(app.getHttpServer())
+            .post('/api/v1/auth/login')
+            .send({
+              username: TEST_USER_CREDENTIALS.username,
+              password: TEST_USER_CREDENTIALS.password,
+              softwareId: TEST_USER_CREDENTIALS.softwareId,
+            });
+
+          accessToken = loginResponse.body?.access_token || '';
+        });
+
+        beforeEach(async () => {
+          queryRunner = dataSource.createQueryRunner();
+          await queryRunner.connect();
+          await queryRunner.startTransaction();
+          await seedTestData(queryRunner);
+        });
+
+        afterEach(async () => {
+          await queryRunner.rollbackTransaction();
+          await queryRunner.release();
+        });
+
+        afterAll(async () => {
+          await app.close();
+        });
+
+        it('[AC-01] Happy path', async () => {
+          const response = await request(app.getHttpServer())
+            .get('/api/v1/resource')
+            .set('Authorization', `Bearer ${accessToken}`)
+            .query({ page: 1, size: 20 });
+
+          expect(response.status).toBe(200);
+        });
+      });
+
+    seed_data_template: |
+      import { QueryRunner } from 'typeorm';
+
       export const TEST_TENANT_ID = 100011;
+      export const TEST_OTHER_TENANT_ID = 100099;
       export const TEST_USER_ID = 100001;
       export const TEST_WORKSPACE_ID = 100001;
+      export const TEST_EMPLOYEE_ID = 100001;
 
-  - rule: "FK_DEPENDENCY_ORDER"
-    description: "Seed data in topological order respecting foreign key constraints"
-    order:
-      - softwares (required for refresh_tokens)
-      - tenants
-      - users
-      - workspaces (references users, tenants)
-      - resellers (references tenants)
-      - employees (references workspaces, resellers)
-      - branches (references tenants, employees)
-      - product_categories (references tenants, employees)
+      export const TEST_USER_CREDENTIALS = {
+        username: 'test_user_e2e',
+        password: 'Test@123456',
+        softwareId: 1,
+      };
 
-  - rule: "DISABLE_FK_CHECKS_FOR_CLEANUP"
-    description: "Disable FK checks when deleting test data"
-    example: |
-      await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
-      await queryRunner.query('DELETE FROM table WHERE id >= 100000');
-      await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
+      export async function seedTestData(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
+        await queryRunner.query('DELETE FROM domain_table WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM employees WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM workspaces WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM users WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM tenants WHERE id >= 100000');
+        await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
 
-  - rule: "INSERT_IGNORE_FOR_SHARED_DATA"
-    description: "Use INSERT IGNORE for data that may already exist (like softwares with id=1)"
-    example: |
-      await queryRunner.query(`
-        INSERT IGNORE INTO softwares (id, name, created_at, updated_at)
-        VALUES (1, 'Test Software', NOW(), NOW())
-      `);
+        await queryRunner.query(`
+          INSERT IGNORE INTO softwares (id, name, created_at, updated_at)
+          VALUES (1, 'Test Software', NOW(), NOW())
+        `);
 
-  - rule: "BCRYPT_PASSWORD_HASH"
-    description: "Generate correct bcrypt hash for test passwords"
-    note: "Generate hash using: node -e \"require('bcrypt').hash('password', 10).then(h => console.log(h))\""
-    example: |
-      // Hash for 'Test@123456'
-      const passwordHash = '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y';
+        await queryRunner.query(`
+          INSERT INTO tenants (id, name, status, created_at, updated_at)
+          VALUES (?, 'Test Tenant', 1, NOW(), NOW())
+        `, [TEST_TENANT_ID]);
 
-# =============================================================================
-# 3. E2E TEST RULES
-# =============================================================================
-e2e_test_rules:
-  - rule: "LOGIN_FOR_AUTH_TOKEN"
-    description: "E2E tests must login to get real access token instead of using mock tokens"
-    example: |
-      const loginResponse = await request(app.getHttpServer())
-        .post('/api/v1/auth/login')
-        .send({
-          username: TEST_USER_CREDENTIALS.username,
-          password: TEST_USER_CREDENTIALS.password,
-          softwareId: TEST_USER_CREDENTIALS.softwareId,
-        });
-      accessToken = loginResponse.body?.access_token || '';
+        const passwordHash = '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y';
+        await queryRunner.query(`
+          INSERT INTO users (id, user_name, password, created_at, updated_at)
+          VALUES (?, ?, ?, NOW(), NOW())
+        `, [TEST_USER_ID, TEST_USER_CREDENTIALS.username, passwordHash]);
 
-  - rule: "TOKEN_FIELD_NAME"
-    description: "Auth response uses snake_case field names (access_token, refresh_token)"
-    bad_example: "loginResponse.body.accessToken"
-    good_example: "loginResponse.body.access_token"
+        await queryRunner.query(`
+          INSERT INTO workspaces (id, status, user_id, tenant_id, created_at, updated_at)
+          VALUES (?, 1, ?, ?, NOW(), NOW())
+        `, [TEST_WORKSPACE_ID, TEST_USER_ID, TEST_TENANT_ID]);
+      }
 
-  - rule: "CORRECT_ENDPOINT_URL"
-    description: "Read controller to find correct endpoint URL"
-    note: "Check @Controller('prefix') and @Get('path') decorators"
-    example: |
-      // Controller: @Controller('api/v1/product-catalog')
-      // Method: @Get('product-categories')
-      // Full URL: /api/v1/product-catalog/product-categories
-
-  - rule: "JWT_DECODED_FIELDS"
-    description: "Fields like tenantId are decoded from JWT token, not passed as request params"
-    note: "Check controller implementation to see which fields come from @CurrentUser() decorator"
-
-# =============================================================================
-# 4. REQUEST DTO RULES
-# =============================================================================
-request_dto_rules:
-  - rule: "TRANSFORM_QUERY_STRING_ARRAYS"
-    description: "Query string arrays like '[1,0]' need @Transform decorator to parse into actual arrays"
-    example: |
-      import { Transform } from 'class-transformer';
+    request_dto_transform_template: |
+      import { Type, Transform } from 'class-transformer';
+      import { IsArray, IsInt, IsIn, ValidateIf, IsNotIn, ArrayNotEmpty, Min } from 'class-validator';
 
       const transformToIntArray = ({ value }) => {
         if (Array.isArray(value)) return value.map(Number);
@@ -122,119 +581,101 @@ request_dto_rules:
         return value;
       };
 
-      @Transform(transformToIntArray)
-      @IsArray()
-      @IsInt({ each: true })
-      activeStatuses?: number[];
+      export class RequestDTO {
+        @ValidateIf((o) => o.activeStatuses !== undefined)
+        @IsNotIn([null])
+        @Transform(transformToIntArray)
+        @IsArray()
+        @ArrayNotEmpty()
+        @IsInt({ each: true })
+        @IsIn([0, 1], { each: true })
+        activeStatuses?: number[];
 
-  - rule: "VALIDATE_IF_UNDEFINED"
-    description: "Use @ValidateIf for optional fields to skip validation when undefined"
-    example: |
-      @ValidateIf((o) => o.fieldName !== undefined)
-      @IsNotIn([null])
-      @IsString()
-      fieldName?: string;
+        @ValidateIf((o) => o.ids !== undefined)
+        @IsNotIn([null])
+        @Transform(transformToIntArray)
+        @IsArray()
+        @ArrayNotEmpty()
+        @IsInt({ each: true })
+        @Min(1, { each: true })
+        ids?: number[];
+      }
 
-# =============================================================================
-# 5. TEST FILE STRUCTURE RULES
-# =============================================================================
-test_structure_rules:
-  - rule: "TEST_FILE_LOCATION"
-    description: "Place tests in src/test/component/{module}/{feature}/"
-    structure: |
-      src/test/
-      ├── helpers/
-      │   └── seed-data.helper.ts
-      └── component/
-          └── {module}/
-              └── {feature}/
-                  ├── {feature}.request.ut.spec.ts      # Unit tests for Request DTO validation
-                  ├── {feature}.repository.it.spec.ts   # Integration tests for Repository
-                  ├── {feature}.handler.ut.spec.ts      # Unit tests for Handler (mocked deps)
-                  ├── {feature}.handler.it.spec.ts      # Integration tests for Handler
-                  └── {feature}.e2e.spec.ts             # E2E tests for full API flow
+  validation_testing:
+    class_validator_pattern: |
+      import { IsString, IsInt, IsArray, Min, Max } from 'class-validator';
 
-  - rule: "TEST_ISOLATION"
-    description: "Use transactions with rollback for test isolation"
-    example: |
-      beforeEach(async () => {
-        queryRunner = dataSource.createQueryRunner();
-        await queryRunner.connect();
-        await queryRunner.startTransaction();
-        await seedTestData(queryRunner);
-      });
+      class RequestDTO {
+        @IsString()
+        name: string;
 
-      afterEach(async () => {
-        await queryRunner.rollbackTransaction();
-        await queryRunner.release();
-      });
+        @IsInt()
+        @Min(1)
+        @Max(100)
+        age: number;
 
-  - rule: "SEED_BEFORE_LOGIN"
-    description: "In beforeAll, seed data first then login to get token"
-    example: |
-      beforeAll(async () => {
-        // Setup app...
+        @IsArray()
+        @IsInt({ each: true })
+        ids: number[];
+      }
 
-        // Seed data first (committed, not in transaction)
-        const seedRunner = dataSource.createQueryRunner();
-        await seedRunner.connect();
-        await seedTestData(seedRunner);
-        await seedRunner.release();
+    assertion_pattern: |
+      expect(errors).toHaveLength(expectedErrorCount);
+      expect(errors[0].property).toBe('fieldName');
+      expect(errors[0].constraints).toHaveProperty('isString');
 
-        // Then login to get token
-        const loginResponse = await request(app.getHttpServer())
-          .post('/api/v1/auth/login')
-          .send({ username, password, softwareId });
-        accessToken = loginResponse.body?.access_token || '';
-      });
+  exception_patterns:
+    base_exceptions:
+      DomainException:
+        import: "src/shared/domain/exceptions/domain.exception"
+        http_status: 400
 
-# =============================================================================
-# 6. COMMON PITFALLS TO AVOID
-# =============================================================================
-pitfalls:
-  - pitfall: "DUPLICATE_PRIMARY_KEY"
-    cause: "Using low IDs (1, 2, 3) that conflict with existing data"
-    solution: "Use IDs >= 100000 for all test data"
+      ApplicationException:
+        import: "src/shared/application/exceptions/application.exception"
+        http_status: 400
 
-  - pitfall: "FK_CONSTRAINT_ERROR"
-    cause: "Missing dependent records (e.g., software_id for refresh_tokens)"
-    solution: "Seed all FK dependencies in correct order"
+      InfrastructureException:
+        import: "src/shared/infrastructure/exceptions/infrastructure.exception"
+        http_status: 500
 
-  - pitfall: "EMPTY_ACCESS_TOKEN"
-    cause: "Wrong field name for token extraction or login failure"
-    solution: "Check response structure, use snake_case (access_token)"
+    error_response_format: |
+      {
+        messageKey: "ERROR_CODE",
+        title: "Human readable summary",
+        status: 400,
+        detail: "Detailed explanation",
+        instance: "/api/endpoint",
+        timestamp: "2025-01-01T00:00:00Z",
+        errors: [
+          { field: "fieldName", code: "constraint", message: "Error message" }
+        ]
+      }
 
-  - pitfall: "404_NOT_FOUND"
-    cause: "Wrong endpoint URL"
-    solution: "Read controller decorators to construct correct URL"
+  common_pitfalls:
+    duplicate_primary_key:
+      cause: "Using low IDs (1, 2, 3) that conflict with existing data"
+      solution: "Use IDs >= 100000 for all test data"
 
-  - pitfall: "401_UNAUTHORIZED"
-    cause: "Login failed or token not properly set"
-    solution: "Verify seed data, password hash, and softwareId"
+    fk_constraint_error:
+      cause: "Missing dependent records (e.g., software_id for refresh_tokens)"
+      solution: "Seed all FK dependencies in correct order"
 
-  - pitfall: "VALIDATION_ERROR_FOR_ARRAYS"
-    cause: "Query string arrays passed as strings '[1,0]'"
-    solution: "Add @Transform decorator to parse string to array"
+    empty_access_token:
+      cause: "Wrong field name for token extraction or login failure"
+      solution: "Use snake_case: response.body.access_token"
 
-# =============================================================================
-# 7. CHECKLIST BEFORE GENERATING RED CODE
-# =============================================================================
-checklist:
-  pre_generation:
-    - "Read existing implementation files to get correct class names and paths"
-    - "Check controller for endpoint URL and which fields come from JWT"
-    - "Check existing seed data helpers for reusable patterns"
-    - "Identify all FK dependencies that need to be seeded"
+    not_found_404:
+      cause: "Wrong endpoint URL"
+      solution: "Read controller decorators to construct correct URL"
 
-  during_generation:
-    - "Use relative import paths"
-    - "Use high IDs (>= 100000) for test data"
-    - "Add @Transform for array query params"
-    - "Use correct token field name (snake_case)"
-    - "Seed data before login in beforeAll"
+    unauthorized_401:
+      cause: "Login failed or token not properly set"
+      solution: "Verify seed data, password hash, and softwareId"
 
-  post_generation:
-    - "Run tests to verify syntax is correct"
-    - "Fix any import/module resolution errors"
-    - "Fix any FK constraint errors by adding missing seed data"
-    - "Verify tests fail for the right reason (missing implementation, not setup errors)"
+    validation_error_for_arrays:
+      cause: "Query string arrays passed as strings '[1,0]'"
+      solution: "Add @Transform decorator to parse string to array"
+
+    jwt_field_not_in_request:
+      cause: "Passing tenantId as query param when it's decoded from JWT"
+      solution: "Check controller for @CurrentUser() usage, remove JWT-decoded fields from request"
