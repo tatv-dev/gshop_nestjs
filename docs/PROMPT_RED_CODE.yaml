@@ -1,0 +1,240 @@
+# PROMPT_RED_CODE.yaml
+# Rules and patterns for generating complete RED CODE test suites
+# Based on lessons learned from GetListProductCategory implementation
+
+version: "1.0"
+description: |
+  This document defines rules for generating RED CODE tests following TDD principles
+  in a NestJS + TypeORM + MariaDB + DDD/Hexagonal Architecture codebase.
+
+# =============================================================================
+# 1. IMPORT & MODULE RESOLUTION RULES
+# =============================================================================
+import_rules:
+  - rule: "USE_RELATIVE_PATHS"
+    description: "Always use relative paths (../../) instead of alias paths (@/)"
+    bad_example: "import { MyService } from '@/components/my-module/service'"
+    good_example: "import { MyService } from '../../../../components/my-module/service'"
+
+  - rule: "MATCH_EXISTING_IMPLEMENTATION"
+    description: "Before writing tests, read existing implementation files to get correct class names and paths"
+    note: "Class names may differ from feature name (e.g., ProductCategoryQueryRepository not GetListProductCategoryQueryRepository)"
+
+  - rule: "SUPERTEST_IMPORT"
+    description: "Use default import for supertest"
+    bad_example: "import * as request from 'supertest'"
+    good_example: "import request from 'supertest'"
+
+# =============================================================================
+# 2. SEED DATA RULES
+# =============================================================================
+seed_data_rules:
+  - rule: "HIGH_ID_RANGE"
+    description: "Use IDs >= 100000 for test data to avoid conflicts with existing production/dev data"
+    example: |
+      export const TEST_TENANT_ID = 100011;
+      export const TEST_USER_ID = 100001;
+      export const TEST_WORKSPACE_ID = 100001;
+
+  - rule: "FK_DEPENDENCY_ORDER"
+    description: "Seed data in topological order respecting foreign key constraints"
+    order:
+      - softwares (required for refresh_tokens)
+      - tenants
+      - users
+      - workspaces (references users, tenants)
+      - resellers (references tenants)
+      - employees (references workspaces, resellers)
+      - branches (references tenants, employees)
+      - product_categories (references tenants, employees)
+
+  - rule: "DISABLE_FK_CHECKS_FOR_CLEANUP"
+    description: "Disable FK checks when deleting test data"
+    example: |
+      await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
+      await queryRunner.query('DELETE FROM table WHERE id >= 100000');
+      await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
+
+  - rule: "INSERT_IGNORE_FOR_SHARED_DATA"
+    description: "Use INSERT IGNORE for data that may already exist (like softwares with id=1)"
+    example: |
+      await queryRunner.query(`
+        INSERT IGNORE INTO softwares (id, name, created_at, updated_at)
+        VALUES (1, 'Test Software', NOW(), NOW())
+      `);
+
+  - rule: "BCRYPT_PASSWORD_HASH"
+    description: "Generate correct bcrypt hash for test passwords"
+    note: "Generate hash using: node -e \"require('bcrypt').hash('password', 10).then(h => console.log(h))\""
+    example: |
+      // Hash for 'Test@123456'
+      const passwordHash = '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y';
+
+# =============================================================================
+# 3. E2E TEST RULES
+# =============================================================================
+e2e_test_rules:
+  - rule: "LOGIN_FOR_AUTH_TOKEN"
+    description: "E2E tests must login to get real access token instead of using mock tokens"
+    example: |
+      const loginResponse = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({
+          username: TEST_USER_CREDENTIALS.username,
+          password: TEST_USER_CREDENTIALS.password,
+          softwareId: TEST_USER_CREDENTIALS.softwareId,
+        });
+      accessToken = loginResponse.body?.access_token || '';
+
+  - rule: "TOKEN_FIELD_NAME"
+    description: "Auth response uses snake_case field names (access_token, refresh_token)"
+    bad_example: "loginResponse.body.accessToken"
+    good_example: "loginResponse.body.access_token"
+
+  - rule: "CORRECT_ENDPOINT_URL"
+    description: "Read controller to find correct endpoint URL"
+    note: "Check @Controller('prefix') and @Get('path') decorators"
+    example: |
+      // Controller: @Controller('api/v1/product-catalog')
+      // Method: @Get('product-categories')
+      // Full URL: /api/v1/product-catalog/product-categories
+
+  - rule: "JWT_DECODED_FIELDS"
+    description: "Fields like tenantId are decoded from JWT token, not passed as request params"
+    note: "Check controller implementation to see which fields come from @CurrentUser() decorator"
+
+# =============================================================================
+# 4. REQUEST DTO RULES
+# =============================================================================
+request_dto_rules:
+  - rule: "TRANSFORM_QUERY_STRING_ARRAYS"
+    description: "Query string arrays like '[1,0]' need @Transform decorator to parse into actual arrays"
+    example: |
+      import { Transform } from 'class-transformer';
+
+      const transformToIntArray = ({ value }) => {
+        if (Array.isArray(value)) return value.map(Number);
+        if (typeof value === 'string') {
+          const cleaned = value.replace(/^\[|\]$/g, '');
+          if (!cleaned) return [];
+          return cleaned.split(',').map((v) => parseInt(v.trim(), 10));
+        }
+        return value;
+      };
+
+      @Transform(transformToIntArray)
+      @IsArray()
+      @IsInt({ each: true })
+      activeStatuses?: number[];
+
+  - rule: "VALIDATE_IF_UNDEFINED"
+    description: "Use @ValidateIf for optional fields to skip validation when undefined"
+    example: |
+      @ValidateIf((o) => o.fieldName !== undefined)
+      @IsNotIn([null])
+      @IsString()
+      fieldName?: string;
+
+# =============================================================================
+# 5. TEST FILE STRUCTURE RULES
+# =============================================================================
+test_structure_rules:
+  - rule: "TEST_FILE_LOCATION"
+    description: "Place tests in src/test/component/{module}/{feature}/"
+    structure: |
+      src/test/
+      ├── helpers/
+      │   └── seed-data.helper.ts
+      └── component/
+          └── {module}/
+              └── {feature}/
+                  ├── {feature}.request.ut.spec.ts      # Unit tests for Request DTO validation
+                  ├── {feature}.repository.it.spec.ts   # Integration tests for Repository
+                  ├── {feature}.handler.ut.spec.ts      # Unit tests for Handler (mocked deps)
+                  ├── {feature}.handler.it.spec.ts      # Integration tests for Handler
+                  └── {feature}.e2e.spec.ts             # E2E tests for full API flow
+
+  - rule: "TEST_ISOLATION"
+    description: "Use transactions with rollback for test isolation"
+    example: |
+      beforeEach(async () => {
+        queryRunner = dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+        await seedTestData(queryRunner);
+      });
+
+      afterEach(async () => {
+        await queryRunner.rollbackTransaction();
+        await queryRunner.release();
+      });
+
+  - rule: "SEED_BEFORE_LOGIN"
+    description: "In beforeAll, seed data first then login to get token"
+    example: |
+      beforeAll(async () => {
+        // Setup app...
+
+        // Seed data first (committed, not in transaction)
+        const seedRunner = dataSource.createQueryRunner();
+        await seedRunner.connect();
+        await seedTestData(seedRunner);
+        await seedRunner.release();
+
+        // Then login to get token
+        const loginResponse = await request(app.getHttpServer())
+          .post('/api/v1/auth/login')
+          .send({ username, password, softwareId });
+        accessToken = loginResponse.body?.access_token || '';
+      });
+
+# =============================================================================
+# 6. COMMON PITFALLS TO AVOID
+# =============================================================================
+pitfalls:
+  - pitfall: "DUPLICATE_PRIMARY_KEY"
+    cause: "Using low IDs (1, 2, 3) that conflict with existing data"
+    solution: "Use IDs >= 100000 for all test data"
+
+  - pitfall: "FK_CONSTRAINT_ERROR"
+    cause: "Missing dependent records (e.g., software_id for refresh_tokens)"
+    solution: "Seed all FK dependencies in correct order"
+
+  - pitfall: "EMPTY_ACCESS_TOKEN"
+    cause: "Wrong field name for token extraction or login failure"
+    solution: "Check response structure, use snake_case (access_token)"
+
+  - pitfall: "404_NOT_FOUND"
+    cause: "Wrong endpoint URL"
+    solution: "Read controller decorators to construct correct URL"
+
+  - pitfall: "401_UNAUTHORIZED"
+    cause: "Login failed or token not properly set"
+    solution: "Verify seed data, password hash, and softwareId"
+
+  - pitfall: "VALIDATION_ERROR_FOR_ARRAYS"
+    cause: "Query string arrays passed as strings '[1,0]'"
+    solution: "Add @Transform decorator to parse string to array"
+
+# =============================================================================
+# 7. CHECKLIST BEFORE GENERATING RED CODE
+# =============================================================================
+checklist:
+  pre_generation:
+    - "Read existing implementation files to get correct class names and paths"
+    - "Check controller for endpoint URL and which fields come from JWT"
+    - "Check existing seed data helpers for reusable patterns"
+    - "Identify all FK dependencies that need to be seeded"
+
+  during_generation:
+    - "Use relative import paths"
+    - "Use high IDs (>= 100000) for test data"
+    - "Add @Transform for array query params"
+    - "Use correct token field name (snake_case)"
+    - "Seed data before login in beforeAll"
+
+  post_generation:
+    - "Run tests to verify syntax is correct"
+    - "Fix any import/module resolution errors"
+    - "Fix any FK constraint errors by adding missing seed data"
+    - "Verify tests fail for the right reason (missing implementation, not setup errors)"
