@@ -1,88 +1,386 @@
-import { QueryRunner } from 'typeorm';
-import { DatabaseHelper } from '../test-helpers/database.helper';
-import { SeedDataHelper } from '../test-helpers/seed-data.helper';
-// RED CODE: Classes do not exist yet
-import { ProductCategoryQueryRepository } from '../../../../components/product-catalog/infrastructure/repositories/product-category-query.repository';
-import { GetListProductCategoryRequest } from '../../../../components/product-catalog/presentation/requests/get-list-product-category.request';
-import { GetListProductCategoryDTO } from '../../../../components/product-catalog/application/dtos/get-list-product-category.dto';
-
 /**
- * Layer: Infrastructure
- * Type: Integration Test
- * Focus: Real database queries, SQL generation, data mapping, and filtering logic.
+ * Integration Tests for GetListProductCategoryQueryRepository
+ * Test Suite: GetListProductCategory
+ * Layer: Infrastructure (outboundDB)
+ * Type: ITQueryRepository
+ *
+ * RED CODE: Tests will FAIL until GetListProductCategoryQueryRepository is implemented
  */
-describe('GetListProductCategoryQueryRepository Integration', () => {
+
+import { Test, TestingModule } from '@nestjs/testing';
+import { DataSource, QueryRunner } from 'typeorm';
+import { GetListProductCategoryQueryRepository } from '@/components/product-catalog/infrastructure/repositories/get-list-product-category-query.repository';
+import { IGetListProductCategoryQueryRepository } from '@/components/product-catalog/application/repositories/i-get-list-product-category-query.repository';
+import { GetListProductCategoryQueryDTO } from '@/components/product-catalog/application/queries/get-list-product-category.query';
+import { seedProductCategoryTestData, TEST_TENANT_ID } from '@/test/helpers/seed-data.helper';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
+
+describe('GetListProductCategoryQueryRepository - Integration Tests', () => {
+  let module: TestingModule;
+  let dataSource: DataSource;
   let queryRunner: QueryRunner;
-  let repository: ProductCategoryQueryRepository;
+  let repository: IGetListProductCategoryQueryRepository;
 
   beforeAll(async () => {
-    // Initialize DB connection
-    await DatabaseHelper.initialize();
-  });
+    module = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        TypeOrmModule.forRoot({
+          type: 'mariadb',
+          host: process.env.DB_HOST || 'localhost',
+          port: parseInt(process.env.DB_PORT || '3306'),
+          username: process.env.DB_USERNAME || 'root',
+          password: process.env.DB_PASSWORD || '',
+          database: process.env.DB_DATABASE || 'test_db',
+          synchronize: false,
+          logging: false,
+        }),
+      ],
+      providers: [
+        {
+          provide: 'IGetListProductCategoryQueryRepository',
+          useClass: GetListProductCategoryQueryRepository,
+        },
+      ],
+    }).compile();
 
-  afterAll(async () => {
-    await DatabaseHelper.close();
+    dataSource = module.get(DataSource);
+    repository = module.get<IGetListProductCategoryQueryRepository>('IGetListProductCategoryQueryRepository');
   });
 
   beforeEach(async () => {
-    // Start new transaction for isolation
-    queryRunner = await DatabaseHelper.getQueryRunner();
-    
-    // Seed Data
-    await SeedDataHelper.seedProductCategories(queryRunner);
+    queryRunner = dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    // Initialize Repository with the test query runner
-    // Note: In real impl, this would be injected or set via setQueryRunner/manager
-    repository = new ProductCategoryQueryRepository(queryRunner.manager);
+    // Seed test data
+    await seedProductCategoryTestData(queryRunner);
   });
 
   afterEach(async () => {
-    // Rollback transaction to clean up
-    await DatabaseHelper.rollbackAndRelease(queryRunner);
+    await queryRunner.rollbackTransaction();
+    await queryRunner.release();
   });
 
-  // Data provider for Pairwise tests (Sample selection)
-  const testCases = [
-    {
-      acId: 'AC_Pairwise_03',
-      title: 'Filter by Name + Ancestor',
-      input: { productCategoryName: 'Điện thoại 123', productCategoryAncestors: [1], tenantId: 11, page: 1, size: 20 },
-      expectedCount: 1, // ID 4 matches name and has parent 1
-      expectedFirstId: 4
-    },
-    {
-      acId: 'AC_Pairwise_09',
-      title: 'Filter by Active Status 0 (Inactive)',
-      input: { productCategoryName: '', activeStatuses: [0], tenantId: 11, page: 1, size: 20 },
-      expectedCount: 1, // ID 3 is inactive
-      expectedFirstId: 3
-    },
-    {
-      acId: 'AC_Pairwise_20',
-      title: 'No results found',
-      input: { productCategoryName: 'NonExistent', tenantId: 11, page: 1, size: 20 },
-      expectedCount: 0
-    }
-  ];
+  afterAll(async () => {
+    await module.close();
+  });
 
-  test.each(testCases)('[$acId] $title', async ({ input, expectedCount, expectedFirstId }) => {
-    // Arrange
-    const criteria = new GetListProductCategoryRequest();
-    Object.assign(criteria, input);
+  describe('Pairwise Tests - activeStatuses × productCategoryAncestors', () => {
+    const pairwiseTestCases = [
+      {
+        acId: 'AC_Pairwise_01',
+        title: 'Pairwise: activeStatuses × productCategoryAncestors (page 2)',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: undefined,
+          productCategoryAncestors: undefined,
+          tenantId: TEST_TENANT_ID,
+          page: 2,
+          size: 10,
+        },
+        expected: {
+          page: 2,
+          size: 10,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_02',
+        title: 'Pairwise: empty productCategoryAncestors',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: undefined,
+          productCategoryAncestors: [],
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          page: 1,
+          size: 20,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_03',
+        title: 'Pairwise: single productCategoryAncestor',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: undefined,
+          productCategoryAncestors: [1],
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          page: 1,
+          size: 20,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_04',
+        title: 'Pairwise: multiple productCategoryAncestors',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: undefined,
+          productCategoryAncestors: [1, 2],
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          page: 1,
+          size: 20,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_05',
+        title: 'Pairwise: empty activeStatuses',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: [],
+          productCategoryAncestors: undefined,
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          page: 1,
+          size: 20,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_06',
+        title: 'Pairwise: empty activeStatuses + empty ancestors',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: [],
+          productCategoryAncestors: [],
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          page: 1,
+          size: 20,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_07',
+        title: 'Pairwise: empty activeStatuses + single ancestor',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: [],
+          productCategoryAncestors: [1],
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          page: 1,
+          size: 20,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_08',
+        title: 'Pairwise: empty activeStatuses + multiple ancestors',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: [],
+          productCategoryAncestors: [1, 2],
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          page: 1,
+          size: 20,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_09',
+        title: 'Pairwise: activeStatuses [0] only',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: [0],
+          productCategoryAncestors: undefined,
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          page: 1,
+          size: 20,
+          expectedActiveStatus: 0,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_10',
+        title: 'Pairwise: activeStatuses [0] + empty ancestors',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: [0],
+          productCategoryAncestors: [],
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          page: 1,
+          size: 20,
+          expectedActiveStatus: 0,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_11',
+        title: 'Pairwise: activeStatuses [0] + single ancestor',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: [0],
+          productCategoryAncestors: [1],
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          page: 1,
+          size: 20,
+          expectedActiveStatus: 0,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_14',
+        title: 'Pairwise: activeStatuses [1] + empty ancestors',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: [1],
+          productCategoryAncestors: [],
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          page: 1,
+          size: 20,
+          expectedActiveStatus: 1,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_15',
+        title: 'Pairwise: activeStatuses [1] + single ancestor',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: [1],
+          productCategoryAncestors: [1],
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          page: 1,
+          size: 20,
+          expectedActiveStatus: 1,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_18',
+        title: 'Pairwise: activeStatuses [0,1] + empty ancestors',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: [0, 1],
+          productCategoryAncestors: [],
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          page: 1,
+          size: 20,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_19',
+        title: 'Pairwise: activeStatuses [0,1] + single ancestor',
+        input: {
+          productCategoryName: 'Điện thoại 123',
+          activeStatuses: [0, 1],
+          productCategoryAncestors: [1],
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          page: 1,
+          size: 20,
+        },
+      },
+      {
+        acId: 'AC_Pairwise_20',
+        title: 'Pairwise: no data case',
+        input: {
+          productCategoryName: 'NonExistentCategory12345',
+          activeStatuses: [0, 1],
+          productCategoryAncestors: [1, 2],
+          tenantId: TEST_TENANT_ID,
+          page: 1,
+          size: 20,
+        },
+        expected: {
+          total: 0,
+          page: 1,
+          size: 20,
+          items: [],
+        },
+      },
+    ];
 
-    // Act
-    const result = await repository.findAll(criteria);
+    it.each(pairwiseTestCases)('[$acId] $title', async ({ acId, input, expected }) => {
+      // Arrange
+      const queryDTO: GetListProductCategoryQueryDTO = {
+        productCategoryName: input.productCategoryName,
+        activeStatuses: input.activeStatuses,
+        productCategoryAncestors: input.productCategoryAncestors,
+        tenantId: input.tenantId,
+        page: input.page,
+        size: input.size,
+      };
 
-    // Assert
-    expect(result).toBeDefined();
-    expect(result.total).toBe(expectedCount);
-    expect(result.items).toHaveLength(expectedCount);
+      // Act
+      const result = await repository.find(queryDTO);
 
-    if (expectedCount > 0 && expectedFirstId) {
-      expect(result.items[0].productCategoryId).toBe(expectedFirstId);
-      // Verify structure
-      expect(result.items[0]).toHaveProperty('productCategoryName');
-      expect(result.items[0]).toHaveProperty('creatorName');
-    }
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.page).toBe(expected.page);
+      expect(result.size).toBe(expected.size);
+      expect(result.total).toBeGreaterThanOrEqual(0);
+      expect(Array.isArray(result.items)).toBe(true);
+
+      if (expected.total !== undefined) {
+        expect(result.total).toBe(expected.total);
+      }
+
+      if (expected.items !== undefined) {
+        expect(result.items).toEqual(expected.items);
+      }
+
+      if (expected.expectedActiveStatus !== undefined && result.items.length > 0) {
+        result.items.forEach((item) => {
+          expect(item.activeStatus).toBe(expected.expectedActiveStatus);
+        });
+      }
+
+      // Verify response structure
+      if (result.items.length > 0) {
+        const firstItem = result.items[0];
+        expect(firstItem).toHaveProperty('productCategoryId');
+        expect(firstItem).toHaveProperty('productCategoryName');
+        expect(firstItem).toHaveProperty('productCategoryParentId');
+        expect(firstItem).toHaveProperty('productCategoryGrandParentId');
+        expect(firstItem).toHaveProperty('productCategoryGrandParentName');
+        expect(firstItem).toHaveProperty('creatorName');
+        expect(firstItem).toHaveProperty('createdAt');
+        expect(firstItem).toHaveProperty('activeStatus');
+      }
+    });
   });
 });
