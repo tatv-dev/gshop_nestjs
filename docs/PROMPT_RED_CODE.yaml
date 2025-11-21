@@ -108,7 +108,7 @@ standard_knowledge:
     ddd_layers:
       presentation:
         responsibility: "Handle user interaction, validation, DTO mapping"
-        components: ["Controllers", "Request DTOs", "Validators"]
+        components: ["Controllers", "Request DTOs", "Validators", "Form Requests"]
 
       application:
         responsibility: "Use case orchestration, CQRS implementation"
