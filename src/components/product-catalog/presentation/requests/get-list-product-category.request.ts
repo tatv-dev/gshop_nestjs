@@ -15,7 +15,19 @@ import {
   IsNotIn,
   ValidateIf,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
+
+// Helper to transform query string arrays (e.g., "[1,0]" or "1,0" -> [1, 0])
+const transformToIntArray = ({ value }) => {
+  if (Array.isArray(value)) return value.map(Number);
+  if (typeof value === 'string') {
+    // Handle "[1,0]" format
+    const cleaned = value.replace(/^\[|\]$/g, '');
+    if (!cleaned) return [];
+    return cleaned.split(',').map((v) => parseInt(v.trim(), 10));
+  }
+  return value;
+};
 
 export class GetListProductCategoryRequest {
   @ApiProperty({
@@ -38,11 +50,11 @@ export class GetListProductCategoryRequest {
   })
   @ValidateIf((o) => o.activeStatuses !== undefined)
   @IsNotIn([null])
+  @Transform(transformToIntArray)
   @IsArray()
   @ArrayNotEmpty()
   @IsInt({ each: true })
   @IsIn([0, 1], { each: true })
-  @Type(() => Number)
   activeStatuses?: number[];
 
   @ApiProperty({
@@ -53,11 +65,11 @@ export class GetListProductCategoryRequest {
   })
   @ValidateIf((o) => o.productCategoryAncestors !== undefined)
   @IsNotIn([null])
+  @Transform(transformToIntArray)
   @IsArray()
   @ArrayNotEmpty()
   @IsInt({ each: true })
   @Min(1, { each: true })
-  @Type(() => Number)
   productCategoryAncestors?: number[];
 
   @ApiProperty({
