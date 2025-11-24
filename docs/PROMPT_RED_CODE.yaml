@@ -18,56 +18,34 @@ core_principles:
 
 process:
   step_1_analysis:
-    description: "Analyze each test case from test_plan and extract all required metadata"
+    description: "Analyze test case from test_plan"
     tasks: |
-      - "Read and understand standard_knowledge (validation, naming, structure)"
-      - "Read and understand implementation_knowledge (actual class names, repo names, folders, URL paths, JWT fields, etc.)"
-      - "Parse test_plan and identify for each test case:"
-        - "ac_id, title, layer, type"
-        - "testClass (EXACT class name required for test file)"
-        - "input list (may contain multiple input objects or positional arrays)"
-        - "expected structure (may contain nested arrays or per-index validations)"
-        - "key validation factors (wrong type, null, blank, duplicate elements, etc.)"
-      - "Determine the correct file path using file_structure rules"
-      - "Resolve correct import paths and class names based on implementation_knowledge"
-      - "Infer test grouping rules based on:
-          - contract tests → request validation
-          - application tests → query/command handlers
-          - infrastructure tests → repository"
-      - "Ensure mapping:
-          input[i] ↔ expected[i]
-        for multi-case validation tests."
+      - "Read and understand standard_knowledge"
+      - "Read and understand implementation_knowledge"
+      - "Read test_plan and identify:"
+        - "ac_id, title, key_factors for each test case"
+        - "layer (Presentation/Application/Domain/Infrastructure)"
+        - "type (Unit / Integration / E2E)"
+        - "input fields and expected outcome"
+        - "test_class name (EXACT class name for test file)"
+      - "Read implementation_knowledge to get correct class names, paths, endpoint URL and which fields come from JWT"
 
   step_2_generate_structure:
-    description: "Generate the test class boilerplate and folder structure"
-    tasks: |
-      - "Create the test file at the correct location based on:
-         layer + type + testClass + file_structure"
-      - "Use RELATIVE PATHS for every import (NO alias imports such as @/)"
-      - "Import required dependencies, including:"
-        - "supertest → import request from 'supertest'"
-        - "Nest application bootstrap utils (if E2E)"
-        - "DTO/Handler/Repository classes based on testClass"
-      - "Generate describe() block with descriptive name: `${testClass} - ${ac_id}`"
-      - "Create appropriate hooks:"
-        - "Unit test: beforeEach(), afterEach()"
-        - "Integration test: beforeAll(), afterAll() + database setup"
-        - "E2E test: bootstrap Nest app, load modules, mock JWT, etc."
-      - "Ensure test class name EXACTLY matches testClass from test_plan."
+    description: "Generate test class structure"
+    tasks:
+      - "Create test file in correct location per file_structure"
+      - "Import required dependencies using RELATIVE PATHS (not @/ aliases)"
+      - "Setup describe() block with descriptive name"
+      - "Create beforeAll(), beforeEach(), afterEach(), afterAll() hooks"
+      - "Use correct import syntax: import request from 'supertest' (default import)"
 
   step_3_generate_data_provider:
-    description: "Construct the test cases array for test.each()"
-    rules: |
-      - "Combine all input variations into a single array per AC_ID"
-      - "Happy path ALWAYS appears first (if exists for this AC_ID)"
-      - "Each generated test case must contain:
-         { acId, title, input, expected }"
-      - "If input is positional array (e.g. AC_UT_05), map positions to field names"
-      - "For multi-error expected results, preserve array[index] binding"
-      - "If expected has nested lists (e.g. E2E cases), keep full JSON structure"
-      - "Standard structure:"
-        - "{ acId: 'AC-XX', title: '...', input: {...}, expected: {...} }"
-      - "Preserve messageKey, errors, and all nested objects EXACTLY as test_plan defines."
+    description: "Generate test cases array for test.each()"
+    rules:
+      - "Group multiple test cases into one array"
+      - "Happy path ALWAYS first"
+      - "Each case has: acId, title, input, expected"
+      - "Standard structure: { acId: 'AC-XX', title: '...', input: {...}, expected: {...} }"
 
   step_4_generate_seed_data:
     description: "Generate seed data functions for Integration Tests"
