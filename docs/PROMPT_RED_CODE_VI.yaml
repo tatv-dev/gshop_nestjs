@@ -36,7 +36,11 @@ process:
       - "BẮTBUỘC: Tạo file test đúng cấu trúc tên file và vị trí theo implementation_knowledge.file_structure"
       - "BẮTBUỘC: Đặt tên file test theo quy tắc implementation_knowledge.file_naming_rules"
       - "BẮTBUỘC: Đặt vị trí file test theo đúng implementation_knowledge.test_code paths"
-      - "Import các dependencies theo quy tắc implementation_knowledge.import_rules"
+      - "BẮTBUỘC: Tính toán import paths dựa trên implementation_knowledge.file_structure và implementation_knowledge.file_naming_rules:"
+      - "  - Xác định vị trí file cần import từ implementation_knowledge.file_structure (ví dụ: presentation.controller)"
+      - "  - Xác định tên file cần import từ implementation_knowledge.file_naming_rules (ví dụ: [domain].controller.ts)"
+      - "  - Tính toán relative path từ vị trí test file đến vị trí file cần import"
+      - "  - Tuân thủ implementation_knowledge.import_rules cho format import statement"
       - "Thiết lập test suite với tên mô tả rõ ràng theo implementation_knowledge.test_framework"
       - "Tạo các test lifecycle hooks phù hợp với test type theo implementation_knowledge.test_patterns"
 

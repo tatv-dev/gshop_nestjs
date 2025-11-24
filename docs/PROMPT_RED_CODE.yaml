@@ -36,7 +36,11 @@ process:
       - "MANDATORY: Create test file with correct file name and location according to implementation_knowledge.file_structure"
       - "MANDATORY: Name test file according to implementation_knowledge.file_naming_rules"
       - "MANDATORY: Place test file in correct implementation_knowledge.test_code paths"
-      - "Import required dependencies according to implementation_knowledge.import_rules"
+      - "MANDATORY: Calculate import paths based on implementation_knowledge.file_structure and implementation_knowledge.file_naming_rules:"
+      - "  - Identify location of file to import from implementation_knowledge.file_structure (e.g., presentation.controller)"
+      - "  - Identify file name to import from implementation_knowledge.file_naming_rules (e.g., [domain].controller.ts)"
+      - "  - Calculate relative path from test file location to target file location"
+      - "  - Follow implementation_knowledge.import_rules for import statement format"
       - "Setup test suite with descriptive name according to implementation_knowledge.test_framework"
       - "Create test lifecycle hooks appropriate for test type according to implementation_knowledge.test_patterns"
 
