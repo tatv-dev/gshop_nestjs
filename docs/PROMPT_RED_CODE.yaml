@@ -36,14 +36,14 @@ process:
       - "MANDATORY: Create test file with correct file name and location according to implementation_knowledge.file_structure"
       - "MANDATORY: Name test file according to implementation_knowledge.file_naming_rules"
       - "MANDATORY: Place test file in correct implementation_knowledge.test_code paths"
-      - "Import required dependencies using RELATIVE PATHS (not @/ aliases)"
-      - "Setup describe() block with descriptive name"
-      - "Create beforeAll(), beforeEach(), afterEach(), afterAll() hooks appropriate for test type"
+      - "Import required dependencies according to implementation_knowledge.import_rules"
+      - "Setup test suite with descriptive name according to implementation_knowledge.test_framework"
+      - "Create test lifecycle hooks appropriate for test type according to implementation_knowledge.test_patterns"
 
   step_3_generate_data_provider:
-    description: "Generate test cases array for test.each()"
+    description: "Generate data-driven test cases"
     rules:
-      - "Group multiple test cases into one array"
+      - "Group multiple test cases into one array according to implementation_knowledge.test_patterns.data_driven_syntax"
       - "Happy path ALWAYS first"
       - "Each case has: acId, title, input, expected"
       - "Standard structure: { acId: 'AC-XX', title: '...', input: {...}, expected: {...} }"
@@ -61,11 +61,11 @@ process:
       - "MANDATORY: Seed role_permissions to assign permissions to roles"
       - "MANDATORY: Seed role_workspaces to assign roles to workspaces"
       - "Generate seed functions respecting FK constraints"
-      - "Use queryRunner.query() for raw SQL inserts"
-      - "Implement cleanup strategy (transaction rollback preferred)"
+      - "Use seeding method according to implementation_knowledge.seeding_method"
+      - "Implement cleanup strategy according to standard_knowledge.seed_data_strategy.cleanup_strategy"
       - "Use IDs >= 100000 for all test data to avoid conflicts"
-      - "Use INSERT IGNORE for shared data like softwares table"
-      - "Generate correct bcrypt hash for test user passwords"
+      - "Use upsert method for shared data according to implementation_knowledge.seeding_method"
+      - "Generate password hash according to implementation_knowledge.encryption for test users"
 
   step_5_generate_test_method:
     description: "Generate test methods"
@@ -80,7 +80,7 @@ process:
     description: "Ensure RED CODE compliance"
     checklist:
       - "Syntax completely valid (syntactically correct)"
-      - "All imports present using RELATIVE PATHS (no @/ aliases)"
+      - "All imports present according to implementation_knowledge.import_rules"
       - "Test methods properly structured with Arrange-Act-Assert pattern"
       - "Test MUST FAIL due to missing implementation (not syntax errors)"
       - "NO placeholder code or mock implementations"
@@ -90,24 +90,24 @@ process:
   step_7_e2e_auth_setup:
     description: "Setup Authentication and Authorization for E2E tests"
     rules:
-      - "MANDATORY: Seed User, Permissions, Roles data BEFORE login in beforeAll()"
+      - "MANDATORY: Seed User, Permissions, Roles data BEFORE login in test setup phase"
       - "MANDATORY: Seed at least 2 types of user accounts to test authorization:"
       - "  1. User with full permissions (Admin role) - for happy path testing"
       - "  2. User WITHOUT required permission (Staff role or no role) - for 403 Forbidden testing"
-      - "Login via POST implementation_knowledge.config.auth_endpoint with username, password, softwareId"
-      - "Extract token using snake_case field: response.body.access_token"
+      - "Login via authentication endpoint according to implementation_knowledge.config.auth_endpoint"
+      - "Extract access token according to implementation_knowledge.auth response format"
       - "Test cases must include:"
       - "  - Happy path: User with permission → expect 200/201"
       - "  - Authorization failure: User without permission → expect 403 Forbidden"
-      - "Fields like tenantId are decoded from JWT, NOT passed as query params"
-      - "Read controller to find which fields come from @CurrentUser() and @RequirePermissions() decorators"
+      - "Context fields from authentication token should NOT be passed as request parameters"
+      - "Read controller to find which fields come from authentication context and permission requirements"
 
   step_8_request_dto_transform:
-    description: "Handle query string array transformation"
+    description: "Handle request parameter data transformation"
     rules:
-      - "Query params like activeStatuses=[1,0] come as strings"
-      - "Add @Transform decorator to parse string arrays to int arrays"
-      - "Transform function must handle: Array, '[1,0]' string, '1,0' string formats"
+      - "Query parameters may come as strings that need transformation"
+      - "Use transformation methods according to implementation_knowledge.validation and implementation_knowledge.transformer"
+      - "Transform function must handle different input data formats"
 
 standard_knowledge:
   architecture_principles:

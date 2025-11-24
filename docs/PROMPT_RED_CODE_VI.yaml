@@ -36,14 +36,14 @@ process:
       - "BẮTBUỘC: Tạo file test đúng cấu trúc tên file và vị trí theo implementation_knowledge.file_structure"
       - "BẮTBUỘC: Đặt tên file test theo quy tắc implementation_knowledge.file_naming_rules"
       - "BẮTBUỘC: Đặt vị trí file test theo đúng implementation_knowledge.test_code paths"
-      - "Import các dependencies cần thiết dùng RELATIVE PATHS (không dùng alias @/)"
-      - "Thiết lập khối describe() với tên mô tả rõ ràng"
-      - "Tạo các hooks beforeAll(), beforeEach(), afterEach(), afterAll() phù hợp với test type"
+      - "Import các dependencies theo quy tắc implementation_knowledge.import_rules"
+      - "Thiết lập test suite với tên mô tả rõ ràng theo implementation_knowledge.test_framework"
+      - "Tạo các test lifecycle hooks phù hợp với test type theo implementation_knowledge.test_patterns"
 
   step_3_generate_data_provider:
-    description: "Tạo mảng test cases cho test.each()"
+    description: "Tạo data-driven test cases"
     rules:
-      - "Gom nhóm nhiều test cases vào một mảng"
+      - "Gom nhóm nhiều test cases vào một mảng theo implementation_knowledge.test_patterns.data_driven_syntax"
       - "Happy path LUÔN LUÔN đứng đầu"
       - "Mỗi case bao gồm: acId, title, input, expected"
       - "Cấu trúc chuẩn: { acId: 'AC-XX', title: '...', input: {...}, expected: {...} }"
@@ -61,11 +61,11 @@ process:
       - "BẮTBUỘC: Seed role_permissions để gán permissions cho roles"
       - "BẮTBUỘC: Seed role_workspaces để gán roles cho workspaces"
       - "Tạo các hàm seed tuân thủ ràng buộc FK"
-      - "Sử dụng queryRunner.query() cho các lệnh insert SQL thô"
-      - "Triển khai chiến lược cleanup (ưu tiên rollback transaction)"
+      - "Sử dụng phương pháp seeding theo implementation_knowledge.seeding_method"
+      - "Triển khai chiến lược cleanup theo standard_knowledge.seed_data_strategy.cleanup_strategy"
       - "Sử dụng IDs >= 100000 cho tất cả test data để tránh xung đột"
-      - "Sử dụng INSERT IGNORE cho dữ liệu dùng chung như bảng softwares"
-      - "Tạo hash bcrypt chính xác cho password của test user"
+      - "Sử dụng phương pháp upsert cho dữ liệu dùng chung theo implementation_knowledge.seeding_method"
+      - "Tạo password hash theo implementation_knowledge.encryption cho test user"
 
   step_5_generate_test_method:
     description: "Tạo các test method"
@@ -80,7 +80,7 @@ process:
     description: "Đảm bảo tuân thủ RED CODE"
     checklist:
       - "Cú pháp hoàn toàn hợp lệ (syntactically correct)"
-      - "Tất cả imports hiện diện và dùng RELATIVE PATHS (không dùng alias @/)"
+      - "Tất cả imports hiện diện và tuân thủ implementation_knowledge.import_rules"
       - "Test methods được cấu trúc đúng với Arrange-Act-Assert pattern"
       - "Test PHẢI FAIL do thiếu implementation (không phải do syntax error)"
       - "KHÔNG có placeholder code hoặc mock implementation"
@@ -90,24 +90,24 @@ process:
   step_7_e2e_auth_setup:
     description: "Thiết lập Authentication và Authorization cho E2E tests"
     rules:
-      - "BẮTBUỘC: Seed dữ liệu User, Permissions, Roles TRƯỚC KHI login trong beforeAll()"
+      - "BẮTBUỘC: Seed dữ liệu User, Permissions, Roles TRƯỚC KHI login trong test setup phase"
       - "BẮTBUỘC: Seed ít nhất 2 loại user accounts để test authorization:"
       - "  1. User có đầy đủ permissions (Admin role) - để test happy path"
       - "  2. User KHÔNG có permission cần thiết (Staff role hoặc no role) - để test 403 Forbidden"
-      - "Login thông qua POST implementation_knowledge.config.auth_endpoint với username, password, softwareId"
-      - "Trích xuất token sử dụng field snake_case: response.body.access_token"
+      - "Login thông qua authentication endpoint theo implementation_knowledge.config.auth_endpoint"
+      - "Trích xuất access token theo implementation_knowledge.auth response format"
       - "Test cases phải bao gồm:"
       - "  - Happy path: User có permission → expect 200/201"
       - "  - Authorization failure: User không có permission → expect 403 Forbidden"
-      - "Các field như tenantId được decode từ JWT, KHÔNG truyền qua query params"
-      - "Đọc Controller để tìm các field nào đến từ decorator @CurrentUser() và @RequirePermissions()"
+      - "Các field context từ authentication token không được truyền qua request parameters"
+      - "Đọc Controller để tìm các field nào đến từ authentication context và permission requirements"
 
   step_8_request_dto_transform:
-    description: "Xử lý transform mảng trong query string"
+    description: "Xử lý transform dữ liệu trong request parameters"
     rules:
-      - "Query params như activeStatuses=[1,0] đến dưới dạng string"
-      - "Thêm decorator @Transform để parse string arrays thành int arrays"
-      - "Hàm transform phải xử lý được các format: Array, string '[1,0]', string '1,0'"
+      - "Query parameters có thể đến dưới dạng string cần transform"
+      - "Sử dụng phương pháp transformation theo implementation_knowledge.validation và implementation_knowledge.transformer"
+      - "Hàm transform phải xử lý được các format khác nhau của input data"
 
 standard_knowledge:
   architecture_principles:
