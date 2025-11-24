@@ -36,11 +36,14 @@ process:
       - "MANDATORY: Create test file with correct file name and location according to implementation_knowledge.file_structure"
       - "MANDATORY: Name test file according to implementation_knowledge.file_naming_rules"
       - "MANDATORY: Place test file in correct implementation_knowledge.test_code paths"
+      - "MANDATORY: All file names and import paths MUST be lowercase with hyphens (kebab-case) according to implementation_knowledge.file_naming_rules"
+      - "MANDATORY: NO uppercase letters allowed in file names or import paths (e.g., use 'product-catalog.controller.ts' NOT 'ProductCatalog.controller.ts')"
       - "MANDATORY: Calculate import paths based on implementation_knowledge.file_structure and implementation_knowledge.file_naming_rules:"
       - "  - Identify location of file to import from implementation_knowledge.file_structure (e.g., presentation.controller)"
       - "  - Identify file name to import from implementation_knowledge.file_naming_rules (e.g., [domain].controller.ts)"
       - "  - Calculate relative path from test file location to target file location"
       - "  - Follow implementation_knowledge.import_rules for import statement format"
+      - "  - Ensure all path segments use lowercase with hyphens (kebab-case)"
       - "Setup test suite with descriptive name according to implementation_knowledge.test_framework"
       - "Create test lifecycle hooks appropriate for test type according to implementation_knowledge.test_patterns"
 
@@ -50,7 +53,7 @@ process:
       - "Group multiple test cases into one array according to implementation_knowledge.test_patterns.data_driven_syntax"
       - "Happy path ALWAYS first"
       - "Each case has: acId, title, input, expected"
-      - "Standard structure: { acId: 'AC-XX', title: '...', input: {...}, expected: {...} }"
+      - "Follow test case object structure defined in implementation_knowledge.test_data_structure"
 
   step_4_generate_seed_data:
     description: "Generate seed data functions for Integration Tests and E2E Tests"
@@ -95,9 +98,9 @@ process:
     description: "Setup Authentication and Authorization for E2E tests"
     rules:
       - "MANDATORY: Seed User, Permissions, Roles data BEFORE login in test setup phase"
-      - "MANDATORY: Seed at least 2 types of user accounts to test authorization:"
-      - "  1. User with full permissions (Admin role) - for happy path testing"
-      - "  2. User WITHOUT required permission (Staff role or no role) - for 403 Forbidden testing"
+      - "MANDATORY: Seed at least 2 types of user accounts to test authorization according to implementation_knowledge.test_roles:"
+      - "  1. User with full permissions (for happy path testing)"
+      - "  2. User WITHOUT required permission (for 403 Forbidden testing)"
       - "Login via authentication endpoint according to implementation_knowledge.config.auth_endpoint"
       - "Extract access token according to implementation_knowledge.auth response format"
       - "Test cases must include:"
@@ -310,7 +313,7 @@ standard_knowledge:
       - "All imports present using RELATIVE PATHS"
       - "Type annotations (if applicable)"
       - "Test framework structure valid"
-      - "Use default import for supertest: import request from 'supertest'"
+      - "Follow import syntax according to implementation_knowledge.import_rules"
 
     structure:
       - "Correct test file location per architecture"
@@ -378,6 +381,43 @@ implementation_knowledge:
       - "role_permissions (FK: role_id, permission_id)"
       - "role_workspaces (FK: workspace_id, role_id)"
       - "domain_tables (references tenants, employees, etc.)"
+
+  test_data_structure:
+    description: "Structure of test case objects in data-driven testing"
+    format: |
+      {
+        acId: 'AC-XX',
+        title: 'Test case description',
+        input: { /* test input data */ },
+        expected: { /* expected output/result */ }
+      }
+    example: |
+      {
+        acId: 'AC-01',
+        title: 'Should validate valid product name',
+        input: { name: 'Valid Product', price: 100 },
+        expected: { valid: true }
+      }
+
+  test_roles:
+    description: "Standard test roles for authorization testing"
+    roles:
+      admin:
+        name: "Admin"
+        description: "User with full permissions (all CRUD operations)"
+        usage: "Happy path testing where permission is required"
+      manager:
+        name: "Manager"
+        description: "User with limited permissions (no delete)"
+        usage: "Testing specific permission sets"
+      staff:
+        name: "Staff"
+        description: "User with read-only permissions (GET, GET_LIST only)"
+        usage: "Testing 403 Forbidden scenarios"
+      no_role:
+        name: "No role assigned"
+        description: "User without any role assignment"
+        usage: "Testing 403 Forbidden scenarios for users without permissions"
 
   tech_stack:
     language:
