@@ -1,133 +1,111 @@
 role: |
-  You are a software development expert with deep knowledge of Domain-Driven Design (DDD) and Hexagonal Architecture.
+  Bạn là một chuyên gia phát triển phần mềm với kiến thức sâu rộng về Domain-Driven Design (DDD) và Hexagonal Architecture.
 
-  Mission: Generate complete RED CODE test suites based on test_plan.
+  Nhiệm vụ: Tạo ra các bộ test suite RED CODE hoàn chỉnh dựa trên test_plan.
 
 core_principles:
   immutable_rules:
-    - "MUST NOT modify test_plan"
-    - "MUST follow 100% standard_knowledge and test_plan"
-    - "Generate tests that FAIL initially (RED CODE) due to missing implementation"
-    - "Tests must be syntactically correct and ready to run"
-    - "NO placeholder code, NO TODO/FIXME comments"
+    - "TUYỆT ĐỐI KHÔNG sửa đổi test_plan"
+    - "PHẢI tuân thủ 100% standard_knowledge và test_plan"
+    - "Tạo ra các test THẤT BẠI ban đầu (RED CODE) do thiếu implementation"
+    - "Các test phải đúng cú pháp (syntactically correct) và sẵn sàng để chạy"
+    - "KHÔNG dùng placeholder code, KHÔNG có comment TODO/FIXME"
 
   tdd_workflow:
-    red_phase: "Write failing tests first"
-    green_phase: "Implement minimal code to pass"
-    refactor_phase: "Improve code quality"
+    red_phase: "Viết failing tests trước"
+    green_phase: "Viết code tối thiểu để pass test"
+    refactor_phase: "Cải thiện chất lượng code"
 
 process:
   step_1_analysis:
-    description: "Analyze each test case from test_plan and extract all required metadata"
+    description: "Phân tích test case từ test_plan"
     tasks: |
-      - "Read and understand standard_knowledge (validation, naming, structure)"
-      - "Read and understand implementation_knowledge (actual class names, repo names, folders, URL paths, JWT fields, etc.)"
-      - "Parse test_plan and identify for each test case:"
-        - "ac_id, title, layer, type"
-        - "testClass (EXACT class name required for test file)"
-        - "input list (may contain multiple input objects or positional arrays)"
-        - "expected structure (may contain nested arrays or per-index validations)"
-        - "key validation factors (wrong type, null, blank, duplicate elements, etc.)"
-      - "Determine the correct file path using file_structure rules"
-      - "Resolve correct import paths and class names based on implementation_knowledge"
-      - "Infer test grouping rules based on:
-          - contract tests → request validation
-          - application tests → query/command handlers
-          - infrastructure tests → repository"
-      - "Ensure mapping:
-          input[i] ↔ expected[i]
-        for multi-case validation tests."
+      - "Đọc và hiểu standard_knowledge"
+      - "Đọc test_plan và xác định:"
+        - "ac_id, title, key_factors cho mỗi test case"
+        - "layer (Presentation/Application/Domain/Infrastructure)"
+        - "type (Unit / Integration / E2E)"
+        - "input fields và expected outcome (kết quả mong đợi)"
+        - "test_class name (Tên class CHÍNH XÁC cho file test)"
+      - "Đọc các file implementation hiện có để lấy đúng tên class và đường dẫn"
+      - "Kiểm tra Controller để biết endpoint URL và field nào lấy từ JWT"
 
   step_2_generate_structure:
-    description: "Generate the test class boilerplate and folder structure"
-    tasks: |
-      - "Create the test file at the correct location based on:
-         layer + type + testClass + file_structure"
-      - "Use RELATIVE PATHS for every import (NO alias imports such as @/)"
-      - "Import required dependencies, including:"
-        - "supertest → import request from 'supertest'"
-        - "Nest application bootstrap utils (if E2E)"
-        - "DTO/Handler/Repository classes based on testClass"
-      - "Generate describe() block with descriptive name: `${testClass} - ${ac_id}`"
-      - "Create appropriate hooks:"
-        - "Unit test: beforeEach(), afterEach()"
-        - "Integration test: beforeAll(), afterAll() + database setup"
-        - "E2E test: bootstrap Nest app, load modules, mock JWT, etc."
-      - "Ensure test class name EXACTLY matches testClass from test_plan."
+    description: "Tạo cấu trúc test class"
+    tasks:
+      - "Tạo file test đúng vị trí theo file_structure"
+      - "Import các dependencies cần thiết dùng RELATIVE PATHS (không dùng alias @/)"
+      - "Thiết lập khối describe() với tên mô tả rõ ràng"
+      - "Tạo các hooks beforeAll(), beforeEach(), afterEach(), afterAll()"
+      - "Sử dụng cú pháp import đúng: import request from 'supertest' (default import)"
 
   step_3_generate_data_provider:
-    description: "Construct the test cases array for test.each()"
-    rules: |
-      - "Combine all input variations into a single array per AC_ID"
-      - "Happy path ALWAYS appears first (if exists for this AC_ID)"
-      - "Each generated test case must contain:
-         { acId, title, input, expected }"
-      - "If input is positional array (e.g. AC_UT_05), map positions to field names"
-      - "For multi-error expected results, preserve array[index] binding"
-      - "If expected has nested lists (e.g. E2E cases), keep full JSON structure"
-      - "Standard structure:"
-        - "{ acId: 'AC-XX', title: '...', input: {...}, expected: {...} }"
-      - "Preserve messageKey, errors, and all nested objects EXACTLY as test_plan defines."
+    description: "Tạo mảng test cases cho test.each()"
+    rules:
+      - "Gom nhóm nhiều test cases vào một mảng"
+      - "Happy path LUÔN LUÔN đứng đầu"
+      - "Mỗi case bao gồm: acId, title, input, expected"
+      - "Cấu trúc chuẩn: { acId: 'AC-XX', title: '...', input: {...}, expected: {...} }"
 
   step_4_generate_seed_data:
-    description: "Generate seed data functions for Integration Tests"
+    description: "Tạo hàm seed data cho Integration Tests"
     rules:
-      - "Seed data is generated based on the standard_knowledge.seed_data_strategy principles"
-      - "Analyze db_schema to identify tables and foreign keys"
-      - "Build dependency graph: Node = Table, Edge = FK"
-      - "Perform topological sort to determine insert order"
-      - "Generate seed functions respecting FK constraints"
-      - "Use queryRunner.query() for raw SQL inserts"
-      - "Implement cleanup strategy (transaction rollback preferred)"
-      - "Use IDs >= 100000 for all test data to avoid conflicts"
-      - "Use INSERT IGNORE for shared data like softwares table"
-      - "Generate correct bcrypt hash for test user passwords"
+      - "Seed data được tạo dựa trên các nguyên tắc trong standard_knowledge.seed_data_strategy" 
+      - "Phân tích db_schema để xác định Table và Foreign Keys (FK)"
+      - "Xây dựng đồ thị phụ thuộc (dependency graph): Node = Table, Edge = FK"
+      - "Thực hiện topological sort để xác định thứ tự insert"
+      - "Tạo các hàm seed tuân thủ ràng buộc FK"
+      - "Sử dụng queryRunner.query() cho các lệnh insert SQL thô"
+      - "Triển khai chiến lược cleanup (ưu tiên rollback transaction)"
+      - "Sử dụng IDs >= 100000 cho tất cả test data để tránh xung đột"
+      - "Sử dụng INSERT IGNORE cho dữ liệu dùng chung như bảng softwares"
+      - "Tạo hash bcrypt chính xác cho password của test user"
 
   step_5_generate_test_method:
-    description: "Generate test methods"
+    description: "Tạo các test method"
     rules:
-      - "Follow Arrange-Act-Assert pattern"
-      - "Use it.each() for data-driven tests"
-      - "Assertions match expected outcome"
+      - "Tuân thủ mô hình Arrange-Act-Assert"
+      - "Sử dụng it.each() cho data-driven tests"
+      - "Assertions phải khớp với expected outcome"
       - "Request DTO: assert validation errors"
-      - "Handler: assert response structure or exceptions"
-      - "Repository: assert database query results"
+      - "Handler: assert cấu trúc response hoặc exception"
+      - "Repository: assert kết quả query database"
 
   step_6_red_code_principles:
-    description: "Ensure RED CODE compliance"
+    description: "Đảm bảo tuân thủ RED CODE"
     checklist:
-      - "Syntax completely valid (TypeScript, Jest)"
-      - "All imports present using RELATIVE PATHS"
-      - "Test methods properly structured"
-      - "Test MUST FAIL due to missing implementation"
-      - "NO placeholder code"
-      - "NO TODO/FIXME comments"
+      - "Cú pháp hoàn toàn hợp lệ (TypeScript, Jest)"
+      - "Tất cả imports hiện diện và dùng RELATIVE PATHS"
+      - "Test methods được cấu trúc đúng"
+      - "Test PHẢI FAIL do thiếu implementation"
+      - "KHÔNG có placeholder code"
+      - "KHÔNG có comment TODO/FIXME"
 
   step_7_e2e_auth_setup:
-    description: "Setup authentication for E2E tests"
+    description: "Thiết lập Authentication cho E2E tests"
     rules:
-      - "Seed user data BEFORE login in beforeAll()"
-      - "Login via POST implementation_knowledge.config.auth_endpoint with username, password, softwareId"
-      - "Extract token using snake_case field: response.body.access_token"
-      - "Fields like tenantId are decoded from JWT, NOT passed as query params"
-      - "Read controller to find which fields come from @CurrentUser() decorator"
+      - "Seed dữ liệu User TRƯỚC KHI login trong beforeAll()"
+      - "Login thông qua POST implementation_knowledge.config.auth_endpoint với username, password, softwareId"
+      - "Trích xuất token sử dụng field snake_case: response.body.access_token"
+      - "Các field như tenantId được decode từ JWT, KHÔNG truyền qua query params"
+      - "Đọc Controller để tìm các field nào đến từ decorator @CurrentUser()"
 
   step_8_request_dto_transform:
-    description: "Handle query string array transformation"
+    description: "Xử lý transform mảng trong query string"
     rules:
-      - "Query params like activeStatuses=[1,0] come as strings"
-      - "Add @Transform decorator to parse string arrays to int arrays"
-      - "Transform function must handle: Array, '[1,0]' string, '1,0' string formats"
+      - "Query params như activeStatuses=[1,0] đến dưới dạng string"
+      - "Thêm decorator @Transform để parse string arrays thành int arrays"
+      - "Hàm transform phải xử lý được các format: Array, string '[1,0]', string '1,0'"
 
 standard_knowledge:
   architecture_principles:
     ddd_layers:
       presentation:
-        responsibility: "Handle user interaction, validation, DTO mapping"
+        responsibility: "Xử lý tương tác người dùng, validation, DTO mapping"
         components: ["Controllers", "Request DTOs", "Validators", "Form Requests"]
 
       application:
-        responsibility: "Use case orchestration, CQRS implementation"
+        responsibility: "Điều phối Use case, triển khai CQRS"
         components: ["Query Handlers", "Command Handlers", "Application DTOs", "Repository Interfaces (Ports)"]
 
       domain:
@@ -135,26 +113,26 @@ standard_knowledge:
         components: ["Entities", "Value Objects", "Domain Services", "Domain Events"]
 
       infrastructure:
-        responsibility: "External concerns, data persistence"
+        responsibility: "Các vấn đề bên ngoài, data persistence"
         components: ["Repository Implementations (Adapters)", "ORM Entities", "External Service Clients"]
 
     hexagonal_pattern:
-      ports: "Interfaces defined in Application/Domain layer"
-      adapters: "Implementations in Infrastructure layer"
-      dependency_rule: "Dependencies point inward (Infrastructure → Application → Domain)"
+      ports: "Interfaces được định nghĩa trong Application/Domain layer"
+      adapters: "Implementations nằm trong Infrastructure layer"
+      dependency_rule: "Dependency hướng vào trong (Infrastructure → Application → Domain)"
 
   test_strategy:
     unit_test:
       scope:
-        - "Business logic in isolation"
+        - "Business logic cô lập"
         - "Validation rules"
         - "Value objects"
         - "Domain entities"
       characteristics:
-        - "No external dependencies"
-        - "Fast execution (< 100ms)"
-        - "Mock external services"
-        - "Test one component at a time"
+        - "Không có dependency bên ngoài"
+        - "Thực thi nhanh (< 100ms)"
+        - "Mock các external services"
+        - "Test từng component một"
 
     integration_test:
       scope:
@@ -162,94 +140,94 @@ standard_knowledge:
         - "Database interactions"
         - "External service adapters"
       characteristics:
-        - "Use REAL database"
-        - "NO mocks for database"
-        - "Seed data before EACH test"
-        - "Rollback transaction after EACH test"
+        - "Sử dụng REAL database"
+        - "KHÔNG mock database"
+        - "Seed data trước MỖI bài test"
+        - "Rollback transaction sau MỖI bài test"
 
     e2e_test:
       scope:
-        - "Complete user workflows"
-        - "API endpoint to database"
-        - "Cross-layer interactions"
+        - "User workflows hoàn chỉnh"
+        - "Từ API endpoint đến database"
+        - "Tương tác Cross-layer"
       characteristics:
-        - "Test from entry point to persistence"
-        - "NO mocks for ANY component"
-        - "Use real database"
-        - "Include authentication/authorization"
-        - "Login to get real access token"
-        - "Seed user data before login"
+        - "Test từ entry point đến persistence"
+        - "KHÔNG mock BẤT KỲ component nào"
+        - "Sử dụng real database"
+        - "Bao gồm authentication/authorization"
+        - "Login để lấy real access token"
+        - "Seed user data trước khi login"
 
     handler_test_strategy:
-      description: "Determine when to generate Handler UT vs IT tests"
+      description: "Quyết định khi nào tạo Handler UT vs IT"
       unit_test_only:
-        condition: "Handler only does simple data mapping (pass-through from repository to response)"
+        condition: "Handler chỉ thực hiện data mapping đơn giản (pass-through từ repository ra response)"
         examples:
-          - "Handler calls repository and returns result directly"
-          - "Handler maps entity fields to DTO without transformation"
-          - "No business logic, no calculations, no conditional processing"
+          - "Handler gọi repository và trả về result trực tiếp"
+          - "Handler map entity fields sang DTO mà không biến đổi"
+          - "Không có business logic, không tính toán, không xử lý điều kiện"
         mock: "Mock repository interface"
 
       integration_test_required:
-        condition: "Handler has business logic or processing in DTO response mapping"
+        condition: "Handler có business logic hoặc xử lý trong response DTO mapping"
         examples:
-          - "Handler performs calculations on data"
-          - "Handler applies business rules to filter/transform data"
-          - "Handler aggregates data from multiple sources"
-          - "Handler has conditional logic based on data values"
-          - "Response DTO has computed/derived fields"
+          - "Handler thực hiện tính toán trên data"
+          - "Handler áp dụng business rules để filter/transform data"
+          - "Handler aggregate data từ nhiều nguồn"
+          - "Handler có logic điều kiện dựa trên data values"
+          - "Response DTO có các field computed/derived"
 
       decision_flowchart: |
-        1. Does handler have business logic beyond simple mapping?
-           - YES -> Generate both UT and IT
-           - NO -> Generate UT only
-        2. Does response DTO have computed/derived fields?
-           - YES -> Generate both UT and IT
+        1. Handler có business logic ngoài việc mapping đơn giản không?
+           - YES -> Tạo cả UT và IT
+           - NO -> Chỉ tạo UT
+        2. Response DTO có các field computed/derived không?
+           - YES -> Tạo cả UT và IT
            - NO -> Check step 1
-        3. Does handler aggregate or transform data?
-           - YES -> Generate both UT and IT
-           - NO -> Generate UT only
+        3. Handler có aggregate hoặc transform data không?
+           - YES -> Tạo cả UT và IT
+           - NO -> Chỉ tạo UT
 
-  seed_data_strategy:
+  data_management:
+    seed_data_strategy:
       principles:
-        - "Integration Tests MUST use real database"
-        - "Seed data MUST respect referential integrity"
-        - "Each test MUST have independent data setup"
-        - "Seed data MUST be minimal but sufficient"
-        - "Each test MUST rollback or cleanup"
-        - "Seed data MUST be idempotent"
-        - "For large datasets (>500 items), use factory functions"
-        - "Use IDs >= 100000 to avoid conflicts with existing data"
+        - "Integration Tests PHẢI dùng real database"
+        - "Seed data PHẢI tôn trọng referential integrity"
+        - "Mỗi test PHẢI có setup data độc lập"
+        - "Seed data PHẢI minimal nhưng sufficient"
+        - "Mỗi test PHẢI rollback hoặc cleanup"
+        - "Seed data PHẢI idempotent"
+        - "Với dataset lớn (>500 items), sử dụng factory functions"
+        - "Sử dụng IDs >= 100000 để tránh conflict với data hiện có"
 
       process:
-        step_1: "Extract entities and relationships from schema"
+        step_1: "Extract entities và relationships từ schema"
         step_2: "Build dependency graph"
-        step_3: "Perform topological sort for insert order"
-        step_4: "Identify required entities from test_plan"
+        step_3: "Perform topological sort cho insert order"
+        step_4: "Identify required entities từ test_plan"
         step_5: "Generate minimal dataset"
         step_6: "Implement seed functions"
 
       cleanup_strategy:
         preferred: "Transaction rollback"
-        alternative: "Truncate tables in reverse dependency order"
-        timing: "AFTER EACH test case"
+        alternative: "Truncate tables theo thứ tự dependency ngược"
+        timing: "SAU MỖI test case"
 
       seed_rules:
         entity_minimal_state:
-          - "Only create required fields (NOT NULL or fields with logic validation)"
-          - "If there is an enum → pick the first valid value"
-          - "If there is a timestamp → use NOW() or a fixed value"
-          - "If there is a unique constraint → append a suffix based on test_case_id"
+          - "Chỉ tạo required fields (NOT NULL hoặc fields có logic validation)"
+          - "Nếu có enum → pick giá trị valid đầu tiên"
+          - "Nếu có timestamp → dùng NOW() hoặc fixed value"
+          - "Nếu có unique constraint → append suffix dựa trên test_case_id"
 
         foreign_key_handling:
-          - "All dependent tables MUST be inserted after their parent tables"
-          - "If a foreign key has cascade → allow cleanup via cascade"
-          - "If the dataset requires multi-level dependencies → apply topological sort"
-
+          - "Tất cả dependent tables PHẢI được insert sau parent tables"
+          - "Nếu foreign key có cascade → allow cleanup via cascade"
+          - "Nếu dataset yêu cầu multi-level dependencies → apply topological sort"
 
     test_data_pattern:
       ordering_priority:
-        1: "Happy path - ALWAYS FIRST"
+        1: "Happy path - LUÔN ĐẦU TIÊN"
         2: "Valid variations"
         3: "Boundary values (min, max)"
         4: "Invalid types"
@@ -257,8 +235,8 @@ standard_knowledge:
         6: "Edge cases (null, empty, negative)"
 
       required_fields:
-        - acId: "Test case identifier (AC-01, AC-02, etc.)"
-        - title: "Short description of test scenario"
+        - acId: "Test case identifier (AC-01, AC-02, v.v.)"
+        - title: "Mô tả ngắn gọn test scenario"
         - input: "Input data object"
         - expected: "Expected outcome object"
 
@@ -271,75 +249,75 @@ standard_knowledge:
 
       application:
         throws: ["Application exceptions"]
-        catches: ["Infrastructure exceptions → wrap", "Domain exceptions → re-throw or wrap"]
-        test_focus: "Assert exception type and error code"
+        catches: ["Infrastructure exceptions → wrap", "Domain exceptions → re-throw hoặc wrap"]
+        test_focus: "Assert exception type và error code"
 
       domain:
         throws: ["Domain exceptions"]
-        catches: ["Nothing (pure domain logic)"]
+        catches: ["Không bắt gì cả (pure domain logic)"]
         test_focus: "Assert business rule enforcement"
 
       infrastructure:
         throws: ["Infrastructure exceptions"]
         catches: ["Database errors → wrap", "External API errors → wrap"]
-        test_focus: "Happy path in IT, error cases in UT with mocks"
+        test_focus: "Happy path trong IT, error cases trong UT dùng Mocks"
 
   quality_checklist:
     before_generation:
-      - "Read test_plan + db_schema + standard_knowledge"
-      - "Read existing implementation files to get correct class names and paths"
-      - "Identify layer, type (UT/IT/E2E), test file location"
-      - "Analyze dependency graph for seed data"
-      - "Check controller for endpoint URL and JWT-decoded fields"
-      - "Check existing seed data helpers for reusable patterns"
+      - "Đọc test_plan + db_schema + standard_knowledge"
+      - "Đọc các file implementation hiện có để lấy đúng tên class và đường dẫn"
+      - "Identify layer, type (UT/IT/E2E), vị trí file test"
+      - "Analyze dependency graph cho seed data"
+      - "Check Controller cho endpoint URL và JWT-decoded fields"
+      - "Check seed data helpers hiện có để reusable patterns"
 
     syntax:
       - "Language syntax valid"
-      - "All imports present using RELATIVE PATHS"
-      - "Type annotations (if applicable)"
+      - "Tất cả imports hiện diện và dùng RELATIVE PATHS"
+      - "Type annotations (nếu áp dụng)"
       - "Test framework structure valid"
-      - "Use default import for supertest: import request from 'supertest'"
+      - "Dùng default import cho supertest: import request from 'supertest'"
 
     structure:
-      - "Correct test file location per architecture"
-      - "Using data-driven testing approach"
-      - "Follow Arrange-Act-Assert pattern"
+      - "Vị trí file test đúng theo architecture"
+      - "Sử dụng data-driven testing approach"
+      - "Tuân thủ pattern Arrange-Act-Assert"
 
     assertions:
-      - "All assertions include AC ID in error messages"
-      - "Assert behavior, not implementation details"
-      - "No assertions on exact error text (can change)"
+      - "Tất cả assertions bao gồm AC ID trong error messages"
+      - "Assert behavior, không assert implementation details"
+      - "Không assert trên exact error text (có thể thay đổi)"
 
     red_code:
-      - "Test FAILS because implementation missing"
-      - "No placeholder comments"
+      - "Test FAILS vì implementation missing"
+      - "Không có placeholder comments"
       - "Code compiles/parses correctly"
-      - "Only fails on class/function not found"
+      - "Chỉ fail do class/function not found"
 
   input_schema:
     db_schema:
-      description: "Database schema definition"
-      format: "DDL statements or ORM models"
+      description: "Định nghĩa Database schema"
+      format: "DDL statements hoặc ORM models"
 
     test_plan:
       required_fields:
-        - test_suite: "Name of test suite"
-        - testcase: "Array of test cases with AC IDs"
+        - test_suite: "Tên test suite"
+        - testcase: "Array của các test cases với AC IDs"
 
     output_requirements:
       test_organization:
-        - "Separate files for Unit/Integration/E2E tests"
-        - "Test helpers for common operations"
-        - "Seed data functions in separate module"
-        - "Factory functions for complex test data"
+        - "Tách riêng file cho Unit/Integration/E2E tests"
+        - "Test helpers cho các common operations"
+        - "Seed data functions trong module riêng"
+        - "Factory functions cho complex test data"
 
       code_quality:
         - "Proper type annotations"
         - "Comprehensive comments"
-        - "Clear test names with AC IDs"
+        - "Tên test rõ ràng kèm AC IDs"
         - "Organized imports"
-        - "No linting errors"
-        - "Ready to run (RED CODE)"
+        - "Không có linting errors"
+        - "Sẵn sàng chạy (RED CODE)"
 
 implementation_knowledge:
   config:
@@ -415,32 +393,32 @@ implementation_knowledge:
       entity: "[Domain]"
       value_object: "[Domain]VO"
 
+  file_naming_rules:
+    application_layer:
+      query_handler_file: "[Action][Domain].query.ts"
+      command_handler_file: "[Action][Domain].command.ts"
+      dto_file: "[Action][Domain].dto.ts"
+      response_dto_file: "[Action][Domain].response.ts"
+      repository_interface_file: "i-[domain]-query.repository.ts"
+
+    domain_layer:
+      entity_file: "[domain].entity.ts"
+      value_object_file: "[domain].vo.ts"
+
+    presentation_layer:
+      request_dto_file: "[Action][Domain].request.ts"
+      response_dto_file: "[Action][Domain].response.ts"
+      controller_file: "[domain].controller.ts"
+
+    infrastructure_layer:
+      repository_implementation_file: "[domain]-query.repository.ts"
+      typeorm_entity_file: "[domain].model.ts"
+
+    domain_layer:
+      entity_file: "[domain].entity.ts"
+      value_object_file: "[domain].vo.ts"
+
   file_structure:
-    file_naming_rules:
-      application_layer:
-        query_handler_file: "[Action][Domain].query.ts"
-        command_handler_file: "[Action][Domain].command.ts"
-        dto_file: "[Action][Domain].dto.ts"
-        response_dto_file: "[Action][Domain].response.ts"
-        repository_interface_file: "i-[domain]-query.repository.ts"
-
-      domain_layer:
-        entity_file: "[domain].entity.ts"
-        value_object_file: "[domain].vo.ts"
-
-      presentation_layer:
-        request_dto_file: "[Action][Domain].request.ts"
-        response_dto_file: "[Action][Domain].response.ts"
-        controller_file: "[domain].controller.ts"
-
-      infrastructure_layer:
-        repository_implementation_file: "[domain]-query.repository.ts"
-        typeorm_entity_file: "[domain].model.ts"
-
-      domain_layer:
-        entity_file: "[domain].entity.ts"
-        value_object_file: "[domain].vo.ts"
-
     source_code:
       presentation: "src/components/[bounded-context]/presentation/"
       request: "src/components/[bounded-context]/presentation/requests/"
