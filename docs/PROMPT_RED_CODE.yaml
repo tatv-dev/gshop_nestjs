@@ -219,61 +219,43 @@ standard_knowledge:
     process:
       step_1: "Extract entities and relationships from schema"
       step_2: "Build dependency graph"
-      step_3: "Perform topological sort for insert order"
-      step_4: "Identify required entities from test_plan"
-      step_5: "Generate minimal dataset"
-      step_6: "Implement seed functions"
+      step_3: "Topological-sort tables for insert order."
+      step_4: "Include additional required tables from implementation_knowledge (e.g., lookup tables, configs, roles, permissions,..)."
+      step_5: "Identify required entities from test_plan"
+      step_6: "Generate minimal dataset"
+      step_7: "Implement seed functions"
 
-    seed_data_strategy:
-      principles:
-        - "Integration Tests MUST use a real database."
-        - "Seed data MUST respect referential integrity."
-        - "Each test MUST prepare its own independent dataset."
-        - "Seed data MUST be minimal but sufficient."
-        - "Each test MUST rollback or cleanup after execution."
-        - "Seed data MUST be idempotent."
-        - "For datasets > 500 items, use factory functions."
-        - "Use IDs >= 100000 to avoid collisions with existing data."
+    cleanup_strategy:
+      preferred: "Use transaction rollback."
+      alternative: "Truncate tables in reverse dependency order."
+      timing: "Run cleanup AFTER EACH test case."
 
-      process:
-        - step_1: "Extract entities + relationships from schema."
-        - step_2: "Build dependency graph."
-        - step_3: "Topological-sort tables for insert order."
-        - step_4: "Identify required entities from test_plan."
-        - step_5: "Generate minimal dataset per test."
-        - step_6: "Implement seed functions (per entity)."
+    seed_rules:
+      entity_minimal_state:
+        - "Create only required fields (NOT NULL + validation-required fields)."
+        - "For enums: use the first valid option."
+        - "For timestamps: use NOW() or a fixed ISO timestamp."
+        - "For UNIQUE fields: append test_case_id suffix."
 
-      cleanup_strategy:
-        preferred: "Use transaction rollback."
-        alternative: "Truncate tables in reverse dependency order."
-        timing: "Run cleanup AFTER EACH test case."
+      foreign_key_handling:
+        - "Insert parent tables BEFORE dependent tables."
+        - "If FK uses CASCADE: rely on cascade cleanup."
+        - "Use topological sort for multi-level dependencies."
 
-      seed_rules:
-        entity_minimal_state:
-          - "Create only required fields (NOT NULL + validation-required fields)."
-          - "For enums: use the first valid option."
-          - "For timestamps: use NOW() or a fixed ISO timestamp."
-          - "For UNIQUE fields: append test_case_id suffix."
-
-        foreign_key_handling:
-          - "Insert parent tables BEFORE dependent tables."
-          - "If FK uses CASCADE: rely on cascade cleanup."
-          - "Use topological sort for multi-level dependencies."
-
-        permission_naming_convention:
-          pattern: "<Action>_<Domain>"
-          examples:
-            - "GET_PRODUCT_CATEGORY"
-            - "CREATE_PRODUCT_CATEGORY"
-            - "UPDATE_PRODUCT_CATEGORY"
-            - "DELETE_PRODUCT_CATEGORY"
-            - "GET_LIST_PRODUCT_CATEGORY"
-          actions:
-            GET: "Query detail a resource."
-            GET_LIST: "Query list resources."
-            CREATE: "Command create resource."
-            UPDATE: "Command update resource."
-            DELETE: "Command delete resource."
+      permission_naming_convention:
+        pattern: "<Action>_<Domain>"
+        examples:
+          - "GET_PRODUCT_CATEGORY"
+          - "CREATE_PRODUCT_CATEGORY"
+          - "UPDATE_PRODUCT_CATEGORY"
+          - "DELETE_PRODUCT_CATEGORY"
+          - "GET_LIST_PRODUCT_CATEGORY"
+        actions:
+          GET: "Query detail a resource."
+          GET_LIST: "Query list resources."
+          CREATE: "Command create resource."
+          UPDATE: "Command update resource."
+          DELETE: "Command delete resource."
 
   exception_handling:
     layer_responsibilities:
@@ -355,31 +337,6 @@ standard_knowledge:
         - "Ready to run (RED CODE)"
 
 implementation_knowledge:
-  config:
-    api_version: "v1"
-    auth_endpoint: "/api/v1/auth/login"
-
-    authorization:
-      permission_guard: "PermissionGuard - checks if user has required permission"
-      permission_decorator: "@RequirePermissions('PERMISSION_NAME') - declares required permission"
-      guard_order: "JwtAuthGuard (authentication) → PermissionGuard (authorization)"
-      permission_location: "JWT payload contains permissions: string[] field"
-      permission_naming: "<Action>_<Domain> (e.g., GET_LIST_PRODUCT_CATEGORY)"
-
-    auth_fk_dependency_order:
-      - "softwares (required for refresh_tokens and permissions)"
-      - "tenants"
-      - "users"
-      - "workspaces (FK: user_id, tenant_id)"
-      - "resellers (FK: tenant_id)"
-      - "employees (FK: workspace_id, reseller_id)"
-      - "branches (FK: tenant_id, creator_id/employees)"
-      - "permissions (FK: software_id, permission_parent_id)"
-      - "roles (FK: tenant_id, creator_id/employees)"
-      - "role_permissions (FK: role_id, permission_id)"
-      - "role_workspaces (FK: workspace_id, role_id)"
-      - "domain_tables (references tenants, employees, etc.)"
-
   test_data_structure:
     description: "Structure of test case objects in data-driven testing"
     format: |
@@ -884,3 +841,30 @@ implementation_knowledge:
     forbidden_403:
       cause: "User lacks required permission or permissions not seeded in JWT"
       solution: "Ensure permissions are seeded in role_permissions and role_workspaces, and JWT payload includes permissions array"
+
+
+config:
+  api_version: "v1"
+  auth_endpoint: "/api/v1/auth/login"
+  bounded_context: "product-catalog"
+
+  authorization:
+    permission_guard: "PermissionGuard - checks if user has required permission"
+    permission_decorator: "@RequirePermissions('PERMISSION_NAME') - declares required permission"
+    guard_order: "JwtAuthGuard (authentication) → PermissionGuard (authorization)"
+    permission_location: "JWT payload contains permissions: string[] field"
+    permission_naming: "<Action>_<Domain> (e.g., GET_LIST_PRODUCT_CATEGORY)"
+
+  db_schema_dependency:
+    - "softwares (required for refresh_tokens and permissions)"
+    - "tenants"
+    - "users"
+    - "workspaces (FK: user_id, tenant_id)"
+    - "resellers (FK: tenant_id)"
+    - "employees (FK: workspace_id, reseller_id)"
+    - "branches (FK: tenant_id, creator_id/employees)"
+    - "permissions (FK: software_id, permission_parent_id)"
+    - "roles (FK: tenant_id, creator_id/employees)"
+    - "role_permissions (FK: role_id, permission_id)"
+    - "role_workspaces (FK: workspace_id, role_id)"
+    - "domain_tables (references tenants, employees, etc.)"
