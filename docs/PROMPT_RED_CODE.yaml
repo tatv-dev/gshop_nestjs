@@ -332,14 +332,18 @@ implementation_knowledge:
       permission_naming: "<Action>_<Domain> (e.g., GET_LIST_PRODUCT_CATEGORY)"
 
     auth_fk_dependency_order:
-      - "softwares (required for refresh_tokens)"
+      - "softwares (required for refresh_tokens and permissions)"
       - "tenants"
       - "users"
-      - "workspaces (references users, tenants)"
-      - "resellers (references tenants)"
-      - "employees (references workspaces, resellers)"
-      - "branches (references tenants, employees)"
-      - "domain_tables (references tenants, employees)"
+      - "workspaces (FK: user_id, tenant_id)"
+      - "resellers (FK: tenant_id)"
+      - "employees (FK: workspace_id, reseller_id)"
+      - "branches (FK: tenant_id, creator_id/employees)"
+      - "permissions (FK: software_id, permission_parent_id)"
+      - "roles (FK: tenant_id, creator_id/employees)"
+      - "role_permissions (FK: role_id, permission_id)"
+      - "role_workspaces (FK: workspace_id, role_id)"
+      - "domain_tables (references tenants, employees, etc.)"
 
   tech_stack:
     language:
