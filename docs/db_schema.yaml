@@ -119,6 +119,68 @@ db_schema:
       CONSTRAINT `FK_workspaces_TO_employees` FOREIGN KEY (`workspace_id`) REFERENCES `workspaces` (`id`)
     );
 
+    -- Bảng permissions (quyền)
+    CREATE TABLE IF NOT EXISTS `permissions` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(50) NOT NULL,
+      `software_id` bigint(20) unsigned NOT NULL,
+      `permission_parent_id` bigint(20) unsigned DEFAULT NULL,
+      `type` int(11) NOT NULL DEFAULT 1 COMMENT '0: admin, 1 dành cho người dùng không phải admin',
+      `display_name` varchar(100) DEFAULT NULL COMMENT 'Tên của quyền để hiển thị lên UI',
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_softwares_TO_permissions` (`software_id`),
+      KEY `FK_permissions_TO_permissions` (`permission_parent_id`),
+      CONSTRAINT `FK_permissions_TO_permissions` FOREIGN KEY (`permission_parent_id`) REFERENCES `permissions` (`id`),
+      CONSTRAINT `FK_softwares_TO_permissions` FOREIGN KEY (`software_id`) REFERENCES `softwares` (`id`)
+    );
+
+    -- Bảng roles (vai trò)
+    CREATE TABLE IF NOT EXISTS `roles` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(50) NOT NULL,
+      `note` varchar(255) DEFAULT NULL,
+      `creator_id` bigint(20) unsigned DEFAULT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `tenant_id` bigint(20) unsigned NOT NULL,
+      `type` int(11) NOT NULL DEFAULT 0 COMMENT '-1 vai trò admin system do hệ thống tạo,0: vai trò admin company do hệ thống tạo, 1 vai trò admin do người dùng tạo,2 vai trò thường',
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_tenant_TO_roles` (`tenant_id`),
+      KEY `FK_employees_TO_roles` (`creator_id`),
+      CONSTRAINT `FK_employees_TO_roles` FOREIGN KEY (`creator_id`) REFERENCES `employees` (`id`),
+      CONSTRAINT `FK_tenant_TO_roles` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
+    );
+
+    -- Bảng role_permissions (liên kết vai trò và quyền)
+    CREATE TABLE IF NOT EXISTS `role_permissions` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `role_id` bigint(20) unsigned NOT NULL,
+      `permission_id` bigint(20) unsigned NOT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_roles_TO_role_permissions` (`role_id`),
+      KEY `FK_permissions_TO_role_permissions` (`permission_id`),
+      CONSTRAINT `FK_permissions_TO_role_permissions` FOREIGN KEY (`permission_id`) REFERENCES `permissions` (`id`),
+      CONSTRAINT `FK_roles_TO_role_permissions` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`)
+    );
+
+    -- Bảng role_workspaces (liên kết vai trò và workspace)
+    CREATE TABLE IF NOT EXISTS `role_workspaces` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `workspace_id` bigint(20) unsigned NOT NULL,
+      `role_id` bigint(20) unsigned NOT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_workspaces_TO_role_workspaces` (`workspace_id`),
+      KEY `FK_roles_TO_role_workspaces` (`role_id`),
+      CONSTRAINT `FK_roles_TO_role_workspaces` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`),
+      CONSTRAINT `FK_workspaces_TO_role_workspaces` FOREIGN KEY (`workspace_id`) REFERENCES `workspaces` (`id`)
+    );
+
     -- Bảng product_categories (danh mục sản phẩm - cây phân cấp)
     CREATE TABLE IF NOT EXISTS `product_categories` (
       `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
