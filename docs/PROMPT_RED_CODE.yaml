@@ -33,7 +33,7 @@ process:
   step_2_generate_structure:
     description: "Generate test class structure"
     tasks:
-      - "Create test file in correct location per file_structure"
+      - "Create the test file in the correct directory and with the correct file name according to implementation_knowledge.file_structure rules"
       - "Import required dependencies using RELATIVE PATHS (not @/ aliases)"
       - "Setup describe() block with descriptive name"
       - "Create beforeAll(), beforeEach(), afterEach(), afterAll() hooks"
@@ -65,7 +65,6 @@ process:
     description: "Generate test methods"
     rules:
       - "Follow Arrange-Act-Assert pattern"
-      - "Use it.each() for data-driven tests"
       - "Assertions match expected outcome"
       - "Request DTO: assert validation errors"
       - "Handler: assert response structure or exceptions"
@@ -74,7 +73,7 @@ process:
   step_6_red_code_principles:
     description: "Ensure RED CODE compliance"
     checklist:
-      - "Syntax completely valid (TypeScript, Jest)"
+      - "Syntax completely valid implementation_knowledge.tech_stack"
       - "All imports present using RELATIVE PATHS"
       - "Test methods properly structured"
       - "Test MUST FAIL due to missing implementation"
@@ -189,56 +188,74 @@ standard_knowledge:
            - NO -> Generate UT only
 
   seed_data_strategy:
+    principles:
+      - "Integration Tests MUST use real database"
+      - "Seed data MUST respect referential integrity"
+      - "Each test MUST have independent data setup"
+      - "Seed data MUST be minimal but sufficient"
+      - "Each test MUST rollback or cleanup"
+      - "Seed data MUST be idempotent"
+      - "For large datasets (>500 items), use factory functions"
+      - "Use IDs >= 100000 to avoid conflicts with existing data"
+
+    process:
+      step_1: "Extract entities and relationships from schema"
+      step_2: "Build dependency graph"
+      step_3: "Perform topological sort for insert order"
+      step_4: "Identify required entities from test_plan"
+      step_5: "Generate minimal dataset"
+      step_6: "Implement seed functions"
+
+    seed_data_strategy:
       principles:
-        - "Integration Tests MUST use real database"
-        - "Seed data MUST respect referential integrity"
-        - "Each test MUST have independent data setup"
-        - "Seed data MUST be minimal but sufficient"
-        - "Each test MUST rollback or cleanup"
-        - "Seed data MUST be idempotent"
-        - "For large datasets (>500 items), use factory functions"
-        - "Use IDs >= 100000 to avoid conflicts with existing data"
+        - "Integration Tests MUST use a real database."
+        - "Seed data MUST respect referential integrity."
+        - "Each test MUST prepare its own independent dataset."
+        - "Seed data MUST be minimal but sufficient."
+        - "Each test MUST rollback or cleanup after execution."
+        - "Seed data MUST be idempotent."
+        - "For datasets > 500 items, use factory functions."
+        - "Use IDs >= 100000 to avoid collisions with existing data."
 
       process:
-        step_1: "Extract entities and relationships from schema"
-        step_2: "Build dependency graph"
-        step_3: "Perform topological sort for insert order"
-        step_4: "Identify required entities from test_plan"
-        step_5: "Generate minimal dataset"
-        step_6: "Implement seed functions"
+        - step_1: "Extract entities + relationships from schema."
+        - step_2: "Build dependency graph."
+        - step_3: "Topological-sort tables for insert order."
+        - step_4: "Identify required entities from test_plan."
+        - step_5: "Generate minimal dataset per test."
+        - step_6: "Implement seed functions (per entity)."
 
       cleanup_strategy:
-        preferred: "Transaction rollback"
-        alternative: "Truncate tables in reverse dependency order"
-        timing: "AFTER EACH test case"
+        preferred: "Use transaction rollback."
+        alternative: "Truncate tables in reverse dependency order."
+        timing: "Run cleanup AFTER EACH test case."
 
       seed_rules:
         entity_minimal_state:
-          - "Only create required fields (NOT NULL or fields with logic validation)"
-          - "If there is an enum → pick the first valid value"
-          - "If there is a timestamp → use NOW() or a fixed value"
-          - "If there is a unique constraint → append a suffix based on test_case_id"
+          - "Create only required fields (NOT NULL + validation-required fields)."
+          - "For enums: use the first valid option."
+          - "For timestamps: use NOW() or a fixed ISO timestamp."
+          - "For UNIQUE fields: append test_case_id suffix."
 
         foreign_key_handling:
-          - "All dependent tables MUST be inserted after their parent tables"
-          - "If a foreign key has cascade → allow cleanup via cascade"
-          - "If the dataset requires multi-level dependencies → apply topological sort"
+          - "Insert parent tables BEFORE dependent tables."
+          - "If FK uses CASCADE: rely on cascade cleanup."
+          - "Use topological sort for multi-level dependencies."
 
-
-    test_data_pattern:
-      ordering_priority:
-        1: "Happy path - ALWAYS FIRST"
-        2: "Valid variations"
-        3: "Boundary values (min, max)"
-        4: "Invalid types"
-        5: "Out of range"
-        6: "Edge cases (null, empty, negative)"
-
-      required_fields:
-        - acId: "Test case identifier (AC-01, AC-02, etc.)"
-        - title: "Short description of test scenario"
-        - input: "Input data object"
-        - expected: "Expected outcome object"
+        permission_naming_convention:
+          pattern: "<Action>_<Domain>"
+          examples:
+            - "GET_PRODUCT_CATEGORY"
+            - "CREATE_PRODUCT_CATEGORY"
+            - "UPDATE_PRODUCT_CATEGORY"
+            - "DELETE_PRODUCT_CATEGORY"
+            - "GET_LIST_PRODUCT_CATEGORY"
+          actions:
+            GET: "Query detail a resource."
+            GET_LIST: "Query list resources."
+            CREATE: "Command create resource."
+            UPDATE: "Command update resource."
+            DELETE: "Command delete resource."
 
   exception_handling:
     layer_responsibilities:

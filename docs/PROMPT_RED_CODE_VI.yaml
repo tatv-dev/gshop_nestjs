@@ -33,7 +33,7 @@ process:
   step_2_generate_structure:
     description: "Tạo cấu trúc test class"
     tasks:
-      - "Tạo file test đúng vị trí theo file_structure"
+      - "Tạo file test đúng cấu trúc tên file và vị trí theo file_structure"
       - "Import các dependencies cần thiết dùng RELATIVE PATHS (không dùng alias @/)"
       - "Thiết lập khối describe() với tên mô tả rõ ràng"
       - "Tạo các hooks beforeAll(), beforeEach(), afterEach(), afterAll()"
@@ -65,7 +65,6 @@ process:
     description: "Tạo các test method"
     rules:
       - "Tuân thủ mô hình Arrange-Act-Assert"
-      - "Sử dụng it.each() cho data-driven tests"
       - "Assertions phải khớp với expected outcome"
       - "Request DTO: assert validation errors"
       - "Handler: assert cấu trúc response hoặc exception"
@@ -74,7 +73,7 @@ process:
   step_6_red_code_principles:
     description: "Đảm bảo tuân thủ RED CODE"
     checklist:
-      - "Cú pháp hoàn toàn hợp lệ (TypeScript, Jest)"
+      - "Cú pháp hoàn toàn hợp lệ theo implementation_knowledge.tech_stack"
       - "Tất cả imports hiện diện và dùng RELATIVE PATHS"
       - "Test methods được cấu trúc đúng"
       - "Test PHẢI FAIL do thiếu implementation"
@@ -188,92 +187,99 @@ standard_knowledge:
            - YES -> Tạo cả UT và IT
            - NO -> Chỉ tạo UT
 
-  data_management:
-    seed_data_strategy:
-      principles:
-        - "Integration Tests PHẢI dùng real database"
-        - "Seed data PHẢI tôn trọng referential integrity"
-        - "Mỗi test PHẢI có setup data độc lập"
-        - "Seed data PHẢI minimal nhưng sufficient"
-        - "Mỗi test PHẢI rollback hoặc cleanup"
-        - "Seed data PHẢI idempotent"
-        - "Với dataset lớn (>500 items), sử dụng factory functions"
-        - "Sử dụng IDs >= 100000 để tránh conflict với data hiện có"
+  seed_data_strategy:
+    principles:
+      - "Integration Tests MUST use real database"
+      - "Seed data MUST respect referential integrity"
+      - "Mỗi test MUST có data setup độc lập"
+      - "Seed data MUST ở mức tối thiểu nhưng đủ dùng"
+      - "Mỗi test MUST rollback hoặc cleanup"
+      - "Seed data MUST idempotent"
+      - "Với dataset lớn (>500 items), MUST dùng factory functions"
+      - "Dùng ID >= 100000 để tránh conflict với dữ liệu có sẵn"
 
-      process:
-        step_1: "Extract entities và relationships từ schema"
-        step_2: "Build dependency graph"
-        step_3: "Perform topological sort cho insert order"
-        step_4: "Identify required entities từ test_plan"
-        step_5: "Generate minimal dataset"
-        step_6: "Implement seed functions"
+    process:
+      step_1: "Extract entities và relationships từ schema"
+      step_2: "Build dependency graph"
+      step_3: "Topological sort để xác định insert order"
+      step_4: "Identify các entities cần thiết từ test_plan"
+      step_5: "Generate minimal dataset"
+      step_6: "Implement seed functions"
 
-      cleanup_strategy:
-        preferred: "Transaction rollback"
-        alternative: "Truncate tables theo thứ tự dependency ngược"
-        timing: "SAU MỖI test case"
+    cleanup_strategy:
+      preferred: "Dùng transaction rollback"
+      alternative: "Truncate tables theo thứ tự ngược dependency"
+      timing: "Cleanup SAU MỖI test case"
 
-      seed_rules:
-        entity_minimal_state:
-          - "Chỉ tạo required fields (NOT NULL hoặc fields có logic validation)"
-          - "Nếu có enum → pick giá trị valid đầu tiên"
-          - "Nếu có timestamp → dùng NOW() hoặc fixed value"
-          - "Nếu có unique constraint → append suffix dựa trên test_case_id"
+    seed_rules:
 
-        foreign_key_handling:
-          - "Tất cả dependent tables PHẢI được insert sau parent tables"
-          - "Nếu foreign key có cascade → allow cleanup via cascade"
-          - "Nếu dataset yêu cầu multi-level dependencies → apply topological sort"
+      entity_minimal_state:
+        - "Chỉ tạo các field bắt buộc (NOT NULL + field có validation logic)"
+        - "Enum → sử dụng giá trị hợp lệ đầu tiên"
+        - "Timestamp → dùng NOW() hoặc một fixed ISO timestamp"
+        - "Field UNIQUE → thêm suffix dựa trên test_case_id"
 
-    test_data_pattern:
-      ordering_priority:
-        1: "Happy path - LUÔN ĐẦU TIÊN"
-        2: "Valid variations"
-        3: "Boundary values (min, max)"
-        4: "Invalid types"
-        5: "Out of range"
-        6: "Edge cases (null, empty, negative)"
+      foreign_key_handling:
+        - "Insert parent tables TRƯỚC dependent tables"
+        - "Nếu FK có CASCADE → tận dụng cascade cleanup"
+        - "Dataset có nhiều tầng dependency → bắt buộc dùng topological sort"
 
-      required_fields:
-        - acId: "Test case identifier (AC-01, AC-02, v.v.)"
-        - title: "Mô tả ngắn gọn test scenario"
-        - input: "Input data object"
-        - expected: "Expected outcome object"
+      permission_naming_convention:
+        pattern: "<Action>_<Domain>"
+        examples:
+          - "GET_PRODUCT_CATEGORY"
+          - "CREATE_PRODUCT_CATEGORY"
+          - "UPDATE_PRODUCT_CATEGORY"
+          - "DELETE_PRODUCT_CATEGORY"
+          - "GET_LIST_PRODUCT_CATEGORY"
+        actions:
+          GET: "Query detail a resource."
+          GET_LIST: "Query list resources."
+          CREATE: "Command create resource."
+          UPDATE: "Command update resource."
+          DELETE: "Command delete resource."
 
   exception_handling:
     layer_responsibilities:
       presentation:
         throws: ["Validation errors"]
-        catches: ["Application exceptions → HTTP responses", "Domain exceptions → HTTP responses"]
+        catches:
+          - "Application exceptions → convert sang HTTP response"
+          - "Domain exceptions → convert sang HTTP response"
         test_focus: "Assert validation errors"
 
       application:
         throws: ["Application exceptions"]
-        catches: ["Infrastructure exceptions → wrap", "Domain exceptions → re-throw hoặc wrap"]
+        catches:
+          - "Infrastructure exceptions → wrap"
+          - "Domain exceptions → re-throw hoặc wrap"
         test_focus: "Assert exception type và error code"
 
       domain:
         throws: ["Domain exceptions"]
-        catches: ["Không bắt gì cả (pure domain logic)"]
+        catches:
+          - "Không bắt gì cả (pure domain logic)"
         test_focus: "Assert business rule enforcement"
 
       infrastructure:
         throws: ["Infrastructure exceptions"]
-        catches: ["Database errors → wrap", "External API errors → wrap"]
-        test_focus: "Happy path trong IT, error cases trong UT dùng Mocks"
+        catches:
+          - "Database errors → wrap"
+          - "External API errors → wrap"
+        test_focus: "Happy path trong IT; error cases trong UT (dùng Mocks)"
 
   quality_checklist:
     before_generation:
       - "Đọc test_plan + db_schema + standard_knowledge"
-      - "Đọc các file implementation hiện có để lấy đúng tên class và đường dẫn"
-      - "Identify layer, type (UT/IT/E2E), vị trí file test"
-      - "Analyze dependency graph cho seed data"
-      - "Check Controller cho endpoint URL và JWT-decoded fields"
-      - "Check seed data helpers hiện có để reusable patterns"
+      - "Đọc code implementation để lấy đúng tên class và đường dẫn"
+      - "Identify layer, test type (UT/IT/E2E), vị trí file test"
+      - "Xây dependency graph cho seed data"
+      - "Check Controller để lấy endpoint URL và JWT-decoded fields"
+      - "Check seed data helpers hiện có để tái sử dụng"
 
     syntax:
       - "Language syntax valid"
-      - "Tất cả imports hiện diện và dùng RELATIVE PATHS"
+      - "Tất cả imports đầy đủ và dùng RELATIVE PATHS"
       - "Type annotations (nếu áp dụng)"
       - "Test framework structure valid"
       - "Dùng default import cho supertest: import request from 'supertest'"
@@ -281,18 +287,18 @@ standard_knowledge:
     structure:
       - "Vị trí file test đúng theo architecture"
       - "Sử dụng data-driven testing approach"
-      - "Tuân thủ pattern Arrange-Act-Assert"
+      - "Tuân thủ pattern Arrange–Act–Assert"
 
     assertions:
       - "Tất cả assertions bao gồm AC ID trong error messages"
       - "Assert behavior, không assert implementation details"
-      - "Không assert trên exact error text (có thể thay đổi)"
+      - "Không assert exact error text (vì có thể thay đổi)"
 
     red_code:
-      - "Test FAILS vì implementation missing"
-      - "Không có placeholder comments"
-      - "Code compiles/parses correctly"
-      - "Chỉ fail do class/function not found"
+      - "Test MUST FAIL vì implementation missing"
+      - "Không để placeholder comments"
+      - "Code compile/parse đúng cú pháp"
+      - "Fail chỉ do class/function chưa được implement"
 
   input_schema:
     db_schema:
@@ -302,20 +308,20 @@ standard_knowledge:
     test_plan:
       required_fields:
         - test_suite: "Tên test suite"
-        - testcase: "Array của các test cases với AC IDs"
+        - testcase: "Danh sách test cases với AC IDs"
 
     output_requirements:
       test_organization:
-        - "Tách riêng file cho Unit/Integration/E2E tests"
-        - "Test helpers cho các common operations"
+        - "Tách riêng file cho Unit / Integration / E2E tests"
+        - "Có test helpers cho common operations"
         - "Seed data functions trong module riêng"
         - "Factory functions cho complex test data"
 
       code_quality:
-        - "Proper type annotations"
-        - "Comprehensive comments"
-        - "Tên test rõ ràng kèm AC IDs"
-        - "Organized imports"
+        - "Đầy đủ type annotations"
+        - "Comment rõ ràng, đủ ngữ cảnh"
+        - "Tên test rõ ràng và kèm AC IDs"
+        - "Imports được tổ chức gọn gàng"
         - "Không có linting errors"
         - "Sẵn sàng chạy (RED CODE)"
 
