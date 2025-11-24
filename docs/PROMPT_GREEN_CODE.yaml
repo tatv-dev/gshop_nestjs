@@ -268,6 +268,18 @@ implementation_knowledge:
     database: "MariaDB/MySQL"
     validation: "class-validator 0.14+, class-transformer 0.5+"
 
+  authorization:
+    permission_guard: "PermissionGuard - checks if user has required permission"
+    permission_decorator: "@RequirePermissions('PERMISSION_NAME') - declares required permission"
+    guard_order: "JwtAuthGuard (authentication) → PermissionGuard (authorization)"
+    permission_location: "JWT payload contains permissions: string[] field"
+    permission_naming: "<Action>_<Domain> (e.g., GET_LIST_PRODUCT_CATEGORY)"
+    implementation: |
+      - Add @UseGuards(JwtAuthGuard, PermissionGuard) to controller class
+      - Add @RequirePermissions('PERMISSION_NAME') to controller method
+      - Add 403 response to @ApiResponse decorators
+      - Permission name follows pattern: <Action>_<Domain>
+
   naming_conventions:
     presentation_layer:
       controller: "[Domain]Controller"
@@ -319,13 +331,15 @@ implementation_knowledge:
       import { QueryBus, CommandBus } from '@nestjs/cqrs';
       import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
       import { JwtAuthGuard } from '../../../../shared/infrastructure/guards/jwt-auth.guard';
+      import { PermissionGuard } from '../../../../shared/infrastructure/guards/permission.guard';
       import { CurrentUser } from '../../../../shared/infrastructure/decorators/current-user.decorator';
+      import { RequirePermissions } from '../../../../shared/infrastructure/decorators/require-permissions.decorator';
       import { RequestDTO } from '../requests/request.dto';
       import { SomeQuery } from '../../application/queries/some.query';
 
       @ApiTags('Domain')
       @Controller('api/v1/domain')
-      @UseGuards(JwtAuthGuard)
+      @UseGuards(JwtAuthGuard, PermissionGuard)
       @ApiBearerAuth()
       export class DomainController {
         constructor(
@@ -334,9 +348,11 @@ implementation_knowledge:
         ) {}
 
         @Get('resource')
+        @RequirePermissions('GET_LIST_RESOURCE')
         @ApiOperation({ summary: 'Get resources' })
         @ApiResponse({ status: 200, description: 'Returns resources' })
         @ApiResponse({ status: 401, description: 'Unauthorized' })
+        @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
         async getList(
           @Query() request: RequestDTO,
           @CurrentUser() user: any,

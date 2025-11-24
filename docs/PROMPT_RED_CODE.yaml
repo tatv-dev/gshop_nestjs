@@ -323,6 +323,14 @@ implementation_knowledge:
   config:
     api_version: "v1"
     auth_endpoint: "/api/v1/auth/login"
+
+    authorization:
+      permission_guard: "PermissionGuard - checks if user has required permission"
+      permission_decorator: "@RequirePermissions('PERMISSION_NAME') - declares required permission"
+      guard_order: "JwtAuthGuard (authentication) → PermissionGuard (authorization)"
+      permission_location: "JWT payload contains permissions: string[] field"
+      permission_naming: "<Action>_<Domain> (e.g., GET_LIST_PRODUCT_CATEGORY)"
+
     auth_fk_dependency_order:
       - "softwares (required for refresh_tokens)"
       - "tenants"
@@ -457,6 +465,27 @@ implementation_knowledge:
       note: "Class names may differ (e.g., ProductCategoryQueryRepository not GetListProductCategoryQueryRepository)"
 
   test_patterns:
+    controller_with_permission_template: |
+      import { Controller, Get, UseGuards } from '@nestjs/common';
+      import { JwtAuthGuard } from '../../../../shared/infrastructure/guards/jwt-auth.guard';
+      import { PermissionGuard } from '../../../../shared/infrastructure/guards/permission.guard';
+      import { RequirePermissions } from '../../../../shared/infrastructure/decorators/require-permissions.decorator';
+      import { CurrentUser } from '../../../../shared/infrastructure/decorators/current-user.decorator';
+      import { ApiResponse } from '@nestjs/swagger';
+
+      @Controller('api/v1/resource')
+      @UseGuards(JwtAuthGuard, PermissionGuard)
+      export class ResourceController {
+        @Get()
+        @RequirePermissions('GET_LIST_RESOURCE')
+        @ApiResponse({ status: 200, description: 'Success' })
+        @ApiResponse({ status: 401, description: 'Unauthorized' })
+        @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+        async getList(@CurrentUser() user: any) {
+          // Business logic
+        }
+      }
+
     unit_test_template: |
       import { validate } from 'class-validator';
       import { plainToClass } from 'class-transformer';
@@ -703,6 +732,11 @@ implementation_knowledge:
         import: "src/shared/infrastructure/exceptions/infrastructure.exception"
         http_status: 500
 
+      ForbiddenException:
+        import: "@nestjs/common"
+        http_status: 403
+        usage: "Thrown by PermissionGuard when user lacks required permissions"
+
     error_response_format: |
       {
         messageKey: "ERROR_CODE",
@@ -744,3 +778,7 @@ implementation_knowledge:
     jwt_field_not_in_request:
       cause: "Passing tenantId as query param when it's decoded from JWT"
       solution: "Check controller for @CurrentUser() usage, remove JWT-decoded fields from request"
+
+    forbidden_403:
+      cause: "User lacks required permission or permissions not seeded in JWT"
+      solution: "Ensure permissions are seeded in role_permissions and role_workspaces, and JWT payload includes permissions array"
