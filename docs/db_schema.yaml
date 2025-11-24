@@ -208,3 +208,362 @@ db_schema:
       CONSTRAINT `fk_parent_level1` FOREIGN KEY (`parent_level1_id`) REFERENCES `product_categories` (`id`) ON DELETE SET NULL,
       CONSTRAINT `fk_parent_level2` FOREIGN KEY (`parent_level2_id`) REFERENCES `product_categories` (`id`) ON DELETE SET NULL
     );
+
+  seed_data_strategy:
+    description: "Chiến lược seed dữ liệu cho Red Code testing"
+
+    permission_naming_convention:
+      pattern: "<Action>_<Domain>"
+      examples:
+        - "GET_PRODUCT_CATEGORY"
+        - "CREATE_PRODUCT_CATEGORY"
+        - "UPDATE_PRODUCT_CATEGORY"
+        - "DELETE_PRODUCT_CATEGORY"
+        - "GET_LIST_PRODUCT_CATEGORY"
+
+      actions:
+        - "GET: Xem chi tiết một resource"
+        - "GET_LIST: Xem danh sách resources"
+        - "CREATE: Tạo mới resource"
+        - "UPDATE: Cập nhật resource"
+        - "DELETE: Xóa resource"
+        - "EXPORT: Xuất dữ liệu"
+        - "IMPORT: Nhập dữ liệu"
+
+      domains:
+        - "PRODUCT_CATEGORY: Danh mục sản phẩm"
+        - "PRODUCT: Sản phẩm"
+        - "BRANCH: Chi nhánh"
+        - "RESELLER: Nhà phân phối"
+        - "EMPLOYEE: Nhân viên"
+        - "USER: Người dùng"
+        - "ROLE: Vai trò"
+        - "WORKSPACE: Không gian làm việc"
+
+    seed_execution_order:
+      description: "Thứ tự insert dữ liệu tuân theo dependency graph"
+      steps:
+        1: "softwares (dùng INSERT IGNORE vì là shared data)"
+        2: "tenants"
+        3: "users"
+        4: "workspaces (FK: user_id, tenant_id)"
+        5: "employees (FK: workspace_id)"
+        6: "permissions (FK: software_id, permission_parent_id)"
+        7: "roles (FK: tenant_id, creator_id)"
+        8: "role_permissions (FK: role_id, permission_id)"
+        9: "role_workspaces (FK: workspace_id, role_id)"
+        10: "domain-specific tables (branches, resellers, product_categories, etc.)"
+
+    test_data_constants:
+      description: "Constants cho test data với IDs >= 100000"
+      values:
+        TEST_SOFTWARE_ID: 1
+        TEST_TENANT_ID: 100011
+        TEST_OTHER_TENANT_ID: 100099
+        TEST_USER_ID: 100001
+        TEST_WORKSPACE_ID: 100001
+        TEST_EMPLOYEE_ID: 100001
+        TEST_ROLE_ADMIN_ID: 100001
+        TEST_ROLE_MANAGER_ID: 100002
+        TEST_ROLE_STAFF_ID: 100003
+        TEST_PERMISSION_START_ID: 100001
+
+    sample_seed_data:
+      description: "Dữ liệu seed mẫu cho Product Category domain"
+
+      permissions:
+        - id: 100001
+          name: "GET_LIST_PRODUCT_CATEGORY"
+          display_name: "Xem danh sách danh mục sản phẩm"
+          software_id: 1
+          permission_parent_id: NULL
+          type: 1
+
+        - id: 100002
+          name: "GET_PRODUCT_CATEGORY"
+          display_name: "Xem chi tiết danh mục sản phẩm"
+          software_id: 1
+          permission_parent_id: NULL
+          type: 1
+
+        - id: 100003
+          name: "CREATE_PRODUCT_CATEGORY"
+          display_name: "Tạo mới danh mục sản phẩm"
+          software_id: 1
+          permission_parent_id: NULL
+          type: 1
+
+        - id: 100004
+          name: "UPDATE_PRODUCT_CATEGORY"
+          display_name: "Cập nhật danh mục sản phẩm"
+          software_id: 1
+          permission_parent_id: NULL
+          type: 1
+
+        - id: 100005
+          name: "DELETE_PRODUCT_CATEGORY"
+          display_name: "Xóa danh mục sản phẩm"
+          software_id: 1
+          permission_parent_id: NULL
+          type: 1
+
+        - id: 100006
+          name: "EXPORT_PRODUCT_CATEGORY"
+          display_name: "Xuất dữ liệu danh mục sản phẩm"
+          software_id: 1
+          permission_parent_id: NULL
+          type: 1
+
+      roles:
+        - id: 100001
+          name: "Admin"
+          note: "Quản trị viên - Full quyền"
+          tenant_id: 100011
+          creator_id: NULL
+          type: 0
+          permissions: [100001, 100002, 100003, 100004, 100005, 100006]
+
+        - id: 100002
+          name: "Manager"
+          note: "Quản lý - Được xem và chỉnh sửa"
+          tenant_id: 100011
+          creator_id: 100001
+          type: 1
+          permissions: [100001, 100002, 100003, 100004, 100006]
+
+        - id: 100003
+          name: "Staff"
+          note: "Nhân viên - Chỉ xem"
+          tenant_id: 100011
+          creator_id: 100001
+          type: 2
+          permissions: [100001, 100002]
+
+      role_workspaces:
+        - workspace_id: 100001
+          role_id: 100001
+          description: "Admin role gán cho workspace của test user"
+
+        - workspace_id: 100001
+          role_id: 100002
+          description: "Manager role gán cho workspace của test user"
+
+    seed_function_template: |
+      import { QueryRunner } from 'typeorm';
+
+      export const TEST_TENANT_ID = 100011;
+      export const TEST_USER_ID = 100001;
+      export const TEST_WORKSPACE_ID = 100001;
+      export const TEST_EMPLOYEE_ID = 100001;
+
+      export const TEST_USER_CREDENTIALS = {
+        username: 'test_user_e2e',
+        password: 'Test@123456',
+        softwareId: 1,
+      };
+
+      // Permission IDs
+      export const PERMISSION_GET_LIST_PRODUCT_CATEGORY = 100001;
+      export const PERMISSION_GET_PRODUCT_CATEGORY = 100002;
+      export const PERMISSION_CREATE_PRODUCT_CATEGORY = 100003;
+      export const PERMISSION_UPDATE_PRODUCT_CATEGORY = 100004;
+      export const PERMISSION_DELETE_PRODUCT_CATEGORY = 100005;
+      export const PERMISSION_EXPORT_PRODUCT_CATEGORY = 100006;
+
+      // Role IDs
+      export const ROLE_ADMIN_ID = 100001;
+      export const ROLE_MANAGER_ID = 100002;
+      export const ROLE_STAFF_ID = 100003;
+
+      export async function seedTestData(queryRunner: QueryRunner): Promise<void> {
+        // Cleanup existing test data
+        await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
+        await queryRunner.query('DELETE FROM role_workspaces WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM role_permissions WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM roles WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM permissions WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM product_categories WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM employees WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM workspaces WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM users WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM tenants WHERE id >= 100000');
+        await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
+
+        // 1. Insert software (shared data)
+        await queryRunner.query(`
+          INSERT IGNORE INTO softwares (id, name, created_at, updated_at)
+          VALUES (1, 'Test Software', NOW(), NOW())
+        `);
+
+        // 2. Insert tenant
+        await queryRunner.query(`
+          INSERT INTO tenants (id, name, status, remaining_account_quota, total_account_quota, created_at, updated_at)
+          VALUES (?, 'Test Tenant', 1, 10, 100, NOW(), NOW())
+        `, [TEST_TENANT_ID]);
+
+        // 3. Insert user with bcrypt hash for password 'Test@123456'
+        const passwordHash = '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y';
+        await queryRunner.query(`
+          INSERT INTO users (id, user_name, password, created_at, updated_at)
+          VALUES (?, ?, ?, NOW(), NOW())
+        `, [TEST_USER_ID, TEST_USER_CREDENTIALS.username, passwordHash]);
+
+        // 4. Insert workspace
+        await queryRunner.query(`
+          INSERT INTO workspaces (id, status, user_id, tenant_id, created_at, updated_at)
+          VALUES (?, 1, ?, ?, NOW(), NOW())
+        `, [TEST_WORKSPACE_ID, TEST_USER_ID, TEST_TENANT_ID]);
+
+        // 5. Insert employee
+        await queryRunner.query(`
+          INSERT INTO employees (id, name, workspace_id, status, type, created_at, updated_at)
+          VALUES (?, 'Test Employee', ?, 1, 1, NOW(), NOW())
+        `, [TEST_EMPLOYEE_ID, TEST_WORKSPACE_ID]);
+
+        // 6. Insert permissions for Product Category domain
+        const permissions = [
+          [PERMISSION_GET_LIST_PRODUCT_CATEGORY, 'GET_LIST_PRODUCT_CATEGORY', 'Xem danh sách danh mục sản phẩm'],
+          [PERMISSION_GET_PRODUCT_CATEGORY, 'GET_PRODUCT_CATEGORY', 'Xem chi tiết danh mục sản phẩm'],
+          [PERMISSION_CREATE_PRODUCT_CATEGORY, 'CREATE_PRODUCT_CATEGORY', 'Tạo mới danh mục sản phẩm'],
+          [PERMISSION_UPDATE_PRODUCT_CATEGORY, 'UPDATE_PRODUCT_CATEGORY', 'Cập nhật danh mục sản phẩm'],
+          [PERMISSION_DELETE_PRODUCT_CATEGORY, 'DELETE_PRODUCT_CATEGORY', 'Xóa danh mục sản phẩm'],
+          [PERMISSION_EXPORT_PRODUCT_CATEGORY, 'EXPORT_PRODUCT_CATEGORY', 'Xuất dữ liệu danh mục sản phẩm'],
+        ];
+
+        for (const [id, name, displayName] of permissions) {
+          await queryRunner.query(`
+            INSERT INTO permissions (id, name, software_id, permission_parent_id, type, display_name, created_at, updated_at)
+            VALUES (?, ?, 1, NULL, 1, ?, NOW(), NOW())
+          `, [id, name, displayName]);
+        }
+
+        // 7. Insert roles
+        await queryRunner.query(`
+          INSERT INTO roles (id, name, note, creator_id, tenant_id, type, created_at, updated_at)
+          VALUES (?, 'Admin', 'Quản trị viên - Full quyền', NULL, ?, 0, NOW(), NOW())
+        `, [ROLE_ADMIN_ID, TEST_TENANT_ID]);
+
+        await queryRunner.query(`
+          INSERT INTO roles (id, name, note, creator_id, tenant_id, type, created_at, updated_at)
+          VALUES (?, 'Manager', 'Quản lý - Được xem và chỉnh sửa', ?, ?, 1, NOW(), NOW())
+        `, [ROLE_MANAGER_ID, TEST_EMPLOYEE_ID, TEST_TENANT_ID]);
+
+        await queryRunner.query(`
+          INSERT INTO roles (id, name, note, creator_id, tenant_id, type, created_at, updated_at)
+          VALUES (?, 'Staff', 'Nhân viên - Chỉ xem', ?, ?, 2, NOW(), NOW())
+        `, [ROLE_STAFF_ID, TEST_EMPLOYEE_ID, TEST_TENANT_ID]);
+
+        // 8. Insert role_permissions
+        // Admin has all permissions
+        const adminPermissions = [
+          PERMISSION_GET_LIST_PRODUCT_CATEGORY,
+          PERMISSION_GET_PRODUCT_CATEGORY,
+          PERMISSION_CREATE_PRODUCT_CATEGORY,
+          PERMISSION_UPDATE_PRODUCT_CATEGORY,
+          PERMISSION_DELETE_PRODUCT_CATEGORY,
+          PERMISSION_EXPORT_PRODUCT_CATEGORY,
+        ];
+
+        for (let i = 0; i < adminPermissions.length; i++) {
+          await queryRunner.query(`
+            INSERT INTO role_permissions (id, role_id, permission_id, created_at, updated_at)
+            VALUES (?, ?, ?, NOW(), NOW())
+          `, [100001 + i, ROLE_ADMIN_ID, adminPermissions[i]]);
+        }
+
+        // Manager has view, create, update, export permissions
+        const managerPermissions = [
+          PERMISSION_GET_LIST_PRODUCT_CATEGORY,
+          PERMISSION_GET_PRODUCT_CATEGORY,
+          PERMISSION_CREATE_PRODUCT_CATEGORY,
+          PERMISSION_UPDATE_PRODUCT_CATEGORY,
+          PERMISSION_EXPORT_PRODUCT_CATEGORY,
+        ];
+
+        for (let i = 0; i < managerPermissions.length; i++) {
+          await queryRunner.query(`
+            INSERT INTO role_permissions (id, role_id, permission_id, created_at, updated_at)
+            VALUES (?, ?, ?, NOW(), NOW())
+          `, [100010 + i, ROLE_MANAGER_ID, managerPermissions[i]]);
+        }
+
+        // Staff has only view permissions
+        const staffPermissions = [
+          PERMISSION_GET_LIST_PRODUCT_CATEGORY,
+          PERMISSION_GET_PRODUCT_CATEGORY,
+        ];
+
+        for (let i = 0; i < staffPermissions.length; i++) {
+          await queryRunner.query(`
+            INSERT INTO role_permissions (id, role_id, permission_id, created_at, updated_at)
+            VALUES (?, ?, ?, NOW(), NOW())
+          `, [100020 + i, ROLE_STAFF_ID, staffPermissions[i]]);
+        }
+
+        // 9. Insert role_workspaces (assign roles to workspace)
+        await queryRunner.query(`
+          INSERT INTO role_workspaces (id, workspace_id, role_id, created_at, updated_at)
+          VALUES (100001, ?, ?, NOW(), NOW())
+        `, [TEST_WORKSPACE_ID, ROLE_ADMIN_ID]);
+
+        await queryRunner.query(`
+          INSERT INTO role_workspaces (id, workspace_id, role_id, created_at, updated_at)
+          VALUES (100002, ?, ?, NOW(), NOW())
+        `, [TEST_WORKSPACE_ID, ROLE_MANAGER_ID]);
+      }
+
+      /**
+       * Seed permissions for a specific domain
+       * @param queryRunner - TypeORM QueryRunner
+       * @param domain - Domain name (e.g., 'PRODUCT_CATEGORY', 'BRANCH')
+       * @param startId - Starting ID for permissions (must be >= 100000)
+       * @param actions - Array of actions (e.g., ['GET_LIST', 'GET', 'CREATE', 'UPDATE', 'DELETE'])
+       */
+      export async function seedDomainPermissions(
+        queryRunner: QueryRunner,
+        domain: string,
+        startId: number,
+        actions: string[],
+        displayNamePrefix: string,
+      ): Promise<void> {
+        const actionDisplayNames = {
+          GET_LIST: 'Xem danh sách',
+          GET: 'Xem chi tiết',
+          CREATE: 'Tạo mới',
+          UPDATE: 'Cập nhật',
+          DELETE: 'Xóa',
+          EXPORT: 'Xuất dữ liệu',
+          IMPORT: 'Nhập dữ liệu',
+        };
+
+        for (let i = 0; i < actions.length; i++) {
+          const permissionName = `${actions[i]}_${domain}`;
+          const displayName = `${actionDisplayNames[actions[i]]} ${displayNamePrefix}`;
+
+          await queryRunner.query(`
+            INSERT INTO permissions (id, name, software_id, permission_parent_id, type, display_name, created_at, updated_at)
+            VALUES (?, ?, 1, NULL, 1, ?, NOW(), NOW())
+          `, [startId + i, permissionName, displayName]);
+        }
+      }
+
+      /**
+       * Assign permissions to a role
+       * @param queryRunner - TypeORM QueryRunner
+       * @param roleId - Role ID
+       * @param permissionIds - Array of permission IDs to assign
+       * @param startRolePermissionId - Starting ID for role_permissions records
+       */
+      export async function assignPermissionsToRole(
+        queryRunner: QueryRunner,
+        roleId: number,
+        permissionIds: number[],
+        startRolePermissionId: number,
+      ): Promise<void> {
+        for (let i = 0; i < permissionIds.length; i++) {
+          await queryRunner.query(`
+            INSERT INTO role_permissions (id, role_id, permission_id, created_at, updated_at)
+            VALUES (?, ?, ?, NOW(), NOW())
+          `, [startRolePermissionId + i, roleId, permissionIds[i]]);
+        }
+      }
