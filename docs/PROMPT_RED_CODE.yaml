@@ -91,7 +91,7 @@ process:
     description: "Setup authentication for E2E tests"
     rules:
       - "Seed user data BEFORE login in beforeAll()"
-      - "Login via POST /api/v1/auth/login with username, password, softwareId"
+      - "Login via POST implementation_knowledge.config.auth_endpoint with username, password, softwareId"
       - "Extract token using snake_case field: response.body.access_token"
       - "Fields like tenantId are decoded from JWT, NOT passed as query params"
       - "Read controller to find which fields come from @CurrentUser() decorator"
@@ -172,7 +172,6 @@ standard_knowledge:
           - "Handler calls repository and returns result directly"
           - "Handler maps entity fields to DTO without transformation"
           - "No business logic, no calculations, no conditional processing"
-        test_file: "[feature].handler.ut.spec.ts"
         mock: "Mock repository interface"
 
       integration_test_required:
@@ -183,9 +182,6 @@ standard_knowledge:
           - "Handler aggregates data from multiple sources"
           - "Handler has conditional logic based on data values"
           - "Response DTO has computed/derived fields"
-        test_files:
-          - "[feature].handler.ut.spec.ts (mock repository)"
-          - "[feature].handler.it.spec.ts (real database)"
 
       decision_flowchart: |
         1. Does handler have business logic beyond simple mapping?
@@ -223,15 +219,18 @@ standard_knowledge:
         alternative: "Truncate tables in reverse dependency order"
         timing: "AFTER EACH test case"
 
-      fk_dependency_order:
-        - "softwares (required for refresh_tokens)"
-        - "tenants"
-        - "users"
-        - "workspaces (references users, tenants)"
-        - "resellers (references tenants)"
-        - "employees (references workspaces, resellers)"
-        - "branches (references tenants, employees)"
-        - "domain_tables (references tenants, employees)"
+      seed_rules:
+        entity_minimal_state:
+          - "Only create required fields (NOT NULL or fields with logic validation)"
+          - "If there is an enum → pick the first valid value"
+          - "If there is a timestamp → use NOW() or a fixed value"
+          - "If there is a unique constraint → append a suffix based on test_case_id"
+
+        foreign_key_handling:
+          - "All dependent tables MUST be inserted after their parent tables"
+          - "If a foreign key has cascade → allow cleanup via cascade"
+          - "If the dataset requires multi-level dependencies → apply topological sort"
+
 
     test_data_pattern:
       ordering_priority:
@@ -328,6 +327,9 @@ standard_knowledge:
         - "Ready to run (RED CODE)"
 
 implementation_knowledge:
+  config:
+    api_version: "v1"
+    auth_endpoint: "/api/v1/auth/login"
   tech_stack:
     language:
       name: "TypeScript"
@@ -387,6 +389,31 @@ implementation_knowledge:
     domain_layer:
       entity: "[Domain]"
       value_object: "[Domain]VO"
+
+  file_naming_rules:
+    application_layer:
+      query_handler_file: "[Action][Domain].query.ts"
+      command_handler_file: "[Action][Domain].command.ts"
+      dto_file: "[Action][Domain].dto.ts"
+      response_dto_file: "[Action][Domain].response.ts"
+      repository_interface_file: "i-[domain]-query.repository.ts"
+
+    domain_layer:
+      entity_file: "[domain].entity.ts"
+      value_object_file: "[domain].vo.ts"
+
+    presentation_layer:
+      request_dto_file: "[Action][Domain].request.ts"
+      response_dto_file: "[Action][Domain].response.ts"
+      controller_file: "[domain].controller.ts"
+
+    infrastructure_layer:
+      repository_implementation_file: "[domain]-query.repository.ts"
+      typeorm_entity_file: "[domain].model.ts"
+
+    domain_layer:
+      entity_file: "[domain].entity.ts"
+      value_object_file: "[domain].vo.ts"
 
   file_structure:
     source_code:
