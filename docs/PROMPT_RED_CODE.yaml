@@ -62,11 +62,9 @@ process:
       - "Analyze db_schema to identify tables and foreign keys"
       - "Build dependency graph: Node = Table, Edge = FK"
       - "Perform topological sort to determine insert order according to implementation_knowledge.config.auth_fk_dependency_order"
-      - "MANDATORY: Seed core authentication tables: softwares, tenants, users, workspaces, employees"
-      - "MANDATORY: Seed permissions following naming convention <Action>_<Domain> (see standard_knowledge.seed_data_strategy.seed_rules.permission_naming_convention)"
-      - "MANDATORY: Seed roles (Admin, Manager, Staff) with corresponding permissions"
-      - "MANDATORY: Seed role_permissions to assign permissions to roles"
-      - "MANDATORY: Seed role_workspaces to assign roles to workspaces"
+      - "MANDATORY: Seed core authentication tables according to implementation_knowledge.mandatory_seed_tables.core_auth_tables"
+      - "MANDATORY: Seed permissions following naming convention according to standard_knowledge.seed_data_strategy.seed_rules.permission_naming_convention"
+      - "MANDATORY: Seed authorization tables (roles, permissions, role-permission associations, role-workspace associations) according to implementation_knowledge.mandatory_seed_tables.authorization_tables"
       - "Generate seed functions respecting FK constraints"
       - "Use seeding method according to implementation_knowledge.seeding_method"
       - "Implement cleanup strategy according to standard_knowledge.seed_data_strategy.cleanup_strategy"
@@ -418,6 +416,32 @@ implementation_knowledge:
         name: "No role assigned"
         description: "User without any role assignment"
         usage: "Testing 403 Forbidden scenarios for users without permissions"
+
+  mandatory_seed_tables:
+    description: "Tables that MUST be seeded for all Integration and E2E tests"
+    core_auth_tables:
+      description: "Core authentication tables required for user login and workspace context"
+      tables:
+        - "softwares - Application/software registry"
+        - "tenants - Multi-tenant organizations"
+        - "users - User accounts"
+        - "workspaces - User workspace contexts"
+        - "employees - Employee records linked to workspaces"
+      note: "These tables must be seeded in dependency order (see config.auth_fk_dependency_order)"
+
+    authorization_tables:
+      description: "Authorization tables required for permission-based access control"
+      tables:
+        - "permissions - Permission definitions with naming pattern <Action>_<Domain>"
+        - "roles - Role definitions (e.g., Admin, Manager, Staff)"
+        - "role_permissions - Many-to-many relationship: assigns permissions to roles"
+        - "role_workspaces - Many-to-many relationship: assigns roles to workspaces"
+      mandatory_rules:
+        - "MUST seed permissions for the domain being tested"
+        - "MUST seed at least 2 roles: one with required permission (for happy path), one without (for 403 testing)"
+        - "MUST associate roles with permissions via role_permissions table"
+        - "MUST associate roles with test workspace via role_workspaces table"
+      note: "Required for E2E tests that use @RequirePermissions decorator"
 
   tech_stack:
     language:
