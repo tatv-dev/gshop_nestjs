@@ -33,11 +33,12 @@ process:
   step_2_generate_structure:
     description: "Tạo cấu trúc test class"
     tasks:
-      - "Tạo file test đúng cấu trúc tên file và vị trí theo file_structure"
+      - "BẮTBUỘC: Tạo file test đúng cấu trúc tên file và vị trí theo implementation_knowledge.file_structure"
+      - "BẮTBUỘC: Đặt tên file test theo quy tắc implementation_knowledge.file_naming_rules"
+      - "BẮTBUỘC: Đặt vị trí file test theo đúng implementation_knowledge.test_code paths"
       - "Import các dependencies cần thiết dùng RELATIVE PATHS (không dùng alias @/)"
       - "Thiết lập khối describe() với tên mô tả rõ ràng"
-      - "Tạo các hooks beforeAll(), beforeEach(), afterEach(), afterAll()"
-      - "Sử dụng cú pháp import đúng: import request from 'supertest' (default import)"
+      - "Tạo các hooks beforeAll(), beforeEach(), afterEach(), afterAll() phù hợp với test type"
 
   step_3_generate_data_provider:
     description: "Tạo mảng test cases cho test.each()"
@@ -48,12 +49,17 @@ process:
       - "Cấu trúc chuẩn: { acId: 'AC-XX', title: '...', input: {...}, expected: {...} }"
 
   step_4_generate_seed_data:
-    description: "Tạo hàm seed data cho Integration Tests"
+    description: "Tạo hàm seed data cho Integration Tests và E2E Tests"
     rules:
-      - "Seed data được tạo dựa trên các nguyên tắc trong standard_knowledge.seed_data_strategy" 
+      - "Seed data được tạo dựa trên các nguyên tắc trong standard_knowledge.seed_data_strategy"
       - "Phân tích db_schema để xác định Table và Foreign Keys (FK)"
       - "Xây dựng đồ thị phụ thuộc (dependency graph): Node = Table, Edge = FK"
-      - "Thực hiện topological sort để xác định thứ tự insert"
+      - "Thực hiện topological sort để xác định thứ tự insert theo implementation_knowledge.config.auth_fk_dependency_order"
+      - "BẮTBUỘC: Seed các bảng core authentication: softwares, tenants, users, workspaces, employees"
+      - "BẮTBUỘC: Seed permissions theo naming convention <Action>_<Domain> (xem standard_knowledge.seed_data_strategy.seed_rules.permission_naming_convention)"
+      - "BẮTBUỘC: Seed roles (Admin, Manager, Staff) với các permission tương ứng"
+      - "BẮTBUỘC: Seed role_permissions để gán permissions cho roles"
+      - "BẮTBUỘC: Seed role_workspaces để gán roles cho workspaces"
       - "Tạo các hàm seed tuân thủ ràng buộc FK"
       - "Sử dụng queryRunner.query() cho các lệnh insert SQL thô"
       - "Triển khai chiến lược cleanup (ưu tiên rollback transaction)"
@@ -73,21 +79,28 @@ process:
   step_6_red_code_principles:
     description: "Đảm bảo tuân thủ RED CODE"
     checklist:
-      - "Cú pháp hoàn toàn hợp lệ theo implementation_knowledge.tech_stack"
-      - "Tất cả imports hiện diện và dùng RELATIVE PATHS"
-      - "Test methods được cấu trúc đúng"
-      - "Test PHẢI FAIL do thiếu implementation"
-      - "KHÔNG có placeholder code"
-      - "KHÔNG có comment TODO/FIXME"
+      - "Cú pháp hoàn toàn hợp lệ (syntactically correct)"
+      - "Tất cả imports hiện diện và dùng RELATIVE PATHS (không dùng alias @/)"
+      - "Test methods được cấu trúc đúng với Arrange-Act-Assert pattern"
+      - "Test PHẢI FAIL do thiếu implementation (không phải do syntax error)"
+      - "KHÔNG có placeholder code hoặc mock implementation"
+      - "KHÔNG có comment TODO/FIXME trong code"
+      - "Code phải compile/parse thành công"
 
   step_7_e2e_auth_setup:
-    description: "Thiết lập Authentication cho E2E tests"
+    description: "Thiết lập Authentication và Authorization cho E2E tests"
     rules:
-      - "Seed dữ liệu User TRƯỚC KHI login trong beforeAll()"
+      - "BẮTBUỘC: Seed dữ liệu User, Permissions, Roles TRƯỚC KHI login trong beforeAll()"
+      - "BẮTBUỘC: Seed ít nhất 2 loại user accounts để test authorization:"
+      - "  1. User có đầy đủ permissions (Admin role) - để test happy path"
+      - "  2. User KHÔNG có permission cần thiết (Staff role hoặc no role) - để test 403 Forbidden"
       - "Login thông qua POST implementation_knowledge.config.auth_endpoint với username, password, softwareId"
       - "Trích xuất token sử dụng field snake_case: response.body.access_token"
+      - "Test cases phải bao gồm:"
+      - "  - Happy path: User có permission → expect 200/201"
+      - "  - Authorization failure: User không có permission → expect 403 Forbidden"
       - "Các field như tenantId được decode từ JWT, KHÔNG truyền qua query params"
-      - "Đọc Controller để tìm các field nào đến từ decorator @CurrentUser()"
+      - "Đọc Controller để tìm các field nào đến từ decorator @CurrentUser() và @RequirePermissions()"
 
   step_8_request_dto_transform:
     description: "Xử lý transform mảng trong query string"

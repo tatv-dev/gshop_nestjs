@@ -33,11 +33,12 @@ process:
   step_2_generate_structure:
     description: "Generate test class structure"
     tasks:
-      - "Create the test file in the correct directory and with the correct file name according to implementation_knowledge.file_structure rules"
+      - "MANDATORY: Create test file with correct file name and location according to implementation_knowledge.file_structure"
+      - "MANDATORY: Name test file according to implementation_knowledge.file_naming_rules"
+      - "MANDATORY: Place test file in correct implementation_knowledge.test_code paths"
       - "Import required dependencies using RELATIVE PATHS (not @/ aliases)"
       - "Setup describe() block with descriptive name"
-      - "Create beforeAll(), beforeEach(), afterEach(), afterAll() hooks"
-      - "Use correct import syntax: import request from 'supertest' (default import)"
+      - "Create beforeAll(), beforeEach(), afterEach(), afterAll() hooks appropriate for test type"
 
   step_3_generate_data_provider:
     description: "Generate test cases array for test.each()"
@@ -48,12 +49,17 @@ process:
       - "Standard structure: { acId: 'AC-XX', title: '...', input: {...}, expected: {...} }"
 
   step_4_generate_seed_data:
-    description: "Generate seed data functions for Integration Tests"
+    description: "Generate seed data functions for Integration Tests and E2E Tests"
     rules:
       - "Seed data is generated based on the standard_knowledge.seed_data_strategy principles"
       - "Analyze db_schema to identify tables and foreign keys"
       - "Build dependency graph: Node = Table, Edge = FK"
-      - "Perform topological sort to determine insert order"
+      - "Perform topological sort to determine insert order according to implementation_knowledge.config.auth_fk_dependency_order"
+      - "MANDATORY: Seed core authentication tables: softwares, tenants, users, workspaces, employees"
+      - "MANDATORY: Seed permissions following naming convention <Action>_<Domain> (see standard_knowledge.seed_data_strategy.seed_rules.permission_naming_convention)"
+      - "MANDATORY: Seed roles (Admin, Manager, Staff) with corresponding permissions"
+      - "MANDATORY: Seed role_permissions to assign permissions to roles"
+      - "MANDATORY: Seed role_workspaces to assign roles to workspaces"
       - "Generate seed functions respecting FK constraints"
       - "Use queryRunner.query() for raw SQL inserts"
       - "Implement cleanup strategy (transaction rollback preferred)"
@@ -73,21 +79,28 @@ process:
   step_6_red_code_principles:
     description: "Ensure RED CODE compliance"
     checklist:
-      - "Syntax completely valid implementation_knowledge.tech_stack"
-      - "All imports present using RELATIVE PATHS"
-      - "Test methods properly structured"
-      - "Test MUST FAIL due to missing implementation"
-      - "NO placeholder code"
-      - "NO TODO/FIXME comments"
+      - "Syntax completely valid (syntactically correct)"
+      - "All imports present using RELATIVE PATHS (no @/ aliases)"
+      - "Test methods properly structured with Arrange-Act-Assert pattern"
+      - "Test MUST FAIL due to missing implementation (not syntax errors)"
+      - "NO placeholder code or mock implementations"
+      - "NO TODO/FIXME comments in code"
+      - "Code must compile/parse successfully"
 
   step_7_e2e_auth_setup:
-    description: "Setup authentication for E2E tests"
+    description: "Setup Authentication and Authorization for E2E tests"
     rules:
-      - "Seed user data BEFORE login in beforeAll()"
+      - "MANDATORY: Seed User, Permissions, Roles data BEFORE login in beforeAll()"
+      - "MANDATORY: Seed at least 2 types of user accounts to test authorization:"
+      - "  1. User with full permissions (Admin role) - for happy path testing"
+      - "  2. User WITHOUT required permission (Staff role or no role) - for 403 Forbidden testing"
       - "Login via POST implementation_knowledge.config.auth_endpoint with username, password, softwareId"
       - "Extract token using snake_case field: response.body.access_token"
+      - "Test cases must include:"
+      - "  - Happy path: User with permission → expect 200/201"
+      - "  - Authorization failure: User without permission → expect 403 Forbidden"
       - "Fields like tenantId are decoded from JWT, NOT passed as query params"
-      - "Read controller to find which fields come from @CurrentUser() decorator"
+      - "Read controller to find which fields come from @CurrentUser() and @RequirePermissions() decorators"
 
   step_8_request_dto_transform:
     description: "Handle query string array transformation"
