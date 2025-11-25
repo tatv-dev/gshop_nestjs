@@ -27,6 +27,8 @@ process:
         - "input fields and expected outcome"
         - "test_class name (EXACT class name for test file)"
       - "Read and understand standard_knowledge, implementation_knowledge to get correct class names, paths, endpoint URL and which fields come from JWT"
+      - "For Request DTO tests: identify fields that require data transformation (e.g., query parameters that come as strings but need to be arrays/numbers)"
+      - "Check implementation_knowledge.validation and implementation_knowledge.transformer for transformation methods"
 
   step_2_generate_structure:
     description: "Generate test class structure"
@@ -74,7 +76,8 @@ process:
     rules:
       - "Follow Arrange-Act-Assert pattern"
       - "Assertions match expected outcome"
-      - "Request DTO: assert validation errors"
+      - "Request DTO: assert validation errors and data transformation behavior"
+      - "For Request DTO with transformation: test different input formats (strings, arrays, numbers) according to implementation_knowledge.transformer"
       - "Handler: assert response structure or exceptions"
       - "Repository: assert database query results"
 
@@ -103,13 +106,6 @@ process:
       - "  - Authorization failure: User without permission → expect 403 Forbidden"
       - "Context fields from authentication token should NOT be passed as request parameters"
       - "Read controller to find which fields come from authentication context and permission requirements"
-
-  step_8_request_dto_transform:
-    description: "Handle request parameter data transformation"
-    rules:
-      - "Query parameters may come as strings that need transformation"
-      - "Use transformation methods according to implementation_knowledge.validation and implementation_knowledge.transformer"
-      - "Transform function must handle different input data formats"
 
 standard_knowledge:
   architecture_principles:
