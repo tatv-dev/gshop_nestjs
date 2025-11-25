@@ -9,12 +9,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource, QueryRunner } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
-import { GetListProductCategoryQueryHandler } from '../../../../components/product-catalog/application/handlers/get-list-product-category.handler';
+import { GetListProductCategoryQueryHandler } from '../../../../components/product-catalog/application/queries/get-list-product-category.query';
 import { GetListProductCategoryQuery } from '../../../../components/product-catalog/application/queries/get-list-product-category.query';
 import { GetListProductCategoryDTO } from '../../../../components/product-catalog/application/dtos/get-list-product-category.dto';
 import { ProductCategoryQueryRepository } from '../../../../components/product-catalog/infrastructure/repositories/product-category-query.repository';
 import { ProductCategoryModel } from '../../../../components/product-catalog/infrastructure/entities/product-category.model';
-import { seedProductCategoryTestData, TEST_TENANT_ID } from '../../../helpers/seed-data.helper';
+import { seedProductCategoryTestData, TEST_TENANT_ID } from './seed-data.helper';
 
 describe('GetListProductCategoryQueryHandler - Integration Tests', () => {
   let module: TestingModule;

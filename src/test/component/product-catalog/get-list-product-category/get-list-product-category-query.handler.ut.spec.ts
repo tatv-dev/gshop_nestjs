@@ -6,7 +6,7 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { GetListProductCategoryQueryHandler } from '../../../../components/product-catalog/application/handlers/get-list-product-category.handler';
+import { GetListProductCategoryQueryHandler } from '../../../../components/product-catalog/application/queries/get-list-product-category.query';
 import { GetListProductCategoryQuery } from '../../../../components/product-catalog/application/queries/get-list-product-category.query';
 import { GetListProductCategoryDTO } from '../../../../components/product-catalog/application/dtos/get-list-product-category.dto';
 import { IProductCategoryQueryRepository } from '../../../../components/product-catalog/application/repositories/product-category-query.repository';
