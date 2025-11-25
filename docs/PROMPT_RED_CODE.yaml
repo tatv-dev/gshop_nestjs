@@ -28,6 +28,7 @@ process:
          - Table structures and relationships
          - Foreign key dependencies
          - Required fields (NOT NULL, validation constraints)
+         - Tables needed for authentication and authorization
 
       3. Read source code to identify:
          - EXACT class names (Request DTO, Handler, Repository, etc.)
