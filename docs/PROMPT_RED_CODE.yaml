@@ -115,16 +115,24 @@ process:
       - "Generate password hash according to implementation_knowledge.password_hash_pattern"
 
   step_5_generate_test_method:
-    description: "Generate test methods"
+    description: "Generate test methods with Arrange-Act-Assert pattern"
     rules:
-      - "Follow Arrange-Act-Assert pattern"
-      - "Assertions match expected outcome"
-      - "Request DTO: assert validation errors and data transformation behavior"
-      - "For Request DTO with transformation: test different input formats (strings, arrays, numbers) according to implementation_knowledge.transformer"
-      - "Handler: assert response structure or exceptions"
-      - "Repository: assert database query results"
+      - "MANDATORY: Generate test method body following Arrange-Act-Assert pattern according to implementation_knowledge.arrange_act_assert_patterns for test type:"
+      - "  - Request DTO UT: Arrange (transform input to DTO) → Act (validate) → Assert (check errors or valid)"
+      - "  - Handler UT: Arrange (setup mocks, create DTO) → Act (execute handler) → Assert (verify result or exception)"
+      - "  - Handler IT: Arrange (seed data via queryRunner) → Act (execute handler with real repository) → Assert (verify result from database)"
+      - "  - Repository IT: Arrange (seed data via queryRunner) → Act (query repository) → Assert (verify query results)"
+      - "  - E2E: Arrange (already seeded in beforeAll/beforeEach) → Act (HTTP request with access token) → Assert (status code and response body)"
+      - "MANDATORY: For Handler UT, setup mocks according to implementation_knowledge.mock_setup_patterns"
+      - "MANDATORY: For E2E with authorization:"
+      - "  - Use access token from beforeAll (already logged in with TEST_USER_CREDENTIALS)"
+      - "  - For permission_denied test cases: login with TEST_USER_WITHOUT_PERMISSION_CREDENTIALS to get separate token"
+      - "  - Include Authorization header: .set('Authorization', `Bearer ${accessToken}`)"
+      - "  - DO NOT pass JWT fields (tenantId, userId, workspaceId) as request parameters"
+      - "Generate assertions according to implementation_knowledge.assertion_patterns for test type"
+      - "Include AC ID in assertion error messages for traceability"
 
-  step_6_red_code_principles:
+  step_6_red_code_compliance:
     description: "Ensure RED CODE compliance"
     checklist:
       - "Syntax completely valid (syntactically correct)"
@@ -134,21 +142,6 @@ process:
       - "NO placeholder code or mock implementations"
       - "NO TODO/FIXME comments in code"
       - "Code must compile/parse successfully"
-
-  step_7_e2e_auth_setup:
-    description: "Setup Authentication and Authorization for E2E tests"
-    rules:
-      - "MANDATORY: Seed User, Permissions, Roles data BEFORE login in test setup phase"
-      - "MANDATORY: Seed at least 2 types of user accounts to test authorization according to implementation_knowledge.test_roles:"
-      - "  1. User with full permissions (for happy path testing)"
-      - "  2. User WITHOUT required permission (for 403 Forbidden testing)"
-      - "Login via authentication endpoint according to implementation_knowledge.config.auth_endpoint"
-      - "Extract access token according to implementation_knowledge.auth response format"
-      - "Test cases must include:"
-      - "  - Happy path: User with permission → expect 200/201"
-      - "  - Authorization failure: User without permission → expect 403 Forbidden"
-      - "Context fields from authentication token should NOT be passed as request parameters"
-      - "Read controller to find which fields come from authentication context and permission requirements"
 
 standard_knowledge:
   architecture_principles:
@@ -660,6 +653,248 @@ implementation_knowledge:
         INSERT INTO users (id, user_name, password, created_at, updated_at)
         VALUES (?, ?, ?, NOW(), NOW())
       `, [TEST_USER_ID, TEST_USER_CREDENTIALS.username, passwordHash]);
+
+  arrange_act_assert_patterns:
+    description: "Arrange-Act-Assert patterns for each test type"
+    request_dto_ut:
+      pattern: |
+        it.each(testCases)('[$acId] $title', async ({ acId, title, input, expected }) => {
+          // Arrange
+          const dto = plainToClass(RequestDtoClass, input);
+
+          // Act
+          const errors = await validate(dto);
+
+          // Assert
+          if (expected.valid) {
+            expect(errors).toHaveLength(0);
+          } else {
+            expect(errors.length).toBeGreaterThan(0);
+            expected.errorFields.forEach((field) => {
+              expect(errors.some(e => e.property === field)).toBe(true);
+            });
+          }
+        });
+
+    handler_ut:
+      pattern: |
+        it.each(testCases)('[$acId] $title', async ({ acId, title, input, expected }) => {
+          // Arrange
+          const dto = new QueryDTO(input);
+          mockRepository.findAll.mockResolvedValue(mockData);
+
+          // Act & Assert
+          if (expected.throws) {
+            await expect(handler.execute(dto)).rejects.toThrow(expected.throws);
+          } else {
+            const result = await handler.execute(dto);
+
+            expect(result).toBeDefined();
+            if (expected.hasData) {
+              expect(result.data).toBeDefined();
+            }
+          }
+        });
+
+    handler_it:
+      pattern: |
+        it.each(testCases)('[$acId] $title', async ({ acId, title, input, expected }) => {
+          // Arrange
+          // Data already seeded in beforeEach via seedTestData(queryRunner)
+
+          // Act & Assert
+          if (expected.throws) {
+            await expect(handler.execute(input)).rejects.toThrow(expected.throws);
+          } else {
+            const result = await handler.execute(input);
+
+            // Assert
+            expect(result).toBeDefined();
+            if (expected.hasItems) {
+              expect(result.items).toBeDefined();
+              expect(Array.isArray(result.items)).toBe(true);
+            }
+            if (expected.hasPagination) {
+              expect(result.total).toBeDefined();
+              expect(typeof result.total).toBe('number');
+            }
+            if (expected.totalCount !== undefined) {
+              expect(result.total).toBe(expected.totalCount);
+            }
+          }
+        });
+
+    repository_it:
+      pattern: |
+        it.each(testCases)('[$acId] $title', async ({ acId, title, input, expected }) => {
+          // Arrange
+          // Data already seeded in beforeEach via seedTestData(queryRunner)
+
+          // Act
+          const result = await repository.findSomething(input);
+
+          // Assert
+          if (expected.hasResults) {
+            expect(result).toBeDefined();
+            expect(Array.isArray(result)).toBe(true);
+            if (expected.count !== undefined) {
+              expect(result.length).toBe(expected.count);
+            }
+          } else {
+            expect(result).toEqual([]);
+          }
+        });
+
+    e2e:
+      happy_path_pattern: |
+        it.each(testCases.filter(tc => tc.expected.status < 400))('[$acId] $title', async ({ acId, title, input, expected }) => {
+          // Arrange
+          // Data already seeded in beforeAll and beforeEach
+          // accessToken already obtained in beforeAll via TEST_USER_CREDENTIALS
+
+          // Act
+          const response = await request(app.getHttpServer())
+            .get('/api/v1/endpoint')
+            .set('Authorization', `Bearer ${accessToken}`)
+            .query(input);
+
+          // Assert
+          expect(response.status).toBe(expected.status);
+          if (expected.hasData) {
+            expect(response.body.data).toBeDefined();
+          }
+          if (expected.hasItems) {
+            expect(Array.isArray(response.body.data.items)).toBe(true);
+          }
+        });
+
+      permission_denied_pattern: |
+        it.each(testCases.filter(tc => tc.expected.status === 403))('[$acId] $title', async ({ acId, title, input, expected }) => {
+          // Arrange
+          // Login with user WITHOUT permission to get separate token
+          const loginResponse = await request(app.getHttpServer())
+            .post('/api/v1/auth/login')
+            .send({
+              username: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.username,
+              password: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.password,
+              softwareId: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.softwareId,
+            });
+          const accessTokenWithoutPermission = loginResponse.body?.access_token || '';
+
+          // Act
+          const response = await request(app.getHttpServer())
+            .get('/api/v1/endpoint')
+            .set('Authorization', `Bearer ${accessTokenWithoutPermission}`)
+            .query(input);
+
+          // Assert
+          expect(response.status).toBe(403);
+          expect(response.body.messageKey).toBe('insufficient_permissions');
+        });
+
+      error_case_pattern: |
+        it.each(testCases.filter(tc => tc.expected.status >= 400 && tc.expected.status < 500 && tc.expected.status !== 403))('[$acId] $title', async ({ acId, title, input, expected }) => {
+          // Arrange
+          // accessToken already obtained in beforeAll
+
+          // Act
+          const response = await request(app.getHttpServer())
+            .get('/api/v1/endpoint')
+            .set('Authorization', `Bearer ${accessToken}`)
+            .query(input);
+
+          // Assert
+          expect(response.status).toBe(expected.status);
+          if (expected.errorMessageKey) {
+            expect(response.body.messageKey).toBe(expected.errorMessageKey);
+          }
+        });
+
+  mock_setup_patterns:
+    description: "Mock setup patterns for Handler Unit Tests"
+    repository_mock:
+      pattern: |
+        let mockRepository: jest.Mocked<IRepositoryInterface>;
+
+        beforeEach(() => {
+          mockRepository = {
+            findAll: jest.fn(),
+            findById: jest.fn(),
+            save: jest.fn(),
+            delete: jest.fn(),
+          } as any;
+        });
+
+    service_mock:
+      pattern: |
+        let mockService: jest.Mocked<ServiceInterface>;
+
+        beforeEach(() => {
+          mockService = {
+            doSomething: jest.fn(),
+          } as any;
+        });
+
+    mock_return_value:
+      success: "mockRepository.findAll.mockResolvedValue(mockData);"
+      exception: "mockRepository.findAll.mockRejectedValue(new NotFoundException());"
+
+  assertion_patterns:
+    description: "Assertion patterns for each test type"
+    request_dto_validation:
+      valid: |
+        expect(errors).toHaveLength(0);
+
+      invalid: |
+        expect(errors.length).toBeGreaterThan(0);
+        expect(errors.some(e => e.property === 'fieldName')).toBe(true);
+
+      specific_constraint: |
+        const error = errors.find(e => e.property === 'fieldName');
+        expect(error).toBeDefined();
+        expect(error.constraints).toHaveProperty('constraintName');
+
+    handler_response:
+      success: |
+        expect(result).toBeDefined();
+        expect(result.data).toBeDefined();
+        expect(result.items).toBeDefined();
+        expect(Array.isArray(result.items)).toBe(true);
+        expect(result.total).toBe(expectedCount);
+
+      exception: |
+        await expect(handler.execute(dto)).rejects.toThrow(ExceptionClass);
+        await expect(handler.execute(dto)).rejects.toThrow('Error message');
+
+    repository_query:
+      has_results: |
+        expect(result).toBeDefined();
+        expect(Array.isArray(result)).toBe(true);
+        expect(result.length).toBe(expectedCount);
+        expect(result[0]).toHaveProperty('fieldName');
+
+      no_results: |
+        expect(result).toEqual([]);
+
+    e2e_response:
+      success_2xx: |
+        expect(response.status).toBe(200);
+        expect(response.body.data).toBeDefined();
+        expect(response.body.data.items).toBeDefined();
+        expect(Array.isArray(response.body.data.items)).toBe(true);
+
+      validation_error_400: |
+        expect(response.status).toBe(400);
+        expect(response.body.messageKey).toBe('validation_error');
+        expect(response.body.errors).toBeDefined();
+
+      forbidden_403: |
+        expect(response.status).toBe(403);
+        expect(response.body.messageKey).toBe('insufficient_permissions');
+
+      not_found_404: |
+        expect(response.status).toBe(404);
+        expect(response.body.messageKey).toBe('not_found');
 
   test_roles:
     description: "Standard test roles for authorization testing"
