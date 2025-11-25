@@ -129,20 +129,24 @@ process:
          THIS STEP IS ABSOLUTELY REQUIRED. DO NOT SKIP. DO NOT OMIT.
 
          - Follow implementation_knowledge.authorization_seeding_guidance completely
+         - ✓ Seed softwares table FIRST: Use INSERT IGNORE to avoid conflicts (required by permissions.software_id FK)
          - ✓ Seed permissions table: Generate permission name using derivation_rules.permission_name_derivation
          - ✓ Seed roles table: Create TWO roles (one with permission, one without)
          - ✓ Seed role_permissions table: Link ONLY the role_with_permission to the permission
          - ✓ Seed role_workspaces table: Link BOTH roles to their respective workspaces
          - ✓ Seed TWO users: TEST_USER_ID with permission, TEST_USER_WITHOUT_PERMISSION_ID without
-         - ✓ Export TWO credential constants: TEST_USER_CREDENTIALS and TEST_USER_WITHOUT_PERMISSION_CREDENTIALS
+         - ✓ Export TWO credential constants using implementation_knowledge.login_credentials_format.credentials_constant_structure
+         - ✓ Each credential constant MUST have 3 fields: username, password, softwareId (see implementation_knowledge.login_credentials_format)
          - See implementation_knowledge.authorization_seeding_guidance.seeding_strategy for detailed SQL examples
 
          VALIDATION: seed-data.helper.ts MUST contain:
+         - Seed function for softwares table (INSERT IGNORE)
          - Seed function for permissions table
          - Seed function for roles table
          - Seed function for role_permissions table
          - Seed function for role_workspaces table
-         - Export TEST_USER_WITHOUT_PERMISSION_CREDENTIALS constant
+         - Export TEST_USER_CREDENTIALS with 3 fields (username, password, softwareId)
+         - Export TEST_USER_WITHOUT_PERMISSION_CREDENTIALS with 3 fields (username, password, softwareId)
 
       6. Apply implementation_knowledge.seed_syntax for framework-specific code generation
 
@@ -183,9 +187,12 @@ process:
       - "NO placeholder code or mock implementations"
       - "NO TODO/FIXME comments in code"
       - "Code must compile/parse successfully"
+      - "⚠️ FOR IT/E2E TESTS: seed-data.helper.ts MUST seed softwares table BEFORE permissions (use INSERT IGNORE)"
       - "⚠️ FOR IT/E2E TESTS: seed-data.helper.ts MUST include authorization seeding (permissions, roles, role_permissions, role_workspaces)"
-      - "⚠️ FOR IT/E2E TESTS: seed-data.helper.ts MUST export TEST_USER_WITHOUT_PERMISSION_CREDENTIALS"
+      - "⚠️ FOR IT/E2E TESTS: seed-data.helper.ts MUST export TEST_USER_CREDENTIALS with 3 fields (username, password, softwareId)"
+      - "⚠️ FOR IT/E2E TESTS: seed-data.helper.ts MUST export TEST_USER_WITHOUT_PERMISSION_CREDENTIALS with 3 fields (username, password, softwareId)"
       - "⚠️ FOR IT/E2E TESTS: Cleanup function MUST delete authorization tables in reverse order"
+      - "⚠️ FOR E2E TESTS: Login requests MUST send all 3 fields (username, password, softwareId) in body"
 
 standard_knowledge:
   architecture_principles:
@@ -766,14 +773,27 @@ implementation_knowledge:
 
     required_authorization_tables:
       description: "Tables that MUST be seeded (in this exact order)"
+      prerequisite:
+        0: "softwares - MUST seed FIRST (required by permissions.software_id FK)"
       order:
         1: "permissions - Permission definitions"
         2: "roles - Role definitions"
         3: "role_permissions - Link roles to permissions"
         4: "role_workspaces - Link roles to workspaces (activates permissions for users)"
+      note: "softwares table must be seeded before permissions because permissions has FK to softwares"
 
     seeding_strategy:
       description: "How to seed authorization data"
+
+      softwares_table:
+        critical: "MUST seed BEFORE permissions table (permissions.software_id FK dependency)"
+        required_fields:
+          - "id: Typically use 1 for test software"
+          - "name: Any descriptive name (e.g., 'Test Software')"
+        example_sql: |
+          INSERT IGNORE INTO softwares (id, name, created_at, updated_at)
+          VALUES (1, 'Test Software', NOW(), NOW())
+        note: "Use INSERT IGNORE to avoid conflicts if software already exists"
 
       permissions_table:
         required_fields:
@@ -859,6 +879,53 @@ implementation_knowledge:
       - "Linking role_without_permission to the permission (defeats the test purpose)"
       - "Using same workspace for both users (can't distinguish permission contexts)"
       - "Not exporting TEST_USER_WITHOUT_PERMISSION_CREDENTIALS (can't login in 403 tests)"
+      - "Forgetting to seed softwares table before permissions (FK constraint violation)"
+
+  login_credentials_format:
+    description: "Authentication credentials format for E2E tests"
+
+    required_fields:
+      - "username: User's login username (string)"
+      - "password: User's plain text password (string)"
+      - "softwareId: Software identifier (number)"
+
+    credentials_constant_structure:
+      pattern: |
+        export const TEST_USER_CREDENTIALS = {
+          username: 'test_user_with_permission',
+          password: 'Test@123456',
+          softwareId: 1,
+        };
+
+        export const TEST_USER_WITHOUT_PERMISSION_CREDENTIALS = {
+          username: 'test_user_without_permission',
+          password: 'Test@123456',
+          softwareId: 1,
+        };
+
+    login_request_usage:
+      endpoint: "POST /api/v1/auth/login"
+      body_structure: |
+        {
+          username: TEST_USER_CREDENTIALS.username,
+          password: TEST_USER_CREDENTIALS.password,
+          softwareId: TEST_USER_CREDENTIALS.softwareId,
+        }
+      example: |
+        const loginResponse = await request(app.getHttpServer())
+          .post('/api/v1/auth/login')
+          .send({
+            username: TEST_USER_CREDENTIALS.username,
+            password: TEST_USER_CREDENTIALS.password,
+            softwareId: TEST_USER_CREDENTIALS.softwareId,
+          });
+
+    critical_notes:
+      - "MUST include all 3 fields (username, password, softwareId) - missing any field will cause 400 error"
+      - "softwareId must match the id seeded in softwares table (typically 1)"
+      - "password in credentials constant is plain text 'Test@123456'"
+      - "password in database must be bcrypt hash of 'Test@123456'"
+      - "Both TEST_USER_CREDENTIALS and TEST_USER_WITHOUT_PERMISSION_CREDENTIALS must use same softwareId"
 
   transformation_syntax:
     description: "class-transformer patterns for Request DTO transformations"
