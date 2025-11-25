@@ -20,15 +20,13 @@ process:
   step_1_analysis:
     description: "Analyze test case from test_plan"
     tasks: |
-      - "Read and understand standard_knowledge"
-      - "Read and understand implementation_knowledge"
       - "Read test_plan and identify:"
         - "ac_id, title, key_factors for each test case"
         - "layer (Presentation/Application/Domain/Infrastructure)"
         - "type (Unit / Integration / E2E)"
         - "input fields and expected outcome"
         - "test_class name (EXACT class name for test file)"
-      - "Read implementation_knowledge to get correct class names, paths, endpoint URL and which fields come from JWT"
+      - "Read and understand standard_knowledge, implementation_knowledge to get correct class names, paths, endpoint URL and which fields come from JWT"
 
   step_2_generate_structure:
     description: "Generate test class structure"
@@ -36,11 +34,10 @@ process:
       - "MANDATORY: Create test file with correct file name and location according to implementation_knowledge.file_structure"
       - "MANDATORY: Name test file according to implementation_knowledge.file_naming_rules"
       - "MANDATORY: Place test file in correct implementation_knowledge.test_code paths"
-      - "MANDATORY: All file names and import paths MUST be lowercase with hyphens (kebab-case) according to implementation_knowledge.file_naming_rules"
-      - "MANDATORY: NO uppercase letters allowed in file names or import paths (e.g., use 'product-catalog.controller.ts' NOT 'ProductCatalog.controller.ts')"
+      - "MANDATORY: All file names and import paths according to implementation_knowledge.file_naming_rules"
       - "MANDATORY: Calculate import paths based on implementation_knowledge.file_structure and implementation_knowledge.file_naming_rules:"
-      - "  - Identify location of file to import from implementation_knowledge.file_structure (e.g., presentation.controller)"
-      - "  - Identify file name to import from implementation_knowledge.file_naming_rules (e.g., [domain].controller.ts)"
+      - "  - Identify location of file to import from implementation_knowledge.file_structure"
+      - "  - Identify file name to import from implementation_knowledge.file_naming_rules"
       - "  - Calculate relative path from test file location to target file location"
       - "  - Follow implementation_knowledge.import_rules for import statement format"
       - "  - Ensure all path segments use lowercase with hyphens (kebab-case)"
@@ -62,9 +59,9 @@ process:
       - "Analyze db_schema to identify tables and foreign keys"
       - "Build dependency graph: Node = Table, Edge = FK"
       - "Perform topological sort to determine insert order according to implementation_knowledge.config.auth_fk_dependency_order"
-      - "MANDATORY: Seed core authentication tables according to implementation_knowledge.mandatory_seed_tables.core_auth_tables"
-      - "MANDATORY: Seed permissions following naming convention according to standard_knowledge.seed_data_strategy.seed_rules.permission_naming_convention"
-      - "MANDATORY: Seed authorization tables (roles, permissions, role-permission associations, role-workspace associations) according to implementation_knowledge.mandatory_seed_tables.authorization_tables"
+      - "MANDATORY: Seed core authentication tables according to implementation_knowledge.mandatory_seed_tables.core_authentication_tables"
+      - "MANDATORY: Seed permissions following naming convention according to standard_knowledge.seed_data_strategy.seed_rules"
+      - "MANDATORY: Seed authorization tables according to implementation_knowledge.mandatory_seed_tables.authorization_tables"
       - "Generate seed functions respecting FK constraints"
       - "Use seeding method according to implementation_knowledge.seeding_method"
       - "Implement cleanup strategy according to standard_knowledge.seed_data_strategy.cleanup_strategy"
@@ -376,7 +373,7 @@ implementation_knowledge:
 
   mandatory_seed_tables:
     description: "Tables that MUST be seeded for all Integration and E2E tests"
-    core_auth_tables:
+    core_authentication_tables:
       description: "Core authentication tables required for user login and workspace context"
       tables:
         - "softwares - Application/software registry"
@@ -461,6 +458,21 @@ implementation_knowledge:
       value_object: "[Domain]VO"
 
   file_structure:
+    principles:
+      - "MANDATORY: NO uppercase letters allowed in file names or import paths"
+      - "Use kebab-case (lowercase with hyphens) for all file and directory names"
+      - "Follow DDD layer separation in directory structure"
+      - "Test files located under src/test/component/[bounded-context]/[feature]/"
+      - "Seed data helpers located alongside test files"
+      - "Source code organized under src/components/[bounded-context]/[layer]/"
+      - "Calculate import paths based on relative paths from test file to target file"
+      - "Follow import rules for relative paths"
+      - "Ensure all path segments use kebab-case"
+      - "Use correct file names according to naming conventions"
+      - "Test files named as [component].ut.spec.ts, [component].it.spec.ts, [component].e2e.spec.ts"
+      - "Seed data helpers named as seed-data.helper.ts"
+      - "Use consistent directory structure for easy navigation"
+
     file_naming_rules:
       application_layer:
         query_handler_file: "[Action][Domain].query.ts"
@@ -524,6 +536,11 @@ implementation_knowledge:
       note: "Class names may differ (e.g., ProductCategoryQueryRepository not GetListProductCategoryQueryRepository)"
 
   test_patterns:
+    data_driven_syntax:
+      unit_test: "it.each(testCases)('$acId $title', ...)"
+      integration_test: "it.each(testCases)('$acId $title', ...)"
+      e2e_test: "it.each(testCases)('$acId $title', ...)"
+
     controller_with_permission_template: |
       import { Controller, Get, UseGuards } from '@nestjs/common';
       import { JwtAuthGuard } from '../../../../shared/infrastructure/guards/jwt-auth.guard';
