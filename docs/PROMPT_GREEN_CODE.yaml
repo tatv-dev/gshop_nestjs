@@ -255,17 +255,19 @@ standard_knowledge:
       - "Return result or throw exception"
 
   validation_principles:
-    description: "Input validation principles"
+    description: "Input validation principles (tech-agnostic)"
 
     validation_timing:
       request_dto: "Validate at API boundary (Presentation layer)"
       business_rules: "Validate in Domain layer"
 
     validation_rules:
-      optional_fields: "Use @ValidateIf to allow undefined but not null"
-      array_fields: "Validate array not empty and each element"
-      transformations: "Apply @Transform before validation"
-      type_conversions: "Use @Type for automatic conversion"
+      optional_fields: "Allow undefined values but reject null values"
+      required_fields: "Must be present and not null"
+      array_fields: "Validate array not empty and each element satisfies constraints"
+      transformations: "Apply transformations before validation"
+      type_conversions: "Convert types automatically (e.g., string to number)"
+      conditional_validation: "Apply validation only when field is present"
 
   error_handling_principles:
     description: "Exception handling principles"
@@ -281,15 +283,67 @@ standard_knowledge:
       - "Use error message keys for i18n"
 
   jwt_handling_principles:
-    description: "JWT authentication and authorization principles"
+    description: "JWT authentication and authorization principles (tech-agnostic)"
 
     jwt_extraction:
-      principle: "Extract tenantId, userId, workspaceId from JWT, NOT from request"
-      pattern: "Use @CurrentUser() decorator to access JWT payload"
+      principle: "Extract context fields (tenantId, userId, workspaceId) from JWT token, NOT from request parameters"
+      rationale: "Context fields come from authenticated user session, not user input"
+      common_jwt_fields:
+        - "tenantId: Multi-tenancy identifier"
+        - "userId: Authenticated user identifier"
+        - "workspaceId: User's current workspace"
+        - "permissions: User's permission list"
 
     permission_checking:
-      principle: "PermissionGuard checks permissions from JWT payload"
-      pattern: "Declare required permission with @RequirePermissions decorator"
+      principle: "Authorization guard verifies user has required permission before executing endpoint"
+      flow:
+        - "Extract permissions array from JWT payload"
+        - "Check if required permission is in user's permissions"
+        - "Allow if present, deny (403) if absent"
+
+  repository_principles:
+    description: "Repository pattern principles (tech-agnostic)"
+
+    interface_definition:
+      principle: "Application layer defines repository interfaces (Ports)"
+      characteristics:
+        - "Method signatures describe business operations"
+        - "Parameters and return types use application/domain models"
+        - "No infrastructure concerns in interface"
+
+    implementation:
+      principle: "Infrastructure layer implements repository interfaces (Adapters)"
+      characteristics:
+        - "Depends on application layer interface"
+        - "Handles database queries"
+        - "Maps between domain models and database entities"
+        - "Manages transactions"
+
+  data_access_principles:
+    description: "Data access patterns (tech-agnostic)"
+
+    query_building:
+      principle: "Build queries dynamically based on input parameters"
+      patterns:
+        - "Base query filters by tenant for multi-tenancy"
+        - "Add conditional filters only when parameters present"
+        - "Use parameterized queries to prevent SQL injection"
+
+    pagination:
+      principle: "Support pagination for list queries"
+      pattern:
+        - "Accept page and size parameters"
+        - "Calculate skip/offset from page number"
+        - "Return data, page, size, and total count"
+        - "Default values if not provided (page=1, size=10)"
+
+    filtering:
+      principle: "Support flexible filtering"
+      patterns:
+        - "String search: Partial match (LIKE)"
+        - "Array filters: Match any (IN)"
+        - "Status filters: Match specific values"
+        - "Hierarchical: Match ancestors or descendants"
 
 implementation_knowledge:
   tech_stack:
@@ -423,6 +477,18 @@ implementation_knowledge:
     pagination:
       page: "@ValidateIf((o) => o.page !== undefined), @IsNotIn([null]), @Type(() => Number), @IsInt(), @Min(1), @Max(1000)"
       size: "@ValidateIf((o) => o.size !== undefined), @IsNotIn([null]), @Type(() => Number), @IsInt(), @Min(1), @Max(500)"
+
+  jwt_extraction_syntax:
+    description: "NestJS JWT extraction patterns"
+
+    decorator: "@CurrentUser()"
+    usage: "@CurrentUser() user: any"
+    extraction_pattern: |
+      let tenantId: number | undefined = Number(user.tenantId);
+      if (!tenantId && user.workspaces?.length > 0) {
+        tenantId = user.workspaces[0].tenantId;
+      }
+    note: "Extract JWT fields from user object injected by @CurrentUser() decorator"
 
   authorization_patterns:
     description: "Authorization implementation patterns"

@@ -10,6 +10,7 @@ core_principles:
     - "Generate tests that FAIL initially (RED CODE) due to missing implementation"
     - "Tests must be syntactically correct and ready to run"
     - "NO placeholder code, NO TODO/FIXME comments"
+    - "MANDATORY: ALL Integration Tests and E2E Tests MUST include authorization seeding (permissions, roles, role_permissions, role_workspaces) even if test_plan does not mention permission_denied test cases"
 
   tdd_workflow:
     red_phase: "Write failing tests first"
@@ -97,6 +98,8 @@ process:
   step_4_generate_seed_data:
     description: "Generate seed data functions for IT/E2E tests using graph theory"
     prompt: |
+      ⚠️ MANDATORY FOR ALL IT/E2E TESTS: This step MUST generate authorization seeding code (permissions, roles, role_permissions, role_workspaces) even if test_plan does not explicitly mention permission_denied test cases. Authentication is ALWAYS required for protected endpoints.
+
       1. Analyze db_schema to build dependency graph:
          - Apply standard_knowledge.seed_data_principles.graph_theory
          - Nodes: Tables from db_schema
@@ -106,7 +109,7 @@ process:
       2. Identify required tables:
          - Core tables: Apply standard_knowledge.seed_data_principles.mandatory_core_tables
          - Domain tables: Identified from test_plan.component_under_test and step_1 analysis
-         - Authorization tables: ALWAYS include for IT/E2E tests (see implementation_knowledge.authorization_seeding_guidance.when_to_seed_authorization)
+         - ⚠️ MANDATORY Authorization tables: MUST ALWAYS include permissions, roles, role_permissions, role_workspaces for ALL IT/E2E tests (see implementation_knowledge.authorization_seeding_guidance.when_to_seed_authorization)
 
       3. Perform topological sort:
          - Apply standard_knowledge.seed_data_principles.topological_sort_algorithm
@@ -122,14 +125,24 @@ process:
          - Generate cleanup() function that deletes in REVERSE topological order
          - Generate individual seed function for each required table
 
-      5. CRITICAL - Seed authorization tables for IT/E2E tests:
+      5. ⚠️⚠️⚠️ CRITICAL & MANDATORY - Seed authorization tables for IT/E2E tests:
+         THIS STEP IS ABSOLUTELY REQUIRED. DO NOT SKIP. DO NOT OMIT.
+
          - Follow implementation_knowledge.authorization_seeding_guidance completely
-         - Seed permissions table: Generate permission name using derivation_rules.permission_name_derivation
-         - Seed roles table: Create TWO roles (one with permission, one without)
-         - Seed role_permissions table: Link ONLY the role_with_permission to the permission
-         - Seed role_workspaces table: Link BOTH roles to their respective workspaces
-         - Seed TWO users: TEST_USER_ID with permission, TEST_USER_WITHOUT_PERMISSION_ID without
+         - ✓ Seed permissions table: Generate permission name using derivation_rules.permission_name_derivation
+         - ✓ Seed roles table: Create TWO roles (one with permission, one without)
+         - ✓ Seed role_permissions table: Link ONLY the role_with_permission to the permission
+         - ✓ Seed role_workspaces table: Link BOTH roles to their respective workspaces
+         - ✓ Seed TWO users: TEST_USER_ID with permission, TEST_USER_WITHOUT_PERMISSION_ID without
+         - ✓ Export TWO credential constants: TEST_USER_CREDENTIALS and TEST_USER_WITHOUT_PERMISSION_CREDENTIALS
          - See implementation_knowledge.authorization_seeding_guidance.seeding_strategy for detailed SQL examples
+
+         VALIDATION: seed-data.helper.ts MUST contain:
+         - Seed function for permissions table
+         - Seed function for roles table
+         - Seed function for role_permissions table
+         - Seed function for role_workspaces table
+         - Export TEST_USER_WITHOUT_PERMISSION_CREDENTIALS constant
 
       6. Apply implementation_knowledge.seed_syntax for framework-specific code generation
 
@@ -170,6 +183,9 @@ process:
       - "NO placeholder code or mock implementations"
       - "NO TODO/FIXME comments in code"
       - "Code must compile/parse successfully"
+      - "⚠️ FOR IT/E2E TESTS: seed-data.helper.ts MUST include authorization seeding (permissions, roles, role_permissions, role_workspaces)"
+      - "⚠️ FOR IT/E2E TESTS: seed-data.helper.ts MUST export TEST_USER_WITHOUT_PERMISSION_CREDENTIALS"
+      - "⚠️ FOR IT/E2E TESTS: Cleanup function MUST delete authorization tables in reverse order"
 
 standard_knowledge:
   architecture_principles:
