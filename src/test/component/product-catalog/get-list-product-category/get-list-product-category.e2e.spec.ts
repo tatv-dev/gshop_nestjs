@@ -10,7 +10,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import request from 'supertest';
 import { AppModule } from '../../../../app.module';
-import { seedProductCategoryTestData, TEST_USER_CREDENTIALS } from './seed-data.helper';
+import {
+  seedProductCategoryTestData,
+  TEST_USER_CREDENTIALS,
+  TEST_USER_WITHOUT_PERMISSION_CREDENTIALS,
+} from './seed-data.helper';
 
 describe('GetListProductCategory - E2E Tests', () => {
   let app: INestApplication;
@@ -135,11 +139,22 @@ describe('GetListProductCategory - E2E Tests', () => {
   });
 
   describe('Authorization Error Tests (403)', () => {
-    it.skip('[AC_E2E_05] Forbidden 403 - Đăng nhập không đủ quyền/sai scope', async () => {
-      // TODO: Requires a user without proper scope/permissions to be seeded
+    it('[AC_E2E_05] Forbidden 403 - Đăng nhập không đủ quyền/sai scope', async () => {
+      // Arrange: Login with user WITHOUT permission to get separate token
+      const loginResponse = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({
+          username: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.username,
+          password: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.password,
+          softwareId: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.softwareId,
+        });
+
+      const accessTokenWithoutPermission = loginResponse.body?.access_token || loginResponse.body?.data?.access_token || '';
+
+      // Act: Make request with token that lacks required permission
       const response = await request(app.getHttpServer())
         .get('/api/v1/product-catalog/product-categories')
-        .set('Authorization', 'Bearer invalid_scope_token')
+        .set('Authorization', `Bearer ${accessTokenWithoutPermission}`)
         .query({
           productCategoryName: 'Điện thoại 123',
           activeStatuses: [1],
@@ -148,7 +163,9 @@ describe('GetListProductCategory - E2E Tests', () => {
           size: 20,
         });
 
+      // Assert: Expect 403 Forbidden
       expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty('messageKey', 'insufficient_permissions');
     });
   });
 });
