@@ -48,18 +48,32 @@ process:
   step_2_generate_structure:
     description: "Generate test class structure"
     tasks:
-      - "MANDATORY: Create test file with correct file name and location according to implementation_knowledge.file_structure"
-      - "MANDATORY: Name test file according to implementation_knowledge.file_naming_rules"
-      - "MANDATORY: Place test file in correct implementation_knowledge.test_code paths"
-      - "MANDATORY: All file names and import paths according to implementation_knowledge.file_naming_rules"
-      - "MANDATORY: Calculate import paths based on implementation_knowledge.file_structure and implementation_knowledge.file_naming_rules:"
-      - "  - Identify location of file to import from implementation_knowledge.file_structure"
-      - "  - Identify file name to import from implementation_knowledge.file_naming_rules"
-      - "  - Calculate relative path from test file location to target file location"
-      - "  - Follow implementation_knowledge.import_rules for import statement format"
+      - "MANDATORY: Generate test file name according to implementation_knowledge.file_structure.test_file_naming_patterns:"
+      - "  - Request DTO UT: [action-domain].request.ut.spec.ts"
+      - "  - Query Handler UT: [action-domain].query-handler.ut.spec.ts"
+      - "  - Command Handler UT: [action-domain].command-handler.ut.spec.ts"
+      - "  - Handler IT: [action-domain].[query|command]-handler.it.spec.ts"
+      - "  - Repository IT: [domain].repository.it.spec.ts"
+      - "  - E2E: [action-domain].e2e.spec.ts"
+      - "MANDATORY: Place test file in correct location according to implementation_knowledge.file_structure.test_code"
+      - "MANDATORY: Generate test suite name (describe block) according to implementation_knowledge.file_structure.test_suite_naming_patterns:"
+      - "  - Request DTO: describe('[ComponentName] Validation', ...)"
+      - "  - Handler: describe('[ComponentName]', ...)"
+      - "  - Repository: describe('[ComponentName] Integration Tests', ...)"
+      - "  - E2E: describe('[HTTP_METHOD] [endpoint] E2E', ...)"
+      - "MANDATORY: Generate test function using data-driven pattern according to implementation_knowledge.file_structure.test_function_naming_pattern:"
+      - "  - Pattern: it.each(testCases)('[$acId] $title', async ({ acId, title, input, expected }) => {...})"
+      - "MANDATORY: Generate import statements according to implementation_knowledge.file_structure.import_patterns for test type:"
+      - "  - Request DTO UT: validate, plainToClass, Request DTO class"
+      - "  - Handler UT: Test, Handler class, mocked repositories/services"
+      - "  - Handler/Repository IT: Test, DataSource, QueryRunner, Handler/Repository class, seed helper"
+      - "  - E2E: Test, INestApplication, ValidationPipe, DataSource, QueryRunner, request, AppModule, seed helper"
+      - "  - Calculate relative import paths from test file location to target file location"
       - "  - Ensure all path segments use lowercase with hyphens (kebab-case)"
-      - "Setup test suite with descriptive name according to implementation_knowledge.test_framework"
-      - "Create test lifecycle hooks appropriate for test type according to implementation_knowledge.test_patterns"
+      - "MANDATORY: Generate lifecycle hooks according to implementation_knowledge.file_structure.lifecycle_hooks_patterns:"
+      - "  - Unit Test: minimal (beforeEach only if need to setup mocks)"
+      - "  - Integration Test: beforeAll (module setup), beforeEach (transaction + seed), afterEach (rollback)"
+      - "  - E2E Test: beforeAll (app + login), beforeEach (transaction + seed), afterEach (rollback), afterAll (close app)"
 
   step_3_generate_data_provider:
     description: "Generate data-driven test cases"
@@ -326,7 +340,8 @@ standard_knowledge:
       usage: "Analyze to identify tables, foreign keys, and dependency graph for seed data strategy"
 
     test_plan:
-      description: "Test plan document containing test suite and test cases"
+      description: "Test plan document containing test suite and test cases - will be provided as input"
+      instruction: "Read the test_plan from input to extract test suite information and test cases"
       required_fields:
         - test_suite: "Name of test suite"
         - layer: "DDD layer (Presentation/Application/Domain/Infrastructure)"
@@ -341,110 +356,6 @@ standard_knowledge:
         - input: "Input data for the test case"
         - expected: "Expected outcome (success response, error, exception)"
         - key_factors: "Important factors to verify in assertions"
-
-      format_example: |
-        {
-          "test_suite": "GetListProductCategory Request DTO Validation",
-          "layer": "Presentation",
-          "component_under_test": "GetListProductCategoryRequest",
-          "test_type": "Unit",
-          "testcase": [
-            {
-              "ac_id": "AC-01",
-              "title": "Valid request with all optional fields",
-              "type": "happy_path",
-              "input": {
-                "page": 1,
-                "size": 20,
-                "searchTerm": "electronics",
-                "activeStatuses": [1]
-              },
-              "expected": {
-                "valid": true
-              },
-              "key_factors": ["No validation errors"]
-            },
-            {
-              "ac_id": "AC-02",
-              "title": "Invalid page number (zero)",
-              "type": "error_case",
-              "input": {
-                "page": 0,
-                "size": 20
-              },
-              "expected": {
-                "valid": false,
-                "errors": ["page must be at least 1"]
-              },
-              "key_factors": ["Page validation error"]
-            }
-          ]
-        }
-
-      handler_test_plan_example: |
-        {
-          "test_suite": "GetListProductCategory Handler",
-          "layer": "Application",
-          "component_under_test": "GetListProductCategoryQueryHandler",
-          "test_type": "Integration",
-          "testcase": [
-            {
-              "ac_id": "AC-01",
-              "title": "Returns paginated product categories",
-              "type": "happy_path",
-              "input": {
-                "page": 1,
-                "size": 20,
-                "tenantId": 1
-              },
-              "expected": {
-                "status": "success",
-                "has_items": true,
-                "has_pagination": true
-              },
-              "key_factors": ["Returns items array", "Returns total count", "Filters by tenantId"]
-            }
-          ]
-        }
-
-      e2e_test_plan_example: |
-        {
-          "test_suite": "GET /api/v1/product-catalog/product-categories E2E",
-          "layer": "E2E",
-          "component_under_test": "GET /api/v1/product-catalog/product-categories",
-          "test_type": "E2E",
-          "required_permission": "GET_LIST_PRODUCT_CATEGORY",
-          "testcase": [
-            {
-              "ac_id": "AC-01",
-              "title": "User with permission gets list successfully",
-              "type": "happy_path",
-              "input": {
-                "page": 1,
-                "size": 20
-              },
-              "expected": {
-                "status": 200,
-                "has_data": true
-              },
-              "key_factors": ["Returns 200", "Contains items", "Contains pagination"]
-            },
-            {
-              "ac_id": "AC-02",
-              "title": "User without permission gets 403",
-              "type": "permission_denied",
-              "input": {
-                "page": 1,
-                "size": 20
-              },
-              "expected": {
-                "status": 403,
-                "error": "insufficient_permissions"
-              },
-              "key_factors": ["Returns 403", "Error message indicates permission issue"]
-            }
-          ]
-        }
 
     output_requirements:
       test_organization:
@@ -600,6 +511,231 @@ implementation_knowledge:
       - "Test files named as [component].ut.spec.ts, [component].it.spec.ts, [component].e2e.spec.ts"
       - "Seed data helpers named as seed-data.helper.ts"
       - "Use consistent directory structure for easy navigation"
+
+    test_file_naming_patterns:
+      description: "Specific patterns for test file names based on component type and test type"
+      request_dto_ut:
+        pattern: "[action-domain].request.ut.spec.ts"
+        example: "get-list-product-category.request.ut.spec.ts"
+        location: "src/test/component/[bc]/[feature]/"
+
+      query_handler_ut:
+        pattern: "[action-domain].query-handler.ut.spec.ts"
+        example: "get-list-product-category.query-handler.ut.spec.ts"
+        location: "src/test/component/[bc]/[feature]/"
+
+      command_handler_ut:
+        pattern: "[action-domain].command-handler.ut.spec.ts"
+        example: "create-product-category.command-handler.ut.spec.ts"
+        location: "src/test/component/[bc]/[feature]/"
+
+      query_handler_it:
+        pattern: "[action-domain].query-handler.it.spec.ts"
+        example: "get-list-product-category.query-handler.it.spec.ts"
+        location: "src/test/component/[bc]/[feature]/"
+
+      command_handler_it:
+        pattern: "[action-domain].command-handler.it.spec.ts"
+        example: "create-product-category.command-handler.it.spec.ts"
+        location: "src/test/component/[bc]/[feature]/"
+
+      repository_it:
+        pattern: "[domain].repository.it.spec.ts"
+        example: "product-category.repository.it.spec.ts"
+        location: "src/test/component/[bc]/[feature]/"
+
+      e2e:
+        pattern: "[action-domain].e2e.spec.ts"
+        example: "get-list-product-category.e2e.spec.ts"
+        location: "src/test/component/[bc]/[feature]/"
+
+      seed_helper:
+        pattern: "seed-data.helper.ts"
+        example: "seed-data.helper.ts"
+        location: "src/test/component/[bc]/[feature]/"
+
+    test_suite_naming_patterns:
+      description: "Pattern for describe() block names based on component type"
+      request_dto:
+        pattern: "[ComponentName] Validation"
+        example: "describe('GetListProductCategoryRequest Validation', () => {...})"
+
+      query_handler:
+        pattern: "[ComponentName]"
+        example: "describe('GetListProductCategoryQueryHandler', () => {...})"
+
+      command_handler:
+        pattern: "[ComponentName]"
+        example: "describe('CreateProductCategoryCommandHandler', () => {...})"
+
+      repository:
+        pattern: "[ComponentName] Integration Tests"
+        example: "describe('ProductCategoryQueryRepository Integration Tests', () => {...})"
+
+      e2e:
+        pattern: "[HTTP_METHOD] [endpoint] E2E"
+        example: "describe('GET /api/v1/product-catalog/product-categories E2E', () => {...})"
+
+    test_function_naming_pattern:
+      description: "Pattern for test function names using data-driven approach"
+      pattern: "it.each(testCases)('[$acId] $title', async ({ acId, title, input, expected }) => {...})"
+      variables:
+        - "$acId: Acceptance criteria ID from test case"
+        - "$title: Test case title from test case"
+        - "acId, title, input, expected: Destructured from test case object"
+
+    import_patterns:
+      description: "Import statement patterns for different test types"
+      request_dto_ut:
+        imports:
+          - "import { validate } from 'class-validator';"
+          - "import { plainToClass } from 'class-transformer';"
+          - "import { [RequestDtoClass] } from '../../../../components/[bc]/presentation/requests/[file-name]';"
+        example: |
+          import { validate } from 'class-validator';
+          import { plainToClass } from 'class-transformer';
+          import { GetListProductCategoryRequest } from '../../../../components/product-catalog/presentation/requests/get-list-product-category.request';
+
+      query_handler_ut:
+        imports:
+          - "import { Test } from '@nestjs/testing';"
+          - "import { [HandlerClass] } from '../../../../components/[bc]/application/queries/[file-name]';"
+          - "import { [RepositoryInterface] } from '../../../../components/[bc]/application/repositories/[file-name]';"
+          - "import { [DTO] } from '../../../../components/[bc]/application/dtos/[file-name]';"
+        example: |
+          import { Test } from '@nestjs/testing';
+          import { GetListProductCategoryQueryHandler } from '../../../../components/product-catalog/application/queries/get-list-product-category.query';
+          import { IProductCategoryQueryRepository } from '../../../../components/product-catalog/application/repositories/i-product-category-query.repository';
+
+      handler_it:
+        imports:
+          - "import { Test, TestingModule } from '@nestjs/testing';"
+          - "import { DataSource, QueryRunner } from 'typeorm';"
+          - "import { [HandlerClass] } from '../../../../components/[bc]/application/queries/[file-name]';"
+          - "import { seedTestData } from './seed-data.helper';"
+        example: |
+          import { Test, TestingModule } from '@nestjs/testing';
+          import { DataSource, QueryRunner } from 'typeorm';
+          import { GetListProductCategoryQueryHandler } from '../../../../components/product-catalog/application/queries/get-list-product-category.query';
+          import { seedTestData } from './seed-data.helper';
+
+      repository_it:
+        imports:
+          - "import { Test, TestingModule } from '@nestjs/testing';"
+          - "import { DataSource, QueryRunner } from 'typeorm';"
+          - "import { [RepositoryClass] } from '../../../../components/[bc]/infrastructure/repositories/[file-name]';"
+          - "import { seedTestData } from './seed-data.helper';"
+
+      e2e:
+        imports:
+          - "import { Test, TestingModule } from '@nestjs/testing';"
+          - "import { INestApplication, ValidationPipe } from '@nestjs/common';"
+          - "import { DataSource, QueryRunner } from 'typeorm';"
+          - "import request from 'supertest';"
+          - "import { AppModule } from '../../../../app.module';"
+          - "import { seedTestData, TEST_USER_CREDENTIALS } from './seed-data.helper';"
+
+    lifecycle_hooks_patterns:
+      description: "Lifecycle hook patterns for different test types"
+      unit_test:
+        hooks:
+          - "beforeEach: Optional, only if need to setup mocks"
+        example: |
+          beforeEach(() => {
+            // Setup mocks if needed
+            mockRepository = {
+              findAll: jest.fn(),
+            };
+          });
+
+      integration_test:
+        hooks:
+          - "beforeAll: Setup test module and get dependencies"
+          - "beforeEach: Start transaction, seed data"
+          - "afterEach: Rollback transaction, release connection"
+          - "afterAll: Optional cleanup"
+        example: |
+          let dataSource: DataSource;
+          let queryRunner: QueryRunner;
+          let handler: GetListProductCategoryQueryHandler;
+
+          beforeAll(async () => {
+            const module: TestingModule = await Test.createTestingModule({
+              providers: [GetListProductCategoryQueryHandler, ...],
+            }).compile();
+
+            dataSource = module.get(DataSource);
+            handler = module.get(GetListProductCategoryQueryHandler);
+          });
+
+          beforeEach(async () => {
+            queryRunner = dataSource.createQueryRunner();
+            await queryRunner.connect();
+            await queryRunner.startTransaction();
+            await seedTestData(queryRunner);
+          });
+
+          afterEach(async () => {
+            await queryRunner.rollbackTransaction();
+            await queryRunner.release();
+          });
+
+      e2e_test:
+        hooks:
+          - "beforeAll: Create app, init app, seed initial data, login to get token"
+          - "beforeEach: Start transaction, seed test data"
+          - "afterEach: Rollback transaction, release connection"
+          - "afterAll: Close app"
+        example: |
+          let app: INestApplication;
+          let dataSource: DataSource;
+          let queryRunner: QueryRunner;
+          let accessToken: string;
+
+          beforeAll(async () => {
+            const moduleFixture: TestingModule = await Test.createTestingModule({
+              imports: [AppModule],
+            }).compile();
+
+            app = moduleFixture.createNestApplication();
+            app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+            await app.init();
+
+            dataSource = moduleFixture.get(DataSource);
+
+            // Seed initial data for login
+            const seedRunner = dataSource.createQueryRunner();
+            await seedRunner.connect();
+            await seedTestData(seedRunner);
+            await seedRunner.release();
+
+            // Login to get access token
+            const loginResponse = await request(app.getHttpServer())
+              .post('/api/v1/auth/login')
+              .send({
+                username: TEST_USER_CREDENTIALS.username,
+                password: TEST_USER_CREDENTIALS.password,
+                softwareId: TEST_USER_CREDENTIALS.softwareId,
+              });
+
+            accessToken = loginResponse.body?.access_token || '';
+          });
+
+          beforeEach(async () => {
+            queryRunner = dataSource.createQueryRunner();
+            await queryRunner.connect();
+            await queryRunner.startTransaction();
+            await seedTestData(queryRunner);
+          });
+
+          afterEach(async () => {
+            await queryRunner.rollbackTransaction();
+            await queryRunner.release();
+          });
+
+          afterAll(async () => {
+            await app.close();
+          });
 
     file_naming_rules:
       application_layer:
