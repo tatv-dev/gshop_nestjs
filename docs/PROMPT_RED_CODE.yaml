@@ -20,13 +20,28 @@ process:
   step_1_analysis:
     description: "Analyze test case from test_plan"
     tasks: |
-      - "Read test_plan and identify:"
+      - "Read test_plan and identify (see standard_knowledge.input_schema.test_plan for format):"
         - "ac_id, title, key_factors for each test case"
         - "layer (Presentation/Application/Domain/Infrastructure)"
         - "type (Unit / Integration / E2E)"
         - "input fields and expected outcome"
         - "test_class name (EXACT class name for test file)"
       - "Read and understand standard_knowledge, implementation_knowledge to get correct class names, paths, endpoint URL and which fields come from JWT"
+      - "For Handler tests: read handler implementation code and apply standard_knowledge.handler_test_strategy.decision_flowchart to determine:"
+        - "Generate UT only: if handler only does simple data mapping"
+        - "Generate both UT + IT: if handler has business logic, calculations, or derived fields"
+      - "For IT/E2E tests: analyze db_schema to identify:"
+        - "Required entities and relationships for this test case"
+        - "Foreign key dependencies (parent tables that must be seeded first)"
+        - "Estimated data volume (if >500 items, need factory functions)"
+      - "For Unit Tests: identify dependencies that need mocking:"
+        - "Repository interfaces that should be mocked"
+        - "External services that should be mocked"
+        - "Domain services that should be mocked"
+      - "For E2E tests with authorization: identify permission requirements:"
+        - "Read controller to find @RequirePermissions decorator value"
+        - "Determine if negative test case (403 Forbidden) is needed"
+        - "Identify which roles should have/not have this permission"
       - "For Request DTO tests: identify fields that require data transformation (e.g., query parameters that come as strings but need to be arrays/numbers)"
       - "Check implementation_knowledge.validation and implementation_knowledge.transformer for transformation methods"
 
@@ -308,11 +323,128 @@ standard_knowledge:
     db_schema:
       description: "Database schema definition"
       format: "DDL statements or ORM models"
+      usage: "Analyze to identify tables, foreign keys, and dependency graph for seed data strategy"
 
     test_plan:
+      description: "Test plan document containing test suite and test cases"
       required_fields:
         - test_suite: "Name of test suite"
+        - layer: "DDD layer (Presentation/Application/Domain/Infrastructure)"
+        - component_under_test: "Class or component being tested"
+        - test_type: "Type of test (Unit/Integration/E2E)"
         - testcase: "Array of test cases with AC IDs"
+
+      test_case_fields:
+        - ac_id: "Acceptance criteria ID (e.g., AC-01, AC-02)"
+        - title: "Human-readable test case title"
+        - type: "happy_path / error_case / edge_case / boundary / permission_denied"
+        - input: "Input data for the test case"
+        - expected: "Expected outcome (success response, error, exception)"
+        - key_factors: "Important factors to verify in assertions"
+
+      format_example: |
+        {
+          "test_suite": "GetListProductCategory Request DTO Validation",
+          "layer": "Presentation",
+          "component_under_test": "GetListProductCategoryRequest",
+          "test_type": "Unit",
+          "testcase": [
+            {
+              "ac_id": "AC-01",
+              "title": "Valid request with all optional fields",
+              "type": "happy_path",
+              "input": {
+                "page": 1,
+                "size": 20,
+                "searchTerm": "electronics",
+                "activeStatuses": [1]
+              },
+              "expected": {
+                "valid": true
+              },
+              "key_factors": ["No validation errors"]
+            },
+            {
+              "ac_id": "AC-02",
+              "title": "Invalid page number (zero)",
+              "type": "error_case",
+              "input": {
+                "page": 0,
+                "size": 20
+              },
+              "expected": {
+                "valid": false,
+                "errors": ["page must be at least 1"]
+              },
+              "key_factors": ["Page validation error"]
+            }
+          ]
+        }
+
+      handler_test_plan_example: |
+        {
+          "test_suite": "GetListProductCategory Handler",
+          "layer": "Application",
+          "component_under_test": "GetListProductCategoryQueryHandler",
+          "test_type": "Integration",
+          "testcase": [
+            {
+              "ac_id": "AC-01",
+              "title": "Returns paginated product categories",
+              "type": "happy_path",
+              "input": {
+                "page": 1,
+                "size": 20,
+                "tenantId": 1
+              },
+              "expected": {
+                "status": "success",
+                "has_items": true,
+                "has_pagination": true
+              },
+              "key_factors": ["Returns items array", "Returns total count", "Filters by tenantId"]
+            }
+          ]
+        }
+
+      e2e_test_plan_example: |
+        {
+          "test_suite": "GET /api/v1/product-catalog/product-categories E2E",
+          "layer": "E2E",
+          "component_under_test": "GET /api/v1/product-catalog/product-categories",
+          "test_type": "E2E",
+          "required_permission": "GET_LIST_PRODUCT_CATEGORY",
+          "testcase": [
+            {
+              "ac_id": "AC-01",
+              "title": "User with permission gets list successfully",
+              "type": "happy_path",
+              "input": {
+                "page": 1,
+                "size": 20
+              },
+              "expected": {
+                "status": 200,
+                "has_data": true
+              },
+              "key_factors": ["Returns 200", "Contains items", "Contains pagination"]
+            },
+            {
+              "ac_id": "AC-02",
+              "title": "User without permission gets 403",
+              "type": "permission_denied",
+              "input": {
+                "page": 1,
+                "size": 20
+              },
+              "expected": {
+                "status": 403,
+                "error": "insufficient_permissions"
+              },
+              "key_factors": ["Returns 403", "Error message indicates permission issue"]
+            }
+          ]
+        }
 
     output_requirements:
       test_organization:
