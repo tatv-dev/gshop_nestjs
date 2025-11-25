@@ -30,12 +30,12 @@ process:
          - Required fields (NOT NULL, validation constraints)
          - Tables needed for authentication and authorization
 
-      3. Read source code to identify:
-         - EXACT class names (Request DTO, Handler, Repository, etc.)
-         - EXACT file paths and locations
-         - Endpoint URL (from Controller decorators)
-         - JWT-decoded fields (from @CurrentUser() decorator)
-         - Required permissions (from @RequirePermissions decorator)
+      3. Derive component information from test_plan.component_under_test + naming_conventions:
+         - Generate class names using implementation_knowledge.naming_conventions
+         - Calculate file paths using implementation_knowledge.file_structure
+         - Generate endpoint URL from component_under_test (e.g., GetListProductCategory → /product-categories)
+         - Identify JWT-decoded fields from test_plan.input (fields NOT in input are typically from JWT)
+         - Generate permission name from component_under_test using standard_knowledge.seed_data_principles.permission_naming_convention
 
       4. Determine test scope using standard_knowledge.test_strategy:
          - For Handler tests: Apply handler_test_strategy.decision_flowchart to decide UT only vs UT+IT
@@ -60,7 +60,7 @@ process:
 
       3. Generate test suite name (describe block):
          - Apply implementation_knowledge.naming_conventions.test_suite_naming based on test type
-         - Use EXACT class name from source code analysis (step_1)
+         - Use class name derived from test_plan.component_under_test (from step_1)
 
       4. Generate imports:
          - Identify required imports based on test type (refer to implementation_knowledge.import_syntax)
@@ -547,6 +547,60 @@ implementation_knowledge:
       handler: "[ComponentName]"
       repository: "[ComponentName] Integration Tests"
       e2e: "[HTTP_METHOD] [endpoint] E2E"
+
+  derivation_rules:
+    description: "How to derive information from test_plan.component_under_test (for RED phase without implementation)"
+
+    class_name_derivation:
+      from_component_under_test: "test_plan.component_under_test already contains the class name"
+      examples:
+        - "component_under_test: 'GetListProductCategoryRequest' → class name: 'GetListProductCategoryRequest'"
+        - "component_under_test: 'GetListProductCategoryQueryHandler' → class name: 'GetListProductCategoryQueryHandler'"
+
+    endpoint_url_derivation:
+      description: "Derive REST endpoint from component name"
+      pattern: "/api/v1/[bounded-context]/[resource-plural]"
+      algorithm: |
+        1. Extract Action and Domain from component_under_test
+           - GetListProductCategory → Action: GetList, Domain: ProductCategory
+        2. Convert Domain to kebab-case plural
+           - ProductCategory → product-categories
+        3. Combine with bounded-context
+           - /api/v1/product-catalog/product-categories
+      http_method_mapping:
+        GetList: "GET"
+        Get: "GET"
+        Create: "POST"
+        Update: "PUT"
+        Delete: "DELETE"
+
+    permission_name_derivation:
+      description: "Derive permission name from component_under_test"
+      pattern: "<ACTION>_<DOMAIN>"
+      algorithm: |
+        1. Extract Action and Domain from component_under_test
+           - GetListProductCategory → Action: GetList, Domain: ProductCategory
+        2. Convert to UPPER_SNAKE_CASE
+           - GET_LIST_PRODUCT_CATEGORY
+      examples:
+        - "GetListProductCategory → GET_LIST_PRODUCT_CATEGORY"
+        - "CreateProductCategory → CREATE_PRODUCT_CATEGORY"
+        - "GetProductCategory → GET_PRODUCT_CATEGORY"
+        - "UpdateProductCategory → UPDATE_PRODUCT_CATEGORY"
+        - "DeleteProductCategory → DELETE_PRODUCT_CATEGORY"
+
+    jwt_fields_identification:
+      description: "Identify which fields come from JWT vs request parameters"
+      principle: "Fields that appear in ALL test cases but NOT in test_plan input are JWT fields"
+      common_jwt_fields:
+        - "tenantId: Extracted from JWT by @CurrentUser() decorator"
+        - "userId: Extracted from JWT by @CurrentUser() decorator"
+        - "workspaceId: Extracted from JWT by @CurrentUser() decorator"
+        - "permissions: Extracted from JWT by @CurrentUser() decorator"
+      identification_logic: |
+        1. Review test_plan.testcase[].input across all test cases
+        2. If a field is NEVER present in input but logically needed → It's a JWT field
+        3. Example: Product categories always need tenantId, but it's not in query params → JWT field
 
   file_structure:
     description: "File organization patterns"
