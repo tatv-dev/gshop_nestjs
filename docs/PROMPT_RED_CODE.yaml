@@ -65,8 +65,10 @@ process:
       4. Generate imports:
          - Identify required imports based on test type (refer to implementation_knowledge.import_syntax)
          - Calculate RELATIVE import paths from test file location to source file location
+         - Use implementation_knowledge.naming_conventions.source_file_naming to determine source file names
          - MANDATORY: Ensure all path segments use kebab-case
-         - Apply implementation_knowledge.import_rules for framework-specific syntax
+         - Apply implementation_knowledge.import_syntax.rules for framework-specific syntax
+         - Example: For query handler test, import from '[action-domain].query.ts' NOT '[action-domain].query-handler.ts'
 
       5. Generate lifecycle hooks:
          - Apply standard_knowledge.lifecycle_management_principles based on test type
@@ -104,7 +106,7 @@ process:
       2. Identify required tables:
          - Core tables: Apply standard_knowledge.seed_data_principles.mandatory_core_tables
          - Domain tables: Identified from test_plan.component_under_test and step_1 analysis
-         - Authorization tables: If test requires permissions (from step_1 analysis)
+         - Authorization tables: ALWAYS include for IT/E2E tests (see implementation_knowledge.authorization_seeding_guidance.when_to_seed_authorization)
 
       3. Perform topological sort:
          - Apply standard_knowledge.seed_data_principles.topological_sort_algorithm
@@ -115,15 +117,19 @@ process:
          - File name: seed-data.helper.ts (in same directory as test file)
          - Export test data ID constants (use standard_knowledge.seed_data_principles.id_strategy)
          - Export test credentials constants (for authentication)
+         - CRITICAL: Export TWO sets of credentials for authorization testing (see implementation_knowledge.authorization_seeding_guidance.multiple_users_requirement)
          - Generate main seedTestData() function that calls individual seed functions in topological order
          - Generate cleanup() function that deletes in REVERSE topological order
          - Generate individual seed function for each required table
 
-      5. For E2E with authorization:
-         - Apply standard_knowledge.authorization_testing_principles.multiple_users_strategy
-         - Seed TWO users: one with required permission, one without
-         - Seed roles and permissions according to standard_knowledge.seed_data_principles.permission_naming_convention
-         - Link users to roles via authorization tables (identified from db_schema)
+      5. CRITICAL - Seed authorization tables for IT/E2E tests:
+         - Follow implementation_knowledge.authorization_seeding_guidance completely
+         - Seed permissions table: Generate permission name using derivation_rules.permission_name_derivation
+         - Seed roles table: Create TWO roles (one with permission, one without)
+         - Seed role_permissions table: Link ONLY the role_with_permission to the permission
+         - Seed role_workspaces table: Link BOTH roles to their respective workspaces
+         - Seed TWO users: TEST_USER_ID with permission, TEST_USER_WITHOUT_PERMISSION_ID without
+         - See implementation_knowledge.authorization_seeding_guidance.seeding_strategy for detailed SQL examples
 
       6. Apply implementation_knowledge.seed_syntax for framework-specific code generation
 
@@ -541,6 +547,21 @@ implementation_knowledge:
       seed_helper: "seed-data.helper.ts"
       note: "MANDATORY: Use lowercase with hyphens (kebab-case) - NO uppercase letters"
 
+    source_file_naming:
+      description: "Source code file naming patterns (for import paths)"
+      request_dto: "[action-domain].request.ts"
+      query_handler: "[action-domain].query.ts"
+      command_handler: "[action-domain].command.ts"
+      repository_interface: "i-[domain]-query.repository.ts"
+      repository_implementation: "[domain]-query.repository.ts"
+      controller: "[domain].controller.ts"
+      note: "MANDATORY: All source files use kebab-case"
+      examples:
+        - "GetListProductCategoryRequest → get-list-product-category.request.ts"
+        - "GetListProductCategoryQueryHandler → get-list-product-category.query.ts"
+        - "IProductCategoryQueryRepository → i-product-category-query.repository.ts"
+        - "ProductCategoryQueryRepository → product-category-query.repository.ts"
+
     test_suite_naming:
       description: "Test suite (describe block) naming"
       request_dto: "[ComponentName] Validation"
@@ -719,6 +740,109 @@ implementation_knowledge:
       algorithm: "bcrypt with 10 rounds"
       test_password: "Test@123456"
       pre_generated_hash: "$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y"
+
+  authorization_seeding_guidance:
+    description: "CRITICAL: Guidance for seeding authorization tables for E2E tests with permission requirements"
+
+    when_to_seed_authorization:
+      condition: "ALWAYS seed authorization tables for ALL Integration Tests and E2E Tests"
+      rationale: "Even if test_plan does not mention permission_denied test cases, authentication is required for all protected endpoints"
+
+    required_authorization_tables:
+      description: "Tables that MUST be seeded (in this exact order)"
+      order:
+        1: "permissions - Permission definitions"
+        2: "roles - Role definitions"
+        3: "role_permissions - Link roles to permissions"
+        4: "role_workspaces - Link roles to workspaces (activates permissions for users)"
+
+    seeding_strategy:
+      description: "How to seed authorization data"
+
+      permissions_table:
+        required_fields:
+          - "id: Use TEST_PERMISSION_ID constant (>= 100000)"
+          - "name: Generate using derivation_rules.permission_name_derivation"
+          - "software_id: Reference to softwares table (typically 1)"
+          - "permission_parent_id: NULL for top-level permissions"
+          - "status: 1 (active)"
+        example_sql: |
+          INSERT INTO permissions (id, name, software_id, permission_parent_id, status, created_at, updated_at)
+          VALUES (?, 'GET_LIST_PRODUCT_CATEGORY', 1, NULL, 1, NOW(), NOW())
+        note: "Permission name MUST match the permission required by the endpoint being tested"
+
+      roles_table:
+        required_fields:
+          - "id: Use TEST_ROLE_WITH_PERMISSION_ID (100001), TEST_ROLE_WITHOUT_PERMISSION_ID (100002)"
+          - "name: Descriptive name (e.g., 'Admin E2E', 'Staff E2E')"
+          - "tenant_id: Reference to test tenant"
+          - "status: 1 (active)"
+          - "creator_id: Reference to test employee"
+        strategy: "Seed TWO roles minimum"
+        role_with_permission:
+          purpose: "For happy path tests (expect 200/201)"
+          note: "This role WILL be linked to the required permission"
+        role_without_permission:
+          purpose: "For permission_denied tests (expect 403)"
+          note: "This role will NOT be linked to the required permission"
+        example_sql: |
+          INSERT INTO roles (id, name, tenant_id, status, creator_id, created_at, updated_at)
+          VALUES
+            (?, 'Admin E2E', ?, 1, ?, NOW(), NOW()),
+            (?, 'Staff E2E', ?, 1, ?, NOW(), NOW())
+
+      role_permissions_table:
+        required_fields:
+          - "role_id: Reference to TEST_ROLE_WITH_PERMISSION_ID"
+          - "permission_id: Reference to TEST_PERMISSION_ID"
+        critical: "ONLY link the role_with_permission to the permission"
+        example_sql: |
+          INSERT INTO role_permissions (role_id, permission_id, created_at, updated_at)
+          VALUES (?, ?, NOW(), NOW())
+        note: "Do NOT insert a row for role_without_permission - this is intentional"
+
+      role_workspaces_table:
+        required_fields:
+          - "role_id: Reference to role IDs"
+          - "workspace_id: Reference to workspace IDs"
+        strategy: "Link BOTH roles to their respective workspaces"
+        example_sql: |
+          INSERT INTO role_workspaces (role_id, workspace_id, created_at, updated_at)
+          VALUES
+            (?, ?, NOW(), NOW()),  -- Admin role → workspace with permission
+            (?, ?, NOW(), NOW())   -- Staff role → workspace without permission
+        note: "This activates the roles for the test users"
+
+    multiple_users_requirement:
+      description: "MUST seed TWO users for authorization testing"
+      user_with_permission:
+        id: "TEST_USER_ID = 100001"
+        workspace_id: "TEST_WORKSPACE_ID = 100001"
+        role: "Linked to TEST_ROLE_WITH_PERMISSION_ID via role_workspaces"
+        credentials_constant: "TEST_USER_CREDENTIALS"
+        purpose: "For happy path tests and authentication in beforeAll"
+
+      user_without_permission:
+        id: "TEST_USER_WITHOUT_PERMISSION_ID = 100002"
+        workspace_id: "TEST_WORKSPACE_WITHOUT_PERMISSION_ID = 100002"
+        role: "Linked to TEST_ROLE_WITHOUT_PERMISSION_ID via role_workspaces"
+        credentials_constant: "TEST_USER_WITHOUT_PERMISSION_CREDENTIALS"
+        purpose: "For permission_denied test cases (login separately to get token without permission)"
+
+    cleanup_order:
+      description: "Delete authorization tables in REVERSE order"
+      order:
+        1: "DELETE FROM role_workspaces WHERE workspace_id >= 100000"
+        2: "DELETE FROM role_permissions WHERE role_id >= 100000"
+        3: "DELETE FROM roles WHERE id >= 100000"
+        4: "DELETE FROM permissions WHERE id >= 100000"
+      note: "Always delete in reverse dependency order to avoid FK constraint violations"
+
+    common_mistakes:
+      - "Forgetting to seed role_workspaces (permissions won't be active)"
+      - "Linking role_without_permission to the permission (defeats the test purpose)"
+      - "Using same workspace for both users (can't distinguish permission contexts)"
+      - "Not exporting TEST_USER_WITHOUT_PERMISSION_CREDENTIALS (can't login in 403 tests)"
 
   transformation_syntax:
     description: "class-transformer patterns for Request DTO transformations"
