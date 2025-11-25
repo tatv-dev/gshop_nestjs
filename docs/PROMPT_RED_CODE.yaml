@@ -78,27 +78,41 @@ process:
   step_3_generate_data_provider:
     description: "Generate data-driven test cases"
     rules:
+      - "Map test_plan.testcase to testCases array according to implementation_knowledge.test_case_mapping_patterns"
+      - "Preserve ac_id, title from test_plan exactly as provided"
+      - "Map test_plan input to test case input (exclude JWT fields according to step_1 analysis)"
+      - "Map test_plan expected to test case expected according to implementation_knowledge.expected_structure_patterns for test type"
+      - "Order test cases according to implementation_knowledge.test_case_ordering_rules:"
+      - "  1. happy_path (ALWAYS first)"
+      - "  2. error_case (validation errors, business rule violations)"
+      - "  3. edge_case (boundary values, empty data)"
+      - "  4. boundary (min/max values)"
+      - "  5. permission_denied (403 Forbidden for E2E)"
       - "Group multiple test cases into one array according to implementation_knowledge.test_patterns.data_driven_syntax"
-      - "Happy path ALWAYS first"
       - "Each case has: acId, title, input, expected"
       - "Follow test case object structure defined in implementation_knowledge.test_data_structure"
 
   step_4_generate_seed_data:
     description: "Generate seed data functions for Integration Tests and E2E Tests"
     rules:
-      - "Seed data is generated based on the standard_knowledge.seed_data_strategy principles"
+      - "MANDATORY: Generate seed file following implementation_knowledge.seed_file_structure_pattern"
+      - "MANDATORY: Export test data constants using implementation_knowledge.test_data_constants_naming"
+      - "MANDATORY: Export credentials constants using implementation_knowledge.test_credentials_pattern"
       - "Analyze db_schema to identify tables and foreign keys"
       - "Build dependency graph: Node = Table, Edge = FK"
-      - "Perform topological sort to determine insert order according to implementation_knowledge.config.auth_fk_dependency_order"
+      - "Perform topological sort to determine insert order according to implementation_knowledge.config.db_schema_dependency"
       - "MANDATORY: Seed core authentication tables according to implementation_knowledge.mandatory_seed_tables.core_authentication_tables"
-      - "MANDATORY: Seed permissions following naming convention according to standard_knowledge.seed_data_strategy.seed_rules"
+      - "MANDATORY: Seed permissions following naming convention according to standard_knowledge.seed_data_strategy.seed_rules.permission_naming_convention"
       - "MANDATORY: Seed authorization tables according to implementation_knowledge.mandatory_seed_tables.authorization_tables"
-      - "Generate seed functions respecting FK constraints"
-      - "Use seeding method according to implementation_knowledge.seeding_method"
-      - "Implement cleanup strategy according to standard_knowledge.seed_data_strategy.cleanup_strategy"
+      - "MANDATORY: For E2E with authorization, seed multiple users according to implementation_knowledge.authorization_test_users_pattern:"
+      - "  - User with required permission (for happy path 200/201)"
+      - "  - User without required permission (for negative test 403)"
+      - "Generate main seed function according to implementation_knowledge.seed_function_pattern.main_function"
+      - "Generate cleanup logic according to implementation_knowledge.seed_function_pattern.cleanup_logic"
       - "Use IDs >= 100000 for all test data to avoid conflicts"
-      - "Use upsert method for shared data according to implementation_knowledge.seeding_method"
-      - "Generate password hash according to implementation_knowledge.encryption for test users"
+      - "Use upsert (INSERT IGNORE) for shared data (softwares)"
+      - "Use regular INSERT for test-specific data"
+      - "Generate password hash according to implementation_knowledge.password_hash_pattern"
 
   step_5_generate_test_method:
     description: "Generate test methods"
@@ -389,6 +403,263 @@ implementation_knowledge:
         input: { name: 'Valid Product', price: 100 },
         expected: { valid: true }
       }
+
+  test_case_mapping_patterns:
+    description: "How to map test_plan.testcase to testCases array"
+    mapping_rules:
+      - "acId: Copy from test_plan.testcase[i].ac_id (preserve exactly)"
+      - "title: Copy from test_plan.testcase[i].title (preserve exactly)"
+      - "input: Copy from test_plan.testcase[i].input, EXCLUDE JWT fields (tenantId, userId, workspaceId if from @CurrentUser)"
+      - "expected: Map from test_plan.testcase[i].expected according to expected_structure_patterns"
+
+  test_case_ordering_rules:
+    description: "Order of test cases in testCases array"
+    order:
+      1: "happy_path - Successful scenarios with valid data"
+      2: "error_case - Validation errors, business rule violations"
+      3: "edge_case - Boundary values, empty arrays, null values"
+      4: "boundary - Min/max values, length limits"
+      5: "permission_denied - 403 Forbidden (E2E only)"
+
+  expected_structure_patterns:
+    description: "Structure of expected field based on test type"
+    request_dto_ut:
+      happy_path:
+        pattern: "{ valid: true }"
+        example: "{ valid: true }"
+      error_case:
+        pattern: "{ valid: false, errorFields: ['field1', 'field2'] }"
+        example: "{ valid: false, errorFields: ['page', 'size'] }"
+      note: "errorFields are field names that should have validation errors"
+
+    handler_ut:
+      happy_path:
+        pattern: "{ status: 'success', hasData: true }"
+        example: "{ status: 'success', hasData: true }"
+      error_case:
+        pattern: "{ throws: 'ExceptionClassName' }"
+        example: "{ throws: 'NotFoundException' }"
+
+    handler_it:
+      happy_path:
+        pattern: "{ status: 'success', hasItems: true, hasPagination: true }"
+        example: "{ status: 'success', hasItems: true, hasPagination: true, totalCount: 5 }"
+      error_case:
+        pattern: "{ throws: 'ExceptionClassName' }"
+        example: "{ throws: 'ApplicationException' }"
+
+    repository_it:
+      happy_path:
+        pattern: "{ hasResults: true, count: number }"
+        example: "{ hasResults: true, count: 3 }"
+      error_case:
+        pattern: "{ hasResults: false }"
+        example: "{ hasResults: false }"
+
+    e2e:
+      happy_path:
+        pattern: "{ status: 200 | 201, hasData: true }"
+        example: "{ status: 200, hasData: true, hasItems: true }"
+      error_case:
+        pattern: "{ status: 400, errorMessageKey: 'error_key' }"
+        example: "{ status: 400, errorMessageKey: 'invalid_input' }"
+      permission_denied:
+        pattern: "{ status: 403, errorMessageKey: 'insufficient_permissions' }"
+        example: "{ status: 403, errorMessageKey: 'insufficient_permissions' }"
+
+  seed_file_structure_pattern:
+    description: "Structure of seed-data.helper.ts file"
+    file_name: "seed-data.helper.ts"
+    location: "src/test/component/[bc]/[feature]/seed-data.helper.ts"
+    structure: |
+      import { QueryRunner } from 'typeorm';
+
+      // Test data ID constants
+      export const TEST_TENANT_ID = 100011;
+      export const TEST_OTHER_TENANT_ID = 100099;
+      export const TEST_USER_ID = 100001;
+      export const TEST_USER_WITHOUT_PERMISSION_ID = 100002;
+      export const TEST_WORKSPACE_ID = 100001;
+      export const TEST_EMPLOYEE_ID = 100001;
+
+      // Test user credentials
+      export const TEST_USER_CREDENTIALS = {
+        username: 'test_user_with_permission',
+        password: 'Test@123456',
+        softwareId: 1,
+      };
+
+      export const TEST_USER_WITHOUT_PERMISSION_CREDENTIALS = {
+        username: 'test_user_without_permission',
+        password: 'Test@123456',
+        softwareId: 1,
+      };
+
+      // Main seed function
+      export async function seedTestData(queryRunner: QueryRunner): Promise<void> {
+        // Cleanup
+        await cleanup(queryRunner);
+
+        // Seed in dependency order
+        await seedSoftwares(queryRunner);
+        await seedTenants(queryRunner);
+        await seedUsers(queryRunner);
+        await seedWorkspaces(queryRunner);
+        await seedEmployees(queryRunner);
+        await seedPermissions(queryRunner);
+        await seedRoles(queryRunner);
+        await seedRolePermissions(queryRunner);
+        await seedRoleWorkspaces(queryRunner);
+        await seedDomainData(queryRunner);
+      }
+
+      // Cleanup function
+      async function cleanup(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
+        // Delete in reverse dependency order
+        await queryRunner.query('DELETE FROM domain_table WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM role_workspaces WHERE workspace_id >= 100000');
+        await queryRunner.query('DELETE FROM role_permissions WHERE role_id >= 100000');
+        await queryRunner.query('DELETE FROM roles WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM permissions WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM employees WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM workspaces WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM users WHERE id >= 100000');
+        await queryRunner.query('DELETE FROM tenants WHERE id >= 100000');
+        await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
+      }
+
+      // Seed functions for each table
+      async function seedSoftwares(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`
+          INSERT IGNORE INTO softwares (id, name, created_at, updated_at)
+          VALUES (1, 'Test Software', NOW(), NOW())
+        `);
+      }
+
+      // ... other seed functions
+
+  test_data_constants_naming:
+    description: "Naming pattern for test data ID constants"
+    pattern: "TEST_[ENTITY_NAME]_ID"
+    examples:
+      - "TEST_TENANT_ID = 100011"
+      - "TEST_USER_ID = 100001"
+      - "TEST_WORKSPACE_ID = 100001"
+      - "TEST_PRODUCT_CATEGORY_ID = 100001"
+    rules:
+      - "Use singular entity name in UPPERCASE"
+      - "Suffix with _ID"
+      - "Prefix with TEST_"
+      - "Value >= 100000"
+
+  test_credentials_pattern:
+    description: "Pattern for test user credentials constants"
+    main_user:
+      constant_name: "TEST_USER_CREDENTIALS"
+      structure: |
+        export const TEST_USER_CREDENTIALS = {
+          username: 'test_user_with_permission',
+          password: 'Test@123456',
+          softwareId: 1,
+        };
+
+    user_without_permission:
+      constant_name: "TEST_USER_WITHOUT_PERMISSION_CREDENTIALS"
+      structure: |
+        export const TEST_USER_WITHOUT_PERMISSION_CREDENTIALS = {
+          username: 'test_user_without_permission',
+          password: 'Test@123456',
+          softwareId: 1,
+        };
+
+  authorization_test_users_pattern:
+    description: "Pattern for seeding multiple users for authorization testing"
+    user_with_permission:
+      id: "TEST_USER_ID = 100001"
+      username: "test_user_with_permission"
+      password: "Test@123456"
+      role: "Admin or role with required permission"
+      purpose: "For happy path testing (expect 200/201)"
+
+    user_without_permission:
+      id: "TEST_USER_WITHOUT_PERMISSION_ID = 100002"
+      username: "test_user_without_permission"
+      password: "Test@123456"
+      role: "Staff or no role assignment"
+      purpose: "For negative testing (expect 403 Forbidden)"
+
+    implementation_notes:
+      - "Both users must be seeded in seedUsers() function"
+      - "User with permission must have role assigned via role_workspaces"
+      - "User without permission must NOT have role or have role without required permission"
+      - "Both users share same tenant and workspace for isolation"
+
+  seed_function_pattern:
+    description: "Pattern for seed functions"
+    main_function:
+      name: "seedTestData"
+      signature: "async function seedTestData(queryRunner: QueryRunner): Promise<void>"
+      structure: |
+        export async function seedTestData(queryRunner: QueryRunner): Promise<void> {
+          await cleanup(queryRunner);
+
+          // Seed in dependency order (follow config.db_schema_dependency)
+          await seedSoftwares(queryRunner);
+          await seedTenants(queryRunner);
+          await seedUsers(queryRunner);
+          await seedWorkspaces(queryRunner);
+          await seedEmployees(queryRunner);
+          await seedPermissions(queryRunner);
+          await seedRoles(queryRunner);
+          await seedRolePermissions(queryRunner);
+          await seedRoleWorkspaces(queryRunner);
+          await seedDomainData(queryRunner);
+        }
+
+    cleanup_logic:
+      structure: |
+        async function cleanup(queryRunner: QueryRunner): Promise<void> {
+          await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
+
+          // Delete in REVERSE dependency order
+          await queryRunner.query('DELETE FROM domain_table WHERE id >= 100000');
+          await queryRunner.query('DELETE FROM role_workspaces WHERE workspace_id >= 100000');
+          await queryRunner.query('DELETE FROM role_permissions WHERE role_id >= 100000');
+          await queryRunner.query('DELETE FROM roles WHERE id >= 100000');
+          await queryRunner.query('DELETE FROM permissions WHERE id >= 100000');
+          await queryRunner.query('DELETE FROM employees WHERE id >= 100000');
+          await queryRunner.query('DELETE FROM workspaces WHERE id >= 100000');
+          await queryRunner.query('DELETE FROM users WHERE id >= 100000');
+          await queryRunner.query('DELETE FROM tenants WHERE id >= 100000');
+
+          await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
+        }
+      notes:
+        - "Always disable FK checks before cleanup"
+        - "Delete in reverse dependency order (children before parents)"
+        - "Use WHERE id >= 100000 to only delete test data"
+        - "Re-enable FK checks after cleanup"
+
+    entity_seed_function:
+      pattern: "async function seed[EntityPlural](queryRunner: QueryRunner): Promise<void>"
+      examples:
+        - "async function seedTenants(queryRunner: QueryRunner): Promise<void>"
+        - "async function seedUsers(queryRunner: QueryRunner): Promise<void>"
+        - "async function seedPermissions(queryRunner: QueryRunner): Promise<void>"
+
+  password_hash_pattern:
+    description: "Pattern for password hashing in seed data"
+    method: "bcrypt with 10 rounds"
+    test_password: "Test@123456"
+    pre_generated_hash: "$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y"
+    usage: "Use pre-generated hash for all test users (password: Test@123456)"
+    example: |
+      const passwordHash = '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y';
+      await queryRunner.query(`
+        INSERT INTO users (id, user_name, password, created_at, updated_at)
+        VALUES (?, ?, ?, NOW(), NOW())
+      `, [TEST_USER_ID, TEST_USER_CREDENTIALS.username, passwordHash]);
 
   test_roles:
     description: "Standard test roles for authorization testing"
