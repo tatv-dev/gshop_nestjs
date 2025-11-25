@@ -215,7 +215,7 @@ test_plan:
         page: 1
         size: 20
         items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: <0_or_1>}]
-      layer: outboundDB
+      layer: infrastructure
       type: ITQueryRepository
       test_class: GetListProductCategoryQueryRepository
 
@@ -234,7 +234,7 @@ test_plan:
         page: 1
         size: 20
         items: [{productCategoryId: <id>, productCategoryName: <name>, productCategoryParentId: <id_or_null>, productCategoryGrandParentId: <id_or_null>, productCategoryGrandParentName: <name_or_null>, creatorName: <name>, createdAt: <timestamp>, activeStatus: <0_or_1>}]
-      layer: outboundDB
+      layer: infrastructure
       type: ITQueryRepository
       test_class: GetListProductCategoryQueryRepository
 
@@ -253,7 +253,7 @@ test_plan:
         page: 1
         size: 20
         items: []
-      layer: outboundDB
+      layer: infrastructure
       type: ITQueryRepository
       test_class: GetListProductCategoryQueryRepository
 
