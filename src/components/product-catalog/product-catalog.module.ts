@@ -5,7 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProductCategoryModel } from './infrastructure/entities/product-category.model';
 import { ProductCategoryQueryRepository } from './infrastructure/repositories/product-category-query.repository';
 import { GetListProductCategoryQueryHandler } from './application/queries/get-list-product-category.query';
-import { ProductCatalogController } from './presentation/controllers/product-catalog.controller';
+import { ProductCategoryController } from './presentation/controllers/product-category.controller';
 
 const QueryHandlers = [GetListProductCategoryQueryHandler];
 
@@ -18,7 +18,7 @@ const Repositories = [
 
 @Module({
   imports: [CqrsModule, TypeOrmModule.forFeature([ProductCategoryModel])],
-  controllers: [ProductCatalogController],
+  controllers: [ProductCategoryController],
   providers: [...QueryHandlers, ...Repositories],
   exports: [],
 })

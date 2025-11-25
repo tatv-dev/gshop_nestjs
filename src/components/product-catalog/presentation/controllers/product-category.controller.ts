@@ -15,7 +15,7 @@ import { ApplicationException } from '../../../../shared/application/exceptions/
 @Controller('api/v1/product-catalog')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 @ApiBearerAuth()
-export class ProductCatalogController {
+export class ProductCategoryController {
   constructor(private readonly queryBus: QueryBus) {}
 
   @Get('product-categories')
