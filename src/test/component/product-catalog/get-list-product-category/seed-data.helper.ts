@@ -8,12 +8,25 @@ import { QueryRunner } from 'typeorm';
 export const TEST_TENANT_ID = 100011;
 export const TEST_OTHER_TENANT_ID = 100099;
 export const TEST_USER_ID = 100001;
+export const TEST_USER_WITHOUT_PERMISSION_ID = 100002;
 export const TEST_WORKSPACE_ID = 100001;
+export const TEST_WORKSPACE_WITHOUT_PERMISSION_ID = 100002;
 export const TEST_EMPLOYEE_ID = 100001;
+export const TEST_EMPLOYEE_WITHOUT_PERMISSION_ID = 100002;
+export const TEST_PERMISSION_ID = 100001;
+export const TEST_ROLE_WITH_PERMISSION_ID = 100001;
+export const TEST_ROLE_WITHOUT_PERMISSION_ID = 100002;
 
-// Test user credentials
+// Test user credentials - User WITH permission
 export const TEST_USER_CREDENTIALS = {
-  username: 'test_user_e2e',
+  username: 'test_user_with_permission',
+  password: 'Test@123456',
+  softwareId: 1,
+};
+
+// Test user credentials - User WITHOUT permission
+export const TEST_USER_WITHOUT_PERMISSION_CREDENTIALS = {
+  username: 'test_user_without_permission',
   password: 'Test@123456',
   softwareId: 1,
 };
@@ -22,9 +35,13 @@ export async function seedProductCategoryTestData(queryRunner: QueryRunner): Pro
   // Disable FK checks temporarily
   await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
 
-  // Clear existing test data (using high IDs)
+  // Clear existing test data (using high IDs) - in REVERSE dependency order
   await queryRunner.query('DELETE FROM product_categories WHERE id >= 100000');
   await queryRunner.query('DELETE FROM branches WHERE id >= 100000');
+  await queryRunner.query('DELETE FROM role_workspaces WHERE workspace_id >= 100000');
+  await queryRunner.query('DELETE FROM role_permissions WHERE role_id >= 100000');
+  await queryRunner.query('DELETE FROM roles WHERE id >= 100000');
+  await queryRunner.query('DELETE FROM permissions WHERE id >= 100000');
   await queryRunner.query('DELETE FROM employees WHERE id >= 100000');
   await queryRunner.query('DELETE FROM resellers WHERE id >= 100000');
   await queryRunner.query('DELETE FROM workspaces WHERE id >= 100000');
@@ -53,16 +70,30 @@ export async function seedProductCategoryTestData(queryRunner: QueryRunner): Pro
     INSERT INTO users (id, user_name, password, created_at, updated_at)
     VALUES
       (?, ?, ?, NOW(), NOW()),
-      (100002, 'test_user_e2e_2', ?, NOW(), NOW())
-  `, [TEST_USER_ID, TEST_USER_CREDENTIALS.username, passwordHash, passwordHash]);
+      (?, ?, ?, NOW(), NOW())
+  `, [
+    TEST_USER_ID,
+    TEST_USER_CREDENTIALS.username,
+    passwordHash,
+    TEST_USER_WITHOUT_PERMISSION_ID,
+    TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.username,
+    passwordHash
+  ]);
 
   // 3. Seed workspaces
   await queryRunner.query(`
     INSERT INTO workspaces (id, status, user_id, tenant_id, created_at, updated_at)
     VALUES
       (?, 1, ?, ?, NOW(), NOW()),
-      (100002, 1, 100002, ?, NOW(), NOW())
-  `, [TEST_WORKSPACE_ID, TEST_USER_ID, TEST_TENANT_ID, TEST_OTHER_TENANT_ID]);
+      (?, 1, ?, ?, NOW(), NOW())
+  `, [
+    TEST_WORKSPACE_ID,
+    TEST_USER_ID,
+    TEST_TENANT_ID,
+    TEST_WORKSPACE_WITHOUT_PERMISSION_ID,
+    TEST_USER_WITHOUT_PERMISSION_ID,
+    TEST_TENANT_ID
+  ]);
 
   // 4. Seed resellers
   await queryRunner.query(`
@@ -74,11 +105,56 @@ export async function seedProductCategoryTestData(queryRunner: QueryRunner): Pro
   await queryRunner.query(`
     INSERT INTO employees (id, name, workspace_id, reseller_id, branch_id, status, created_at, updated_at)
     VALUES
-      (?, 'Nguyen Van Test', ?, 100001, NULL, 1, NOW(), NOW()),
-      (100002, 'Tran Thi Test', 100002, NULL, NULL, 1, NOW(), NOW())
-  `, [TEST_EMPLOYEE_ID, TEST_WORKSPACE_ID]);
+      (?, 'Employee With Permission', ?, 100001, NULL, 1, NOW(), NOW()),
+      (?, 'Employee Without Permission', ?, NULL, NULL, 1, NOW(), NOW())
+  `, [
+    TEST_EMPLOYEE_ID,
+    TEST_WORKSPACE_ID,
+    TEST_EMPLOYEE_WITHOUT_PERMISSION_ID,
+    TEST_WORKSPACE_WITHOUT_PERMISSION_ID
+  ]);
 
-  // 6. Seed branches
+  // 6. Seed permissions
+  await queryRunner.query(`
+    INSERT INTO permissions (id, name, software_id, permission_parent_id, status, created_at, updated_at)
+    VALUES (?, 'GET_LIST_PRODUCT_CATEGORY', 1, NULL, 1, NOW(), NOW())
+  `, [TEST_PERMISSION_ID]);
+
+  // 7. Seed roles
+  await queryRunner.query(`
+    INSERT INTO roles (id, name, tenant_id, status, creator_id, created_at, updated_at)
+    VALUES
+      (?, 'Admin E2E', ?, 1, ?, NOW(), NOW()),
+      (?, 'Staff E2E', ?, 1, ?, NOW(), NOW())
+  `, [
+    TEST_ROLE_WITH_PERMISSION_ID,
+    TEST_TENANT_ID,
+    TEST_EMPLOYEE_ID,
+    TEST_ROLE_WITHOUT_PERMISSION_ID,
+    TEST_TENANT_ID,
+    TEST_EMPLOYEE_ID
+  ]);
+
+  // 8. Seed role_permissions (only Admin has the permission)
+  await queryRunner.query(`
+    INSERT INTO role_permissions (role_id, permission_id, created_at, updated_at)
+    VALUES (?, ?, NOW(), NOW())
+  `, [TEST_ROLE_WITH_PERMISSION_ID, TEST_PERMISSION_ID]);
+
+  // 9. Seed role_workspaces (assign roles to workspaces)
+  await queryRunner.query(`
+    INSERT INTO role_workspaces (role_id, workspace_id, created_at, updated_at)
+    VALUES
+      (?, ?, NOW(), NOW()),
+      (?, ?, NOW(), NOW())
+  `, [
+    TEST_ROLE_WITH_PERMISSION_ID,
+    TEST_WORKSPACE_ID,
+    TEST_ROLE_WITHOUT_PERMISSION_ID,
+    TEST_WORKSPACE_WITHOUT_PERMISSION_ID
+  ]);
+
+  // 10. Seed branches
   await queryRunner.query(`
     INSERT INTO branches (id, name, tenant_id, primary_phone, status, creator_id, created_at, updated_at)
     VALUES (100001, 'Chi nhánh Test', ?, '0123456789', 1, ?, NOW(), NOW())
@@ -122,6 +198,10 @@ export async function cleanupProductCategoryTestData(queryRunner: QueryRunner): 
   await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
   await queryRunner.query('DELETE FROM product_categories WHERE id >= 100000');
   await queryRunner.query('DELETE FROM branches WHERE id >= 100000');
+  await queryRunner.query('DELETE FROM role_workspaces WHERE workspace_id >= 100000');
+  await queryRunner.query('DELETE FROM role_permissions WHERE role_id >= 100000');
+  await queryRunner.query('DELETE FROM roles WHERE id >= 100000');
+  await queryRunner.query('DELETE FROM permissions WHERE id >= 100000');
   await queryRunner.query('DELETE FROM employees WHERE id >= 100000');
   await queryRunner.query('DELETE FROM resellers WHERE id >= 100000');
   await queryRunner.query('DELETE FROM workspaces WHERE id >= 100000');
