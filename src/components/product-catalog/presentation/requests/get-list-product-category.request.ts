@@ -16,6 +16,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
+import { ArrayNoDuplicates } from '../../../../shared/application/validators/custom-validators';
 
 // Helper to transform query string arrays (e.g., "[1,0]" or "1,0" -> [1, 0])
 const transformToIntArray = ({ value }) => {
@@ -53,6 +54,7 @@ export class GetListProductCategoryRequest {
   @Transform(transformToIntArray)
   @IsArray()
   @ArrayNotEmpty()
+  @ArrayNoDuplicates()
   @IsInt({ each: true })
   @IsIn([0, 1], { each: true })
   activeStatuses?: number[];

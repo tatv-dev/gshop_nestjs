@@ -149,14 +149,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
               const value = (msg as any).value;
               const constraints = (msg as any).constraints || {};
 
-              // Get first constraint type as messageKey
+              // Get first constraint type and map to custom message key
               const constraintKeys = Object.keys(constraints);
               if (constraintKeys.length > 0) {
                 const constraintType = constraintKeys[0];
+                const messageKey = this.mapConstraintToMessageKey(constraintType);
                 errors.push({
                   field: property,
                   receivedValue: value,
-                  messageKey: `validation_error.${constraintType}`,
+                  messageKey: `validation_error.${messageKey}`,
                 });
               }
             }
@@ -257,5 +258,47 @@ export class AllExceptionsFilter implements ExceptionFilter {
       default:
         return 'internal_error';
     }
+  }
+
+  /**
+   * Map class-validator constraint types to custom message keys
+   */
+  private mapConstraintToMessageKey(constraintType: string): string {
+    const constraintMap: Record<string, string> = {
+      // Type validations
+      isString: 'wrong_type_string',
+      isInt: 'wrong_type_integer',
+      isNumber: 'wrong_type_number',
+      isBoolean: 'wrong_type_boolean',
+      isArray: 'wrong_type_array',
+      isObject: 'wrong_type_object',
+      isDate: 'wrong_type_date',
+
+      // Custom validators (already have correct names)
+      wrong_type_string: 'wrong_type_string',
+      wrong_type_integer: 'wrong_type_integer',
+      wrong_type_number: 'wrong_type_number',
+      wrong_type_boolean: 'wrong_type_boolean',
+      wrong_type_array: 'wrong_type_array',
+      wrong_type_object: 'wrong_type_object',
+      arrayNoDuplicates: 'array_duplicate_items',
+
+      // Common validations
+      isNotEmpty: 'required',
+      isOptional: 'optional',
+      min: 'min_value',
+      max: 'max_value',
+      minLength: 'min_length',
+      maxLength: 'max_length',
+      isEmail: 'invalid_email',
+      isUrl: 'invalid_url',
+      isIn: 'invalid_value',
+      isNotIn: 'forbidden_value',
+      arrayNotEmpty: 'array_empty',
+      arrayMinSize: 'array_min_size',
+      arrayMaxSize: 'array_max_size',
+    };
+
+    return constraintMap[constraintType] || constraintType;
   }
 }
