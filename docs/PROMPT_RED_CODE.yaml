@@ -153,9 +153,10 @@ process:
   step_5_generate_test_method:
     description: "Generate test method body using Arrange-Act-Assert pattern"
     prompt: |
-      1. Generate test function using data-driven pattern:
-         - Use implementation_knowledge.test_structure_syntax for framework-specific syntax
-         - Pattern: it.each(testCases) with destructured parameters
+      1. Generate test functions:
+         - For Request DTO UT: Use INDIVIDUAL test functions (implementation_knowledge.test_structure_syntax.test_function_individual)
+         - For other test types: May use it.each() if all test cases have identical assertion logic
+         - CRITICAL: Request DTO UT should NOT use it.each() because each test case has different assertion patterns
 
       2. Generate Arrange phase:
          - For Request DTO UT: Transform input to DTO instance using plainToClass
@@ -672,7 +673,17 @@ implementation_knowledge:
     description: "Jest test structure syntax"
 
     test_suite: "describe('Suite Name', () => { ... })"
-    test_function_data_driven: "it.each(testCases)('[$acId] $title', async ({ acId, title, input, expected }) => { ... })"
+
+    test_function_individual:
+      description: "Individual test functions (RECOMMENDED for Request DTO UT)"
+      pattern: "it('TC_XX: [descriptive title]', async () => { ... })"
+      note: "Use individual test functions instead of it.each() for better debugging and type safety"
+
+    test_function_data_driven:
+      description: "Data-driven tests using it.each (use only when ALL test cases have identical assertion logic)"
+      pattern: "it.each(testCases)('$acId $title', async (testCase) => { const { acId, input, expected } = testCase; ... })"
+      note: "CAUTION: This pattern has TypeScript issues and makes debugging harder. Only use for simple parameterized tests."
+
     test_case_object_structure: "{ acId: string, title: string, input: object, expected: object }"
 
   import_syntax:
@@ -978,9 +989,10 @@ implementation_knowledge:
 
   request_dto_ut_assertion_pattern:
     description: "Assertion pattern for Request DTO unit tests with BaseRequestDTO.transformValidationErrors()"
+    note: "CRITICAL: Use individual test functions (it('TC_XX: ...')) NOT it.each() for better debugging and TypeScript support"
 
     error_test_case_pattern:
-      description: "Pattern for test cases expecting validation errors"
+      description: "Pattern for test cases expecting validation errors - use INDIVIDUAL it() functions"
       structure: |
         it('TC_XX: [title]', async () => {
           // Arrange
