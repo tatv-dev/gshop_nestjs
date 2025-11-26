@@ -158,7 +158,7 @@ process:
          - Pattern: it.each(testCases) with destructured parameters
 
       2. Generate Arrange phase:
-         - For Request DTO UT: Transform input to DTO instance (apply implementation_knowledge.transformation_syntax if needed)
+         - For Request DTO UT: Transform input to DTO instance using plainToClass
          - For Handler UT: Setup mocks using standard_knowledge.mock_principles and implementation_knowledge.mock_syntax
          - For Handler IT: Data already seeded in beforeEach
          - For Repository IT: Data already seeded in beforeEach
@@ -166,14 +166,15 @@ process:
          - For E2E permission_denied: Login with user WITHOUT permission to get separate token
 
       3. Generate Act phase:
-         - For Request DTO UT: Call validation function
+         - For Request DTO UT: Call validate(dto) then transform errors using [RequestClass].transformValidationErrors()
          - For Handler UT/IT: Call handler.execute()
          - For Repository IT: Call repository method
          - For E2E: Make HTTP request with authorization header
          - Apply implementation_knowledge.http_client_syntax for HTTP methods (GET/POST/PUT/DELETE)
 
       4. Generate Assert phase:
-         - Apply standard_knowledge.assertion_principles based on test type and expected outcome
+         - For Request DTO UT: Use implementation_knowledge.request_dto_ut_assertion_pattern
+         - For other tests: Apply standard_knowledge.assertion_principles based on test type and expected outcome
          - Use implementation_knowledge.assertion_syntax for framework-specific matchers
          - Include acId in assertion messages for traceability
 
@@ -971,8 +972,108 @@ implementation_knowledge:
 
     validation_execution:
       transform_to_class: "const dto = plainToClass(DtoClass, input)"
-      validate: "const errors = await validate(dto)"
-      check_errors: "if (errors.length > 0) { ... }"
+      validate: "const validationErrors = await validate(dto)"
+      transform_errors: "const errors = RequestClass.transformValidationErrors(validationErrors)"
+      note: "CRITICAL: Use RequestClass.transformValidationErrors() to get formatted errors with field, value, messageKey"
+
+  request_dto_ut_assertion_pattern:
+    description: "Assertion pattern for Request DTO unit tests with BaseRequestDTO.transformValidationErrors()"
+
+    error_test_case_pattern:
+      description: "Pattern for test cases expecting validation errors"
+      structure: |
+        it('TC_XX: [title]', async () => {
+          // Arrange
+          const input = {
+            field1: invalidValue1,
+            field2: invalidValue2,
+          };
+
+          // Act
+          const dto = plainToClass(RequestClass, input);
+          const validationErrors = await validate(dto);
+
+          // Debug output (ALWAYS include for visibility)
+          console.log('Raw validation errors:', validationErrors.map(e => ({
+            property: e.property,
+            value: e.value,
+            constraints: e.constraints
+          })));
+
+          // Transform using BaseRequestDTO method
+          const errors = RequestClass.transformValidationErrors(validationErrors);
+
+          // Debug output (ALWAYS include)
+          console.log('TC_XX Transformed Errors:', JSON.stringify(errors, null, 2));
+
+          // Assert
+          // Helper function to find error by field
+          const findError = (field: string) => errors.find(e => e.field === field);
+
+          // Assert each expected error
+          const field1Error = findError('field1');
+          expect(field1Error).toBeDefined();
+          expect(field1Error?.value).toBe(expectedValue1);  // Or .toEqual() for objects/arrays
+          expect(field1Error?.messageKey).toBe('validation_error.expected_key');
+
+          // Repeat for each field in test_plan.testcase[i].expected.errors
+        });
+
+    happy_path_pattern:
+      description: "Pattern for test cases expecting successful validation"
+      structure: |
+        it('TC_XX: Happy Path - Should validate successfully', async () => {
+          // Arrange
+          const input = {
+            field1: validValue1,
+            field2: validValue2,
+          };
+
+          // Act
+          const dto = plainToClass(RequestClass, input);
+          const validationErrors = await validate(dto);
+          const errors = RequestClass.transformValidationErrors(validationErrors);
+
+          // Assert
+          expect(errors).toHaveLength(0);
+        });
+
+    array_element_error_pattern:
+      description: "Pattern for errors on specific array elements (e.g., field[1])"
+      example: |
+        // For field: 'activeStatuses[1]'
+        const elementError = errors.find(e => e.field === 'activeStatuses[1]');
+        expect(elementError).toBeDefined();
+        expect(elementError?.value).toBe("abc");
+        expect(elementError?.messageKey).toBe('validation_error.wrong_type_integer');
+
+    multiple_errors_pattern:
+      description: "Pattern for tests expecting multiple errors on different fields"
+      example: |
+        // Verify minimum error count
+        expect(errors.length).toBeGreaterThanOrEqual(expectedErrorCount);
+
+        // Helper function
+        const findError = (field: string) => errors.find(e => e.field === field);
+
+        // Assert each field error
+        const nameError = findError('productCategoryName');
+        expect(nameError).toBeDefined();
+        expect(nameError?.value).toBe(123);
+        expect(nameError?.messageKey).toBe('validation_error.wrong_type_string');
+
+        const statusError = findError('activeStatuses');
+        expect(statusError).toBeDefined();
+        expect(statusError?.value).toBe("abc");
+        expect(statusError?.messageKey).toBe('validation_error.wrong_type_array');
+
+    critical_notes:
+      - "ALWAYS use RequestClass.transformValidationErrors(validationErrors) - NOT manual error parsing"
+      - "ALWAYS include console.log for raw and transformed errors for debugging"
+      - "Use findError helper function for cleaner assertions"
+      - "For array values, use .toEqual() instead of .toBe()"
+      - "For object values, use .toEqual() instead of .toBe()"
+      - "messageKey format: 'validation_error.{error_type}' (matches test_plan expectations)"
 
   authorization_config:
     description: "NestJS authorization implementation details"

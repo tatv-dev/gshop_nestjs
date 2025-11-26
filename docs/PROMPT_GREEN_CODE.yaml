@@ -147,11 +147,15 @@ process:
     description: "Generate Presentation layer components"
     prompt: |
       1. Generate Request DTOs:
-         - Extract field names from E2E test query/body parameters
+         - CRITICAL: ALL Request DTOs MUST extend BaseRequestDTO for validation error transformation
+         - Extract field names from UT test cases (input sections from test_plan)
+         - Extract validation rules from UT test cases (expected.errors messageKey patterns)
+         - Map messageKey patterns to validation decorators (see implementation_knowledge.validation_decorator_mapping)
+         - CRITICAL: Use custom transform helpers (transformToIntArray, transformToInt) instead of @Type() to preserve invalid values
          - Add class-validator decorators based on validation test assertions
-         - Add transformation decorators if tests expect transformations
          - Use implementation_knowledge.syntax_rules.request_dto
          - Apply implementation_knowledge.validation_patterns
+         - Apply implementation_knowledge.request_dto_generation_from_testplan for systematic DTO generation
 
       2. Generate Response DTOs (if needed):
          - Extract structure from E2E test assertions
@@ -470,14 +474,195 @@ implementation_knowledge:
       pattern: "@ValidateIf((o) => o.field !== undefined), @IsNotIn([null]), @IsString()"
 
     optional_number:
-      pattern: "@ValidateIf((o) => o.field !== undefined), @IsNotIn([null]), @Type(() => Number), @IsInt(), @Min(1)"
+      pattern: "@ValidateIf((o) => o.field !== undefined), @IsNotIn([null]), @Transform(transformToInt), @IsInt(), @Min(1)"
+      note: "CRITICAL: Use transformToInt instead of @Type(() => Number) to preserve invalid values for error reporting"
 
     optional_array:
       pattern: "@ValidateIf((o) => o.field !== undefined), @IsNotIn([null]), @Transform(transformFn), @IsArray(), @ArrayNotEmpty()"
 
     pagination:
-      page: "@ValidateIf((o) => o.page !== undefined), @IsNotIn([null]), @Type(() => Number), @IsInt(), @Min(1), @Max(1000)"
-      size: "@ValidateIf((o) => o.size !== undefined), @IsNotIn([null]), @Type(() => Number), @IsInt(), @Min(1), @Max(500)"
+      page: "@ValidateIf((o) => o.page !== undefined), @IsNotIn([null]), @Transform(transformToInt), @IsInt(), @Min(1), @Max(1000)"
+      size: "@ValidateIf((o) => o.size !== undefined), @IsNotIn([null]), @Transform(transformToInt), @IsInt(), @Min(1), @Max(500)"
+      note: "CRITICAL: Use transformToInt instead of @Type(() => Number)"
+
+  validation_decorator_mapping:
+    description: "Map validation error messageKey patterns to class-validator decorators"
+
+    messageKey_to_decorator:
+      wrong_type_string:
+        decorator: "@IsString()"
+        field_type: "string"
+
+      wrong_type_integer:
+        decorator: "@IsInt()"
+        field_type: "number"
+        transform_required: "@Transform(transformToInt)"
+        note: "ALWAYS use transformToInt to preserve invalid values"
+
+      wrong_type_number:
+        decorator: "@IsNumber()"
+        field_type: "number"
+        transform_required: "@Transform(transformToNumber)"
+
+      wrong_type_boolean:
+        decorator: "@IsBoolean()"
+        field_type: "boolean"
+
+      wrong_type_array:
+        decorator: "@IsArray()"
+        field_type: "array"
+        transform_required: "@Transform(transformToIntArray) OR @Transform(transformToStringArray)"
+        note: "ALWAYS use custom transform helpers to preserve invalid values"
+
+      array_duplicate_items:
+        decorator: "@ArrayNoDuplicates()"
+        additional_decorators: ["@IsArray()", "@ArrayNotEmpty()"]
+
+      max_value:
+        decorator: "@Max(value)"
+        extract_value_from: "Test assertion or business requirements"
+
+      min_value:
+        decorator: "@Min(value)"
+        extract_value_from: "Test assertion or business requirements"
+
+      max_length:
+        decorator: "@MaxLength(value)"
+        field_type: "string"
+
+      min_length:
+        decorator: "@MinLength(value)"
+        field_type: "string"
+
+      required:
+        decorator: "@IsNotEmpty()"
+        note: "Do NOT use @ValidateIf for required fields"
+
+      invalid_value:
+        decorator: "@IsIn([allowedValues])"
+        extract_values_from: "Test cases with valid inputs"
+
+      forbidden_value:
+        decorator: "@IsNotIn([forbiddenValues])"
+        example: "@IsNotIn([null])"
+
+      array_empty:
+        decorator: "@ArrayNotEmpty()"
+        field_type: "array"
+
+  request_dto_generation_from_testplan:
+    description: "Systematic approach to generate Request DTO from test_plan UT test cases"
+
+    step_1_extract_fields:
+      description: "Extract all field names from test_plan.testcase[].input"
+      algorithm: |
+        1. Iterate through all AC_UT_* test cases
+        2. Collect unique field names from input sections
+        3. Result: List of field names that need to be defined in DTO
+
+    step_2_determine_field_types:
+      description: "Determine field type from messageKey in expected.errors"
+      algorithm: |
+        1. For each field, find test cases where it appears in expected.errors
+        2. Look at messageKey pattern (e.g., validation_error.wrong_type_string)
+        3. Map to TypeScript type using validation_decorator_mapping
+        4. Example: wrong_type_string → field type is string
+
+    step_3_determine_validation_rules:
+      description: "Extract validation rules from all error test cases"
+      algorithm: |
+        1. For each field, collect ALL messageKey patterns from expected.errors
+        2. Map each messageKey to decorator using validation_decorator_mapping
+        3. Combine all decorators for the field
+        4. Example: field has both wrong_type_integer and max_value → needs @IsInt() and @Max(value)
+
+    step_4_determine_optional_required:
+      description: "Determine if field is optional or required"
+      algorithm: |
+        1. Check if field has messageKey "required" → Required field
+        2. Check if field appears in some but not all test cases → Optional field
+        3. Optional fields need @ValidateIf((o) => o.field !== undefined) and @IsNotIn([null])
+
+    step_5_determine_transform_helpers:
+      description: "Determine which transform helper to use"
+      rules:
+        integer_fields:
+          condition: "Field has wrong_type_integer messageKey"
+          helper: "transformToInt"
+          reason: "Preserve invalid string values for error reporting"
+
+        integer_array_fields:
+          condition: "Field has wrong_type_array AND elements are integers"
+          helper: "transformToIntArray"
+          reason: "Preserve invalid values and handle string inputs like '[1,2]'"
+
+        string_array_fields:
+          condition: "Field has wrong_type_array AND elements are strings"
+          helper: "transformToStringArray"
+          reason: "Handle string inputs"
+
+    step_6_generate_helpers:
+      description: "ALWAYS include transform helpers at top of file"
+      required_helpers:
+        transformToIntArray: |
+          const transformToIntArray = ({ value }) => {
+            if (Array.isArray(value)) return value;
+            if (typeof value === 'string') {
+              const cleaned = value.replace(/^\[|\]$/g, '');
+              if (!cleaned) return [];
+              const parts = cleaned.split(',');
+              const transformed = parts.map((v) => {
+                const trimmed = v.trim();
+                const num = parseInt(trimmed, 10);
+                return isNaN(num) ? trimmed : num;
+              });
+              if (transformed.some(v => typeof v === 'string')) return value;
+              return transformed;
+            }
+            return value;
+          };
+
+        transformToInt: |
+          const transformToInt = ({ value }) => {
+            if (typeof value === 'number') return value;
+            if (typeof value === 'string') {
+              const num = parseInt(value, 10);
+              return isNaN(num) ? value : num;
+            }
+            return value;
+          };
+
+      note: "These helpers preserve invalid values so validation errors show original input"
+
+    step_7_generate_class:
+      description: "Generate DTO class extending BaseRequestDTO"
+      template: |
+        export class [RequestName]Request extends BaseRequestDTO {
+          @ApiProperty({
+            description: '[Field description]',
+            required: [true/false],
+            example: '[example value]',
+          })
+          [decorators based on steps 3-5]
+          fieldName?: type;
+        }
+
+      decorator_order:
+        1: "@ApiProperty()"
+        2: "@ValidateIf() - for optional fields only"
+        3: "@IsNotIn([null]) - for optional fields only"
+        4: "@Transform() - if needed"
+        5: "Type validators (@IsString, @IsInt, @IsArray, etc.)"
+        6: "Structure validators (@ArrayNotEmpty, @ArrayNoDuplicates, etc.)"
+        7: "Value validators (@Min, @Max, @IsIn, @MaxLength, etc.)"
+
+    critical_notes:
+      - "MUST extend BaseRequestDTO"
+      - "MUST import BaseRequestDTO from '../../../../shared/application/dtos/base-request.dto'"
+      - "MUST include transform helpers for integer and array fields"
+      - "NEVER use @Type(() => Number) - ALWAYS use @Transform(transformToInt)"
+      - "NEVER use value.map(Number) for arrays - ALWAYS use custom transform that preserves invalid values"
+      - "BaseRequestDTO provides static transformValidationErrors() method for tests"
 
   jwt_extraction_syntax:
     description: "NestJS JWT extraction patterns"
