@@ -11,12 +11,12 @@ import {
   Max,
   IsIn,
   IsNotEmpty,
-  Matches,
   IsNotIn,
   ValidateIf,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ArrayNoDuplicates } from '../../../../shared/application/validators/custom-validators';
+import { BaseRequestDTO } from '../../../../shared/application/dtos/base-request.dto';
 
 // Helper to transform query string arrays (e.g., "[1,0]" or "1,0" -> [1, 0])
 const transformToIntArray = ({ value }) => {
@@ -30,7 +30,7 @@ const transformToIntArray = ({ value }) => {
   return value;
 };
 
-export class GetListProductCategoryRequest {
+export class GetListProductCategoryRequest extends BaseRequestDTO {
   @ApiProperty({
     description: 'Search by product category name',
     required: false,
