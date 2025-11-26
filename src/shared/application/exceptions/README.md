@@ -142,7 +142,7 @@ GET /api/v1/products?page="abc"
   "errors": [
     {
       "field": "page",
-      "receivedValue": "abc",
+      "value": "abc",
       "messageKey": "validation_error.wrong_type_integer"
     }
   ]
@@ -165,7 +165,7 @@ GET /api/v1/products?categoryIds=[1,"+"]
   "errors": [
     {
       "field": "categoryIds[1]",
-      "receivedValue": "+",
+      "value": "+",
       "messageKey": "validation_error.wrong_type_integer"
     }
   ]
@@ -185,7 +185,7 @@ GET /api/v1/products?statuses=[1,1]
   "errors": [
     {
       "field": "statuses",
-      "receivedValue": [1, 1],
+      "value": [1, 1],
       "messageKey": "validation_error.array_duplicate_items"
     }
   ]

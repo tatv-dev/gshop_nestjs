@@ -32,7 +32,7 @@ export interface ProblemDetails {
   timestamp?: string;    // When the error occurred
   errors?: Array<{       // Field-level validation errors (if applicable)
     field: string;
-    receivedValue: any;
+    value: any;
     messageKey: string;
   }>;
 }
@@ -187,7 +187,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         timestamp,
         errors: exception.errors.map((error) => ({
           field: error.field,
-          receivedValue: (error as any).receivedValue,
+          value: (error as any).value,
           messageKey: `validation_error.${error.messageKey}`,
         })),
       };
@@ -196,44 +196,87 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // NestJS BadRequestException (from class-validator)
     if (exception instanceof BadRequestException) {
       const exceptionResponse = exception.getResponse();
-      const translated = {
-        title: 'Lỗi xác thực dữ liệu',
-        detail: 'Dữ liệu đầu vào không hợp lệ.'
-      };
-
       // Debug logging
+
       this.logger.debug('BadRequestException response:', JSON.stringify(exceptionResponse, null, 2));
 
+
+
       // Extract validation errors from class-validator (including nested errors)
-      const errors: Array<{ field: string; receivedValue: any; messageKey: string }> = [];
+
+      const errors: Array<{ field: string; value: any; messageKey: string }> = [];
+
       if (typeof exceptionResponse === 'object' && 'message' in exceptionResponse) {
+
         const messages = exceptionResponse.message;
 
+
+
         // Debug logging
+
         this.logger.debug('Messages:', JSON.stringify(messages, null, 2));
 
+
+
         if (Array.isArray(messages)) {
+
           messages.forEach((msg) => {
+
             if (typeof msg === 'object' && 'property' in msg) {
-              // Extract both top-level and nested validation errors
-              const extractedErrors = this.extractValidationErrors(msg, '');
-              errors.push(...extractedErrors);
+
+              // Extract field name and get raw value from request
+
+              const field = msg.property;
+
+              const rawValue = this.extractRawValueFromRequest(field, request);
+
+
+
+              // Map constraint to message key
+
+              const constraints = msg.constraints || {};
+
+              const constraintKeys = Object.keys(constraints);
+
+              const constraintType = constraintKeys.length > 0 ? constraintKeys[0] : 'invalid';
+
+              const messageKey = this.mapConstraintToMessageKey(constraintType);
+
+
+
+              errors.push({
+
+                field,
+
+                value: rawValue !== undefined ? rawValue : msg.value,
+
+                messageKey: `validation_error.${messageKey}`,
+
+              });
+
             }
+
           });
+
         }
+
       }
+
+
 
       this.logger.debug('Formatted errors:', JSON.stringify(errors, null, 2));
 
-      return {
-        messageKey: 'validation_error',
-        title: translated.title,
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        detail: translated.detail,
+
+
+      // Convert to ValidationException for consistent handling
+
+      throw new ValidationException({
+
+        errors,
+
         instance,
-        timestamp,
-        errors: errors.length > 0 ? errors : undefined,
-      };
+
+      });
     }
 
     // NestJS HttpException
@@ -327,8 +370,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private extractValidationErrors(
     error: any,
     parentPath: string,
-  ): Array<{ field: string; receivedValue: any; messageKey: string }> {
-    const results: Array<{ field: string; receivedValue: any; messageKey: string }> = [];
+  ): Array<{ field: string; value: any; messageKey: string }> {
+    const results: Array<{ field: string; value: any; messageKey: string }> = [];
     const property = error.property;
     const value = error.value;
     const constraints = error.constraints || {};
@@ -344,7 +387,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const messageKey = this.mapConstraintToMessageKey(constraintType);
       results.push({
         field: currentPath,
-        receivedValue: value,
+        value: value,
         messageKey: `validation_error.${messageKey}`,
       });
     }
@@ -364,6 +407,124 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     return results;
+  }
+
+  /**
+
+  * Extract raw value from request (query/body/params) before transformation
+
+  * Handles array notation like "productCategoryAncestors[1]"
+
+  */
+
+  private extractRawValueFromRequest(propertyPath: string, request: Request): any {
+
+    // Parse property path: "productCategoryAncestors[1]" -> ["productCategoryAncestors", "1"]
+
+    const arrayMatch = propertyPath.match(/^(.+?)\[(\d+)\]$/);
+
+
+
+    // Check query, body, and params
+
+    const sources = [request.query, request.body, request.params].filter(Boolean);
+
+
+
+    for (const source of sources) {
+
+      if (!source || typeof source !== 'object') {
+
+        continue;
+
+      }
+
+
+
+      if (arrayMatch) {
+
+        const [, fieldName, index] = arrayMatch;
+
+        const arrayValue = source[fieldName];
+
+
+
+        if (Array.isArray(arrayValue)) {
+
+          return arrayValue[parseInt(index, 10)];
+
+        }
+
+
+
+        // If raw value is string (e.g., "[1,\"+\"]"), parse it
+
+        if (typeof arrayValue === 'string') {
+
+          try {
+
+            // Try JSON parse first
+
+            const parsed = JSON.parse(arrayValue);
+
+            if (Array.isArray(parsed)) {
+
+              return parsed[parseInt(index, 10)];
+
+            }
+
+          } catch (e) {
+
+            // Not valid JSON, try simple split
+
+            const cleaned = arrayValue.replace(/^\[|\]$/g, '').trim();
+
+            if (!cleaned) {
+
+              return undefined;
+
+            }
+
+
+
+            // Split by comma and handle quoted strings
+
+            const items = cleaned.split(',').map((v) => {
+
+              const trimmed = v.trim();
+
+              // Remove surrounding quotes
+
+              return trimmed.replace(/^["']|["']$/g, '');
+
+            });
+
+
+
+            return items[parseInt(index, 10)];
+
+          }
+
+        }
+
+      } else {
+
+        // Simple property access
+
+        if (propertyPath in source) {
+
+          return source[propertyPath];
+
+        }
+
+      }
+
+    }
+
+
+
+    return undefined;
+
   }
 
   /**
@@ -407,4 +568,5 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     return constraintMap[constraintType] || constraintType;
   }
+
 }

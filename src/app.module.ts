@@ -4,7 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CqrsModule } from '@nestjs/cqrs';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 
 // Configuration
 import { DatabaseConfig } from './shared/infrastructure/config/database.config';
@@ -12,18 +12,11 @@ import { DatabaseConfig } from './shared/infrastructure/config/database.config';
 // Modules
 import { AuthenticationModule } from './components/authentication/authentication.module';
 import { ProductCatalogModule } from './components/product-catalog/product-catalog.module';
-// import { MenuModule } from './components/menu/menu.module';
-// import { RestaurantTableModule } from './components/restaurant-table/restaurant-table.module';
-// import { DiscountModule } from './components/discount/discount.module';
-// import { ReportModule } from './components/report/report.module';
-// import { ProfileModule } from './components/profile/profile.module';
-// import { OrderModule } from './components/orders/order.module';
-// import { PaymentModule } from './components/payments/payment.module';
-// import { SettingModule } from './components/settings/setting.module';
 
 // Global filters and interceptors
 import { AllExceptionsFilter } from './shared/application/filters/http-exception.filter';
 import { LoggingInterceptor } from './shared/application/interceptors/logging.interceptor';
+import { RawInputCaptureInterceptor } from './shared/application/interceptors/raw-input-capture.interceptor';
 
 @Module({
   imports: [
@@ -38,14 +31,6 @@ import { LoggingInterceptor } from './shared/application/interceptors/logging.in
     CqrsModule,
     AuthenticationModule,
     ProductCatalogModule,
-    // MenuModule,
-    // RestaurantTableModule,
-    // DiscountModule,
-    // ReportModule,
-    // ProfileModule,
-    // OrderModule,
-    // PaymentModule,
-    // SettingModule,
   ],
   providers: [
     {
@@ -55,6 +40,10 @@ import { LoggingInterceptor } from './shared/application/interceptors/logging.in
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RawInputCaptureInterceptor,
     },
   ],
 })

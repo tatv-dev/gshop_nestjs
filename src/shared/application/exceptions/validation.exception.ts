@@ -2,6 +2,7 @@ import { HttpStatus } from '@nestjs/common';
 
 export interface ValidationError {
   field: string;
+  value: any;
   messageKey: string;
   params?: Record<string, any>;
 }

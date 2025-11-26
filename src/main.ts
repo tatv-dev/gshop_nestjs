@@ -8,6 +8,7 @@ import { join } from 'path';
 import * as express from 'express';
 import { ClassSerializerInterceptor } from '@nestjs/common';
 import { ValidationError } from 'class-validator';
+import { CustomValidationPipe } from './shared/application/pipes/custom-validation.pipe';
 import { formatValidationErrors } from './shared/application/pipes/validation-error-formatter';
 
 async function bootstrap() {
@@ -24,7 +25,7 @@ async function bootstrap() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-  app.useGlobalPipes(new ValidationPipe({
+  app.useGlobalPipes(new CustomValidationPipe({
     whitelist: true,
     forbidNonWhitelisted: false,
     transform: true,

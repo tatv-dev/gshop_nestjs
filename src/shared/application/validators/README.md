@@ -17,12 +17,12 @@ Khi validation fails, API trả về format sau:
   "errors": [
     {
       "field": "productCategoryName",
-      "receivedValue": 123,
+      "value": 123,
       "messageKey": "validation_error.wrong_type_string"
     },
     {
       "field": "activeStatuses",
-      "receivedValue": [1, 1],
+      "value": [1, 1],
       "messageKey": "validation_error.array_duplicate_items"
     }
   ]
@@ -173,17 +173,17 @@ export class GetListProductCategoryRequest {
   "errors": [
     {
       "field": "productCategoryName",
-      "receivedValue": 123,
+      "value": 123,
       "messageKey": "validation_error.wrong_type_string"
     },
     {
       "field": "activeStatuses",
-      "receivedValue": "abc",
+      "value": "abc",
       "messageKey": "validation_error.wrong_type_array"
     },
     {
       "field": "page",
-      "receivedValue": "abc",
+      "value": "abc",
       "messageKey": "validation_error.wrong_type_integer"
     }
   ]
@@ -204,7 +204,7 @@ export class GetListProductCategoryRequest {
   "errors": [
     {
       "field": "activeStatuses",
-      "receivedValue": [1, 1],
+      "value": [1, 1],
       "messageKey": "validation_error.array_duplicate_items"
     }
   ]
@@ -272,7 +272,7 @@ export class ArrayNoDuplicatesConstraint implements ValidatorConstraintInterface
 
 2. **Add custom validators for special cases**: Only create custom validators for business-specific validations (like `@ArrayNoDuplicates()`).
 
-3. **Always include receivedValue**: This helps users understand what they sent incorrectly.
+3. **Always include value**: This helps users understand what they sent incorrectly.
 
 4. **Use consistent message key format**: All validation errors use `validation_error.<specific_error>` format.
 
