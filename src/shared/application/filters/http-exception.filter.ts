@@ -14,6 +14,10 @@ import { ApplicationException } from '../exceptions/application.exception';
 import { ValidationException } from '../exceptions/validation.exception';
 import { InfrastructureException } from '../../infrastructure/exceptions/infrastructure.exception';
 import { I18nService } from '../../infrastructure/i18n/i18n.service';
+import { ApplicationErrorException } from '../exceptions/application-error.exception';
+import { AuthErrorException } from '../exceptions/auth-error.exception';
+import { BusinessErrorException } from '../exceptions/business-error.exception';
+import { SystemErrorException } from '../exceptions/system-error.exception';
 
 /**
  * RFC 7807 Problem Details for HTTP APIs
@@ -71,6 +75,62 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private buildProblemDetails(exception: unknown, request: Request): ProblemDetails {
     const instance = `${request.method} ${request.url}`;
     const timestamp = new Date().toISOString();
+
+    // ApplicationErrorException - Application errors (missing_parameter, etc.)
+    if (exception instanceof ApplicationErrorException) {
+      const messageKey = this.getFullMessageKey(exception.messageKey);
+      const translated = this.i18nService.translate(messageKey, exception.params);
+      return {
+        messageKey: exception.messageKey,
+        title: translated.title,
+        status: exception.httpStatus,
+        detail: translated.detail,
+        instance: exception.instance || instance,
+        timestamp,
+      };
+    }
+
+    // AuthErrorException - Authentication/Authorization errors
+    if (exception instanceof AuthErrorException) {
+      const messageKey = this.getFullMessageKey(exception.messageKey);
+      const translated = this.i18nService.translate(messageKey, exception.params);
+      return {
+        messageKey: exception.messageKey,
+        title: translated.title,
+        status: exception.httpStatus,
+        detail: translated.detail,
+        instance: exception.instance || instance,
+        timestamp,
+      };
+    }
+
+    // BusinessErrorException - Business logic errors
+    if (exception instanceof BusinessErrorException) {
+      const messageKey = this.getFullMessageKey(exception.messageKey);
+      const translated = this.i18nService.translate(messageKey, exception.params);
+      return {
+        messageKey: exception.messageKey,
+        title: translated.title,
+        status: exception.httpStatus,
+        detail: translated.detail,
+        instance: exception.instance || instance,
+        timestamp,
+      };
+    }
+
+    // SystemErrorException - System/Infrastructure errors
+    if (exception instanceof SystemErrorException) {
+      const messageKey = this.getFullMessageKey(exception.messageKey);
+      const translated = this.i18nService.translate(messageKey, exception.params);
+      return {
+        messageKey: exception.messageKey,
+        title: translated.title,
+        status: exception.httpStatus,
+        detail: translated.detail,
+        instance: exception.instance || instance,
+        timestamp,
+      };
+    }
 
     // DomainException - Business rule violations (400)
     if (exception instanceof DomainException) {
@@ -141,7 +201,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       // Debug logging
       this.logger.debug('BadRequestException response:', JSON.stringify(exceptionResponse, null, 2));
 
-      // Extract validation errors from class-validator
+      // Extract validation errors from class-validator (including nested errors)
       const errors: Array<{ field: string; receivedValue: any; messageKey: string }> = [];
       if (typeof exceptionResponse === 'object' && 'message' in exceptionResponse) {
         const messages = exceptionResponse.message;
@@ -152,24 +212,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
         if (Array.isArray(messages)) {
           messages.forEach((msg) => {
             if (typeof msg === 'object' && 'property' in msg) {
-              const property = (msg as any).property;
-              const value = (msg as any).value;
-              const constraints = (msg as any).constraints || {};
-
-              // Debug logging
-              this.logger.debug(`Property: ${property}, Value: ${value}, Constraints:`, constraints);
-
-              // Get first constraint type and map to custom message key
-              const constraintKeys = Object.keys(constraints);
-              if (constraintKeys.length > 0) {
-                const constraintType = constraintKeys[0];
-                const messageKey = this.mapConstraintToMessageKey(constraintType);
-                errors.push({
-                  field: property,
-                  receivedValue: value,
-                  messageKey: `validation_error.${messageKey}`,
-                });
-              }
+              // Extract both top-level and nested validation errors
+              const extractedErrors = this.extractValidationErrors(msg, '');
+              errors.push(...extractedErrors);
             }
           });
         }
@@ -270,6 +315,52 @@ export class AllExceptionsFilter implements ExceptionFilter {
       default:
         return 'internal_error';
     }
+  }
+
+  /**
+   * Recursively extract validation errors including nested errors (e.g., array elements)
+   * Builds field paths like "productCategoryAncestors[1]" for array element errors
+   */
+  private extractValidationErrors(
+    error: any,
+    parentPath: string,
+  ): Array<{ field: string; receivedValue: any; messageKey: string }> {
+    const results: Array<{ field: string; receivedValue: any; messageKey: string }> = [];
+    const property = error.property;
+    const value = error.value;
+    const constraints = error.constraints || {};
+    const children = error.children || [];
+
+    // Build current field path
+    const currentPath = parentPath ? `${parentPath}.${property}` : property;
+
+    // If this error has constraints (validation rules), add it to results
+    const constraintKeys = Object.keys(constraints);
+    if (constraintKeys.length > 0) {
+      const constraintType = constraintKeys[0];
+      const messageKey = this.mapConstraintToMessageKey(constraintType);
+      results.push({
+        field: currentPath,
+        receivedValue: value,
+        messageKey: `validation_error.${messageKey}`,
+      });
+    }
+
+    // Recursively extract nested errors (for array elements, nested objects, etc.)
+    if (children.length > 0) {
+      children.forEach((child: any) => {
+        // For array elements, use array notation: field[index]
+        const isArrayElement = !isNaN(parseInt(child.property, 10));
+        const childPath = isArrayElement
+          ? `${currentPath}[${child.property}]`
+          : currentPath;
+
+        const nestedErrors = this.extractValidationErrors(child, childPath);
+        results.push(...nestedErrors);
+      });
+    }
+
+    return results;
   }
 
   /**
