@@ -31,28 +31,103 @@ async function bootstrap() {
     // IMPORTANT: Do NOT disable error messages - we need them for field-level validation errors
     disableErrorMessages: false,
     exceptionFactory: (errors: ValidationError[]) => {
-      // Format validation errors to include full error details for http-exception.filter.ts
-      const formattedErrors = errors.map((error) => {
-        // Debug: log error structure
-        console.log('ValidationError:', JSON.stringify({
-          property: error.property,
-          value: error.value,
-          constraints: error.constraints,
-          children: error.children?.map(c => ({
-            property: c.property,
-            value: c.value,
-            constraints: c.constraints,
-            children: c.children
-          }))
-        }, null, 2));
+      // Recursive function to flatten validation errors including array element errors
+      const flattenErrors = (error: ValidationError, parentPath = ''): any[] => {
+        const results: any[] = [];
+        const property = error.property;
+        const value = error.value;
+        const constraints = error.constraints || {};
+        const children = error.children || [];
+        const contexts = (error as any).contexts || {};
 
-        return {
-          property: error.property,
-          value: error.value,
-          constraints: error.constraints,
-          children: error.children,
-        };
+        // Build current field path
+        const currentPath = parentPath ? `${parentPath}.${property}` : property;
+
+        // Check if this is an array validation with "each: true"
+        // In this case, we need to expand to individual element errors
+        if (Array.isArray(value) && Object.keys(constraints).length > 0) {
+          // Check if constraints indicate array element validation
+          const isArrayElementValidation = Object.keys(constraints).some(key => {
+            // Common validators that use { each: true }
+            return ['isInt', 'isString', 'min', 'max', 'isIn', 'isNotIn'].includes(key);
+          });
+
+          if (isArrayElementValidation) {
+            // Expand to individual element errors
+            value.forEach((elementValue, index) => {
+              // Check if this element would fail validation
+              let hasError = false;
+              let failedConstraint = null;
+
+              // Check each constraint
+              for (const [constraintKey, constraintMessage] of Object.entries(constraints)) {
+                // Simple validation checks for common validators
+                if (constraintKey === 'isInt' && !Number.isInteger(elementValue)) {
+                  hasError = true;
+                  failedConstraint = constraintKey;
+                  break;
+                } else if (constraintKey === 'min' && elementValue < contexts[constraintKey]?.min) {
+                  hasError = true;
+                  failedConstraint = constraintKey;
+                  break;
+                } else if (constraintKey === 'max' && elementValue > contexts[constraintKey]?.max) {
+                  hasError = true;
+                  failedConstraint = constraintKey;
+                  break;
+                } else if (constraintKey === 'isString' && typeof elementValue !== 'string') {
+                  hasError = true;
+                  failedConstraint = constraintKey;
+                  break;
+                }
+              }
+
+              if (hasError && failedConstraint) {
+                results.push({
+                  property: `${currentPath}[${index}]`,
+                  value: elementValue,
+                  constraints: { [failedConstraint]: constraints[failedConstraint] },
+                  children: [],
+                });
+              }
+            });
+
+            // If we found element-level errors, don't add the top-level error
+            if (results.length > 0) {
+              return results;
+            }
+          }
+        }
+
+        // Top-level error (no element expansion or non-array)
+        if (Object.keys(constraints).length > 0) {
+          results.push({
+            property: currentPath,
+            value: value,
+            constraints: constraints,
+            children: children,
+          });
+        }
+
+        // Recursively process children
+        if (children.length > 0) {
+          children.forEach((child) => {
+            const childErrors = flattenErrors(child, currentPath);
+            results.push(...childErrors);
+          });
+        }
+
+        return results;
+      };
+
+      // Flatten all errors
+      const formattedErrors: any[] = [];
+      errors.forEach((error) => {
+        const flattened = flattenErrors(error);
+        formattedErrors.push(...flattened);
       });
+
+      console.log('Formatted errors:', JSON.stringify(formattedErrors, null, 2));
+
       return new BadRequestException({
         message: formattedErrors,
         error: 'Bad Request',
