@@ -138,16 +138,26 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const exceptionResponse = exception.getResponse();
       const translated = this.i18nService.translate('error.validation_error');
 
+      // Debug logging
+      this.logger.debug('BadRequestException response:', JSON.stringify(exceptionResponse, null, 2));
+
       // Extract validation errors from class-validator
       const errors: Array<{ field: string; receivedValue: any; messageKey: string }> = [];
       if (typeof exceptionResponse === 'object' && 'message' in exceptionResponse) {
         const messages = exceptionResponse.message;
+
+        // Debug logging
+        this.logger.debug('Messages:', JSON.stringify(messages, null, 2));
+
         if (Array.isArray(messages)) {
           messages.forEach((msg) => {
             if (typeof msg === 'object' && 'property' in msg) {
               const property = (msg as any).property;
               const value = (msg as any).value;
               const constraints = (msg as any).constraints || {};
+
+              // Debug logging
+              this.logger.debug(`Property: ${property}, Value: ${value}, Constraints:`, constraints);
 
               // Get first constraint type and map to custom message key
               const constraintKeys = Object.keys(constraints);
@@ -164,6 +174,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
           });
         }
       }
+
+      this.logger.debug('Formatted errors:', JSON.stringify(errors, null, 2));
 
       return {
         messageKey: 'validation_error',

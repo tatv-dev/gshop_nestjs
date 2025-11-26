@@ -1,12 +1,13 @@
 // src/main.ts
 import { NestFactory, Reflector } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import * as express from 'express';
-import { ClassSerializerInterceptor } from '@nestjs/common';;
+import { ClassSerializerInterceptor } from '@nestjs/common';
+import { ValidationError } from 'class-validator';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -27,7 +28,22 @@ async function bootstrap() {
     forbidNonWhitelisted: false,
     transform: true,
     skipMissingProperties: true,
-    disableErrorMessages: process.env.NODE_ENV === 'production',
+    // IMPORTANT: Do NOT disable error messages - we need them for field-level validation errors
+    disableErrorMessages: false,
+    exceptionFactory: (errors: ValidationError[]) => {
+      // Format validation errors to include full error details for http-exception.filter.ts
+      const formattedErrors = errors.map((error) => ({
+        property: error.property,
+        value: error.value,
+        constraints: error.constraints,
+        children: error.children,
+      }));
+      return new BadRequestException({
+        message: formattedErrors,
+        error: 'Bad Request',
+        statusCode: 400,
+      });
+    },
   }));
 
   // CORS configuration
