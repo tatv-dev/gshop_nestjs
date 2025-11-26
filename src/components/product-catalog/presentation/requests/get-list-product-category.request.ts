@@ -19,13 +19,45 @@ import { ArrayNoDuplicates } from '../../../../shared/application/validators/cus
 import { BaseRequestDTO } from '../../../../shared/application/dtos/base-request.dto';
 
 // Helper to transform query string arrays (e.g., "[1,0]" or "1,0" -> [1, 0])
+// Preserves invalid values for proper validation error reporting
 const transformToIntArray = ({ value }) => {
-  if (Array.isArray(value)) return value.map(Number);
+  // If already array, keep as-is to preserve original values for validation
+  if (Array.isArray(value)) {
+    return value;
+  }
+
   if (typeof value === 'string') {
     // Handle "[1,0]" format
     const cleaned = value.replace(/^\[|\]$/g, '');
     if (!cleaned) return [];
-    return cleaned.split(',').map((v) => parseInt(v.trim(), 10));
+
+    const parts = cleaned.split(',');
+    const transformed = parts.map((v) => {
+      const trimmed = v.trim();
+      const num = parseInt(trimmed, 10);
+      // Preserve original value if parsing fails
+      return isNaN(num) ? trimmed : num;
+    });
+
+    // If any element failed to parse, return original string
+    // This allows validator to report "wrong_type_array" instead of array element errors
+    if (transformed.some(v => typeof v === 'string')) {
+      return value;
+    }
+
+    return transformed;
+  }
+
+  return value;
+};
+
+// Helper to transform to integer (preserves invalid values for validation)
+const transformToInt = ({ value }) => {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const num = parseInt(value, 10);
+    // If parse fails, keep original to let validator catch it
+    return isNaN(num) ? value : num;
   }
   return value;
 };
@@ -81,7 +113,7 @@ export class GetListProductCategoryRequest extends BaseRequestDTO {
   })
   @ValidateIf((o) => o.page !== undefined)
   @IsNotIn([null])
-  @Type(() => Number)
+  @Transform(transformToInt)
   @IsInt()
   @Min(1)
   @Max(1000)
@@ -94,7 +126,7 @@ export class GetListProductCategoryRequest extends BaseRequestDTO {
   })
   @ValidateIf((o) => o.size !== undefined)
   @IsNotIn([null])
-  @Type(() => Number)
+  @Transform(transformToInt)
   @IsInt()
   @Min(1)
   @Max(500)

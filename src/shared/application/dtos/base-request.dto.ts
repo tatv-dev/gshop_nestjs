@@ -45,10 +45,22 @@ export abstract class BaseRequestDTO {
       );
 
       if (isArrayElementValidation) {
+        // Priority order for constraint checking (type validators first)
+        const constraintPriority = ['isString', 'isInt', 'isNumber', 'isBoolean', 'min', 'max', 'isIn', 'isNotIn'];
+
+        // Sort constraints by priority
+        const sortedConstraints = Object.keys(constraints).sort((a, b) => {
+          const priorityA = constraintPriority.indexOf(a);
+          const priorityB = constraintPriority.indexOf(b);
+          if (priorityA === -1) return 1;
+          if (priorityB === -1) return -1;
+          return priorityA - priorityB;
+        });
+
         // Expand to individual element errors
         value.forEach((elementValue, index) => {
-          // Check each constraint
-          for (const [constraintKey, constraintMessage] of Object.entries(constraints)) {
+          // Check each constraint in priority order
+          for (const constraintKey of sortedConstraints) {
             let hasError = false;
 
             // Simple validation checks
@@ -118,27 +130,37 @@ export abstract class BaseRequestDTO {
    */
   private static getPriorityConstraint(constraintKeys: string[]): string {
     // Priority order (highest to lowest):
-    // 1. Type validators (isString, isInt, isArray, etc.)
-    // 2. Custom type validators (wrong_type_string, etc.)
-    // 3. Structure validators (arrayNotEmpty, arrayNoDuplicates)
-    // 4. Value validators (min, max, isIn, etc.)
-    
-    const typeValidators = ['isString', 'isInt', 'isNumber', 'isBoolean', 'isArray', 'isObject', 'isDate'];
+    // 1. Container type validators (isArray, isObject) - for wrong container type
+    // 2. Scalar type validators (isString, isInt, isNumber, etc.)
+    // 3. Custom type validators (wrong_type_string, etc.)
+    // 4. Structure validators (arrayNotEmpty, arrayNoDuplicates)
+    // 5. Value validators (min, max, isIn, etc.)
+
+    const containerTypeValidators = ['isArray', 'isObject'];
+    const scalarTypeValidators = ['isString', 'isInt', 'isNumber', 'isBoolean', 'isDate'];
     const customTypeValidators = ['wrong_type_string', 'wrong_type_integer', 'wrong_type_number', 'wrong_type_boolean', 'wrong_type_array', 'wrong_type_object'];
     const structureValidators = ['arrayNotEmpty', 'arrayNoDuplicates', 'isNotEmpty'];
-    
+
     // Debug: Log all constraints
     console.log('[getPriorityConstraint] Available constraints:', constraintKeys);
-    
-    // Priority 1: Type validators
-    for (const validator of typeValidators) {
+
+    // Priority 1: Container type validators (isArray, isObject)
+    for (const validator of containerTypeValidators) {
       if (constraintKeys.includes(validator)) {
-        console.log('[getPriorityConstraint] Selected type validator:', validator);
+        console.log('[getPriorityConstraint] Selected container type validator:', validator);
         return validator;
       }
     }
 
-    // Priority 2: Custom type validators
+    // Priority 2: Scalar type validators
+    for (const validator of scalarTypeValidators) {
+      if (constraintKeys.includes(validator)) {
+        console.log('[getPriorityConstraint] Selected scalar type validator:', validator);
+        return validator;
+      }
+    }
+
+    // Priority 3: Custom type validators
     for (const validator of customTypeValidators) {
       if (constraintKeys.includes(validator)) {
         console.log('[getPriorityConstraint] Selected custom type validator:', validator);
@@ -146,7 +168,7 @@ export abstract class BaseRequestDTO {
       }
     }
 
-    // Priority 3: Structure validators
+    // Priority 4: Structure validators
     for (const validator of structureValidators) {
       if (constraintKeys.includes(validator)) {
         console.log('[getPriorityConstraint] Selected structure validator:', validator);
@@ -154,7 +176,7 @@ export abstract class BaseRequestDTO {
       }
     }
 
-    // Priority 4: Return first constraint
+    // Priority 5: Return first constraint
     console.log('[getPriorityConstraint] No priority constraint found, using first:', constraintKeys[0]);
     return constraintKeys[0];
   }
