@@ -177,12 +177,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // ValidationException - Input validation errors (422)
     if (exception instanceof ValidationException) {
-      const translated = this.i18nService.translate('error.validation_error');
+      const translated = this.i18nService.translate('validation_error.required');
       return {
         messageKey: 'validation_error',
-        title: translated.title,
+        title: translated?.title || 'Lỗi xác thực dữ liệu',
         status: exception.httpStatus,
-        detail: translated.detail,
+        detail: 'Dữ liệu đầu vào không hợp lệ.',
         instance: exception.instance || instance,
         timestamp,
         errors: exception.errors.map((error) => ({
@@ -196,7 +196,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // NestJS BadRequestException (from class-validator)
     if (exception instanceof BadRequestException) {
       const exceptionResponse = exception.getResponse();
-      const translated = this.i18nService.translate('error.validation_error');
+      const translated = {
+        title: 'Lỗi xác thực dữ liệu',
+        detail: 'Dữ liệu đầu vào không hợp lệ.'
+      };
 
       // Debug logging
       this.logger.debug('BadRequestException response:', JSON.stringify(exceptionResponse, null, 2));

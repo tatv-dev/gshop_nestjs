@@ -32,12 +32,27 @@ async function bootstrap() {
     disableErrorMessages: false,
     exceptionFactory: (errors: ValidationError[]) => {
       // Format validation errors to include full error details for http-exception.filter.ts
-      const formattedErrors = errors.map((error) => ({
-        property: error.property,
-        value: error.value,
-        constraints: error.constraints,
-        children: error.children,
-      }));
+      const formattedErrors = errors.map((error) => {
+        // Debug: log error structure
+        console.log('ValidationError:', JSON.stringify({
+          property: error.property,
+          value: error.value,
+          constraints: error.constraints,
+          children: error.children?.map(c => ({
+            property: c.property,
+            value: c.value,
+            constraints: c.constraints,
+            children: c.children
+          }))
+        }, null, 2));
+
+        return {
+          property: error.property,
+          value: error.value,
+          constraints: error.constraints,
+          children: error.children,
+        };
+      });
       return new BadRequestException({
         message: formattedErrors,
         error: 'Bad Request',
