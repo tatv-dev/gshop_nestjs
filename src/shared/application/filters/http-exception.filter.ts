@@ -26,9 +26,10 @@ export interface ProblemDetails {
   detail: string;        // Human-readable explanation
   instance: string;      // URI reference for this occurrence
   timestamp?: string;    // When the error occurred
-  errors?: Array<{       // Validation errors (if applicable)
+  errors?: Array<{       // Field-level validation errors (if applicable)
     field: string;
-    message: string;
+    receivedValue: any;
+    messageKey: string;
   }>;
 }
 
@@ -124,14 +125,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
         detail: translated.detail,
         instance: exception.instance || instance,
         timestamp,
-        errors: exception.errors.map((error) => {
-          const errorMessageKey = `validation.${error.messageKey}`;
-          const errorTranslated = this.i18nService.translate(errorMessageKey, error.params);
-          return {
-            field: error.field,
-            message: errorTranslated.detail,
-          };
-        }),
+        errors: exception.errors.map((error) => ({
+          field: error.field,
+          receivedValue: (error as any).receivedValue,
+          messageKey: `validation_error.${error.messageKey}`,
+        })),
       };
     }
 
@@ -141,18 +139,26 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const translated = this.i18nService.translate('error.validation_error');
 
       // Extract validation errors from class-validator
-      const errors: Array<{ field: string; message: string }> = [];
+      const errors: Array<{ field: string; receivedValue: any; messageKey: string }> = [];
       if (typeof exceptionResponse === 'object' && 'message' in exceptionResponse) {
         const messages = exceptionResponse.message;
         if (Array.isArray(messages)) {
           messages.forEach((msg) => {
-            if (typeof msg === 'string') {
-              errors.push({ field: 'unknown', message: msg });
-            } else if (typeof msg === 'object' && 'property' in msg) {
-              errors.push({
-                field: (msg as any).property,
-                message: Object.values((msg as any).constraints || {}).join(', '),
-              });
+            if (typeof msg === 'object' && 'property' in msg) {
+              const property = (msg as any).property;
+              const value = (msg as any).value;
+              const constraints = (msg as any).constraints || {};
+
+              // Get first constraint type as messageKey
+              const constraintKeys = Object.keys(constraints);
+              if (constraintKeys.length > 0) {
+                const constraintType = constraintKeys[0];
+                errors.push({
+                  field: property,
+                  receivedValue: value,
+                  messageKey: `validation_error.${constraintType}`,
+                });
+              }
             }
           });
         }

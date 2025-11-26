@@ -161,12 +161,12 @@ process:
          - Extract HTTP method from E2E test (GET/POST/PUT/DELETE)
          - Extract endpoint URL from E2E test request
          - Inject QueryBus/CommandBus
-         - Extract JWT fields using @CurrentUser decorator
-         - Create Query/Command from Request DTO
+         - CRITICAL: Extract JWT fields (tenantId, userId, workspaceId, employeeId, permissions) using @CurrentUser() decorator - NEVER accept these from request parameters
+         - Create Query/Command from Request DTO (merge with JWT-extracted fields)
          - Execute via bus
          - Apply guards: @UseGuards(JwtAuthGuard, PermissionGuard)
          - Apply permission: @RequirePermissions('PERMISSION_NAME') derived from component name
-         - Use implementation_knowledge.syntax_rules.controller
+         - Use implementation_knowledge.syntax_rules.controller and implementation_knowledge.jwt_extraction_syntax
 
   step_7_generate_module:
     description: "Generate NestJS module configuration"
@@ -286,13 +286,14 @@ standard_knowledge:
     description: "JWT authentication and authorization principles (tech-agnostic)"
 
     jwt_extraction:
-      principle: "Extract context fields (tenantId, userId, workspaceId) from JWT token, NOT from request parameters"
-      rationale: "Context fields come from authenticated user session, not user input"
+      principle: "Extract context fields (tenantId, userId, workspaceId, creatorId/employeeId) from JWT token, NOT from request parameters"
+      rationale: "Context fields come from authenticated user session, not user input. These fields should NEVER be accepted from request body/query/params to prevent security vulnerabilities"
       common_jwt_fields:
-        - "tenantId: Multi-tenancy identifier"
-        - "userId: Authenticated user identifier"
-        - "workspaceId: User's current workspace"
-        - "permissions: User's permission list"
+        - "tenantId: Multi-tenancy identifier (decoded from JWT)"
+        - "userId: Authenticated user identifier (decoded from JWT)"
+        - "workspaceId: User's current workspace (decoded from JWT)"
+        - "permissions: User's permission list (decoded from JWT)"
+        - "employeeId: Employee identifier for creator_id fields (decoded from JWT, NOT from user input)"
 
     permission_checking:
       principle: "Authorization guard verifies user has required permission before executing endpoint"
@@ -421,7 +422,7 @@ implementation_knowledge:
         method_post: "@Post('resource'), @RequirePermissions('PERMISSION')"
         parameters: "@Query() request: RequestDTO, @CurrentUser() user: any"
       dependency_injection: "constructor(private readonly queryBus: QueryBus, private readonly commandBus: CommandBus)"
-      jwt_extraction: "let tenantId = Number(user.tenantId) || user.workspaces?.[0]?.tenantId"
+      jwt_extraction_note: "CRITICAL: Extract tenantId, userId, workspaceId, employeeId, permissions from @CurrentUser() user object (decoded from JWT), NOT from request DTO. See jwt_extraction_syntax for full pattern"
 
     request_dto:
       imports: "class-validator, class-transformer, @nestjs/swagger"
@@ -483,12 +484,31 @@ implementation_knowledge:
 
     decorator: "@CurrentUser()"
     usage: "@CurrentUser() user: any"
-    extraction_pattern: |
-      let tenantId: number | undefined = Number(user.tenantId);
-      if (!tenantId && user.workspaces?.length > 0) {
-        tenantId = user.workspaces[0].tenantId;
-      }
-    note: "Extract JWT fields from user object injected by @CurrentUser() decorator"
+
+    jwt_fields_extraction:
+      description: "Extract context fields from JWT payload (decoded by @CurrentUser() decorator)"
+      critical_note: "NEVER accept tenantId, userId, workspaceId, employeeId, or permissions from request parameters - ALWAYS decode from JWT token"
+
+      extraction_pattern: |
+        // Extract tenantId (with fallback to workspace)
+        let tenantId: number | undefined = Number(user.tenantId);
+        if (!tenantId && user.workspaces?.length > 0) {
+          tenantId = user.workspaces[0].tenantId;
+        }
+
+        // Extract userId
+        const userId: number = Number(user.userId);
+
+        // Extract workspaceId
+        const workspaceId: number = Number(user.workspaceId);
+
+        // Extract employeeId (for creator_id fields in database)
+        const employeeId: number = Number(user.employeeId);
+
+        // permissions array is already available in user.permissions
+        const permissions: string[] = user.permissions || [];
+
+      security_warning: "Accepting these fields from user input creates security vulnerabilities - users could impersonate other tenants/users"
 
   authorization_patterns:
     description: "Authorization implementation patterns"
