@@ -16,7 +16,7 @@
     },
     "auth_invalid_credentials": {
       "title": "Thông tin đăng nhập không đúng",
-      "detail": "Email hoặc mật khẩu không chính xác."
+      "detail": "Tài khoản hoặc mật khẩu không chính xác."
     },
     "forbidden": {
       "title": "Không có quyền truy cập",

@@ -3,13 +3,12 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { GetListProductCategoryRequest } from '../requests/get-list-product-category.request';
-import { GetListProductCategoryQuery } from '../../application/queries/get-list-product-category.query';
 import { GetListProductCategoryDTO } from '../../application/dtos/get-list-product-category.dto';
 import { JwtAuthGuard } from '../../../../shared/infrastructure/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../../../shared/infrastructure/guards/permission.guard';
 import { CurrentUser } from '../../../../shared/infrastructure/decorators/current-user.decorator';
 import { RequirePermissions } from '../../../../shared/infrastructure/decorators/require-permissions.decorator';
-import { ApplicationException } from '../../../../shared/application/exceptions/application.exception';
+import { ApplicationErrorException } from '../../../../shared/application/exceptions/application-error.exception';
 
 @ApiTags('Product Catalog')
 @Controller('api/v1/product-catalog')
@@ -37,7 +36,7 @@ export class ProductCategoryController {
     }
 
     if (!tenantId || !Number.isInteger(tenantId) || tenantId <= 0) {
-      throw new ApplicationException({
+      throw new ApplicationErrorException({
         messageKey: 'missing_parameter',
         params: { parameter: 'Tenant ID' },
       });
@@ -51,8 +50,7 @@ export class ProductCategoryController {
       request.page,
       request.size,
     );
-
-    const query = new GetListProductCategoryQuery(dto);
-    return await this.queryBus.execute(query);
+    
+    return await this.queryBus.execute(dto);
   }
 }

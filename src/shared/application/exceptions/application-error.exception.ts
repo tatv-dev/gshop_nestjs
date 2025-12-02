@@ -1,15 +1,11 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
-
-/**
- * Application Error Exception
- * Used for: missing_parameter, etc.
- */
+import { ExceptionParams } from './param.exception'
 export class ApplicationErrorException extends HttpException {
-  constructor(
-    public readonly messageKey: string,
-    public readonly params?: Record<string, any>,
-    public readonly instance?: string,
-  ) {
+  public readonly messageKey: string;
+  public readonly params?: Record<string, any>;
+  public readonly instance?: string;
+
+  constructor({ messageKey, params = {}, instance }: ExceptionParams) {
     super(
       {
         messageKey: `application_error.${messageKey}`,
@@ -17,6 +13,9 @@ export class ApplicationErrorException extends HttpException {
       },
       HttpStatus.BAD_REQUEST,
     );
+    this.messageKey = `application_error.${messageKey}`;
+    this.params = params;
+    this.instance = instance;
   }
 
   get httpStatus(): number {

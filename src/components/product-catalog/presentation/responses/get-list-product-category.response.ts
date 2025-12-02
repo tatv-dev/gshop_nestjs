@@ -72,7 +72,7 @@ export class GetListProductCategoryResponseDTO {
     description: 'List of product categories',
     type: [ProductCategoryResponseDTO],
   })
-  data: ProductCategoryResponseDTO[];
+  items: ProductCategoryResponseDTO[];
 
   @ApiProperty({
     description: 'Current page number',
@@ -99,13 +99,13 @@ export class GetListProductCategoryResponseDTO {
   totalPages: number;
 
   constructor(
-    data: ProductCategoryResponseDTO[],
+    items: ProductCategoryResponseDTO[],
     page: number,
     size: number,
     total: number,
     totalPages: number,
   ) {
-    this.data = data;
+    this.items = items;
     this.page = page;
     this.size = size;
     this.total = total;
@@ -113,12 +113,12 @@ export class GetListProductCategoryResponseDTO {
   }
 
   static create(
-    data: ProductCategoryResponseDTO[],
+    items: ProductCategoryResponseDTO[],
     page: number,
     size: number,
     total: number,
     totalPages: number,
   ): GetListProductCategoryResponseDTO {
-    return new GetListProductCategoryResponseDTO(data, page, size, total, totalPages);
+    return new GetListProductCategoryResponseDTO(items, page, size, total, totalPages);
   }
 }

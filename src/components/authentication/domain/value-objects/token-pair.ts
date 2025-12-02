@@ -21,8 +21,8 @@ export class TokenPair {
 
   toJSON() {
     return {
-      access_token: this.accessToken,
-      refresh_token: this.refreshToken,
+      accessToken: this.accessToken,
+      refreshToken: this.refreshToken,
     };
   }
 }

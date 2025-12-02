@@ -28,7 +28,7 @@ async function bootstrap() {
   app.useGlobalPipes(new CustomValidationPipe({
     whitelist: true,
     forbidNonWhitelisted: false,
-    transform: true,
+    transform: false,
     skipMissingProperties: true,
     // IMPORTANT: Do NOT disable error messages - we need them for field-level validation errors
     disableErrorMessages: false,

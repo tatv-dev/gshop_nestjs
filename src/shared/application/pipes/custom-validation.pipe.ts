@@ -42,9 +42,7 @@ export class CustomValidationPipe extends ValidationPipe implements PipeTransfor
 
     this.rawInput = this.cloneValue(value);
 
-    console.log('Raw input captured:', JSON.stringify(this.rawInput, null, 2));
-
- 
+    // console.log('Raw input captured:', JSON.stringify(this.rawInput, null, 2));
 
     try {
 

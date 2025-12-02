@@ -52,10 +52,6 @@ export class RawInputCaptureInterceptor implements NestInterceptor {
 
     };
 
-    console.log('Raw input captured by interceptor:', JSON.stringify(rawInput, null, 2));
-
- 
-
     // Lưu vào request để dùng sau
 
     (request as any)[RAW_INPUT_SYMBOL] = rawInput;

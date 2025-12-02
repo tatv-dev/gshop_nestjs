@@ -284,9 +284,9 @@ test_cases:
 
         access_token: "{{token_valid}}"
 
-      productCategoryName: 123
+      productCategoryName: "123"
 
-      activeStatuses: [1]
+      activeStatuses: "1"
 
       productCategoryAncestors: [1]
 

@@ -1,15 +1,12 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { ExceptionParams } from './param.exception'
 
-/**
- * Business Error Exception
- * Used for: resource_not_found, resource_conflict, state_conflict, resource_gone
- */
 export class BusinessErrorException extends HttpException {
-  constructor(
-    public readonly messageKey: string,
-    public readonly params?: Record<string, any>,
-    public readonly instance?: string,
-  ) {
+  public readonly messageKey: string;
+  public readonly params?: Record<string, any>;
+  public readonly instance?: string;
+
+  constructor({ messageKey, params = {}, instance }: ExceptionParams) {
     const statusMap: Record<string, number> = {
       resource_not_found: HttpStatus.NOT_FOUND,
       resource_conflict: HttpStatus.CONFLICT,
@@ -26,6 +23,8 @@ export class BusinessErrorException extends HttpException {
       },
       status,
     );
+
+    this.messageKey = `business_error.${messageKey}`;
   }
 
   get httpStatus(): number {

@@ -3,27 +3,23 @@ import { IQuery, IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
 import { GetListProductCategoryDTO } from '../dtos/get-list-product-category.dto';
 import { IProductCategoryQueryRepository } from '../repositories/product-category-query.repository';
-import { ApplicationException } from '../../../../shared/application/exceptions/application.exception';
+import { ApplicationErrorException } from '../../../../shared/application/exceptions/application-error.exception';
 import {
   ProductCategoryResponseDTO,
   GetListProductCategoryResponseDTO,
 } from '../../presentation/responses/get-list-product-category.response';
 
-export class GetListProductCategoryQuery implements IQuery {
-  constructor(public readonly dto: GetListProductCategoryDTO) {}
-}
 
-@QueryHandler(GetListProductCategoryQuery)
+@QueryHandler(GetListProductCategoryDTO)
 export class GetListProductCategoryQueryHandler
-  implements IQueryHandler<GetListProductCategoryQuery, GetListProductCategoryResponseDTO>
+  implements IQueryHandler<GetListProductCategoryDTO, GetListProductCategoryResponseDTO>
 {
   constructor(
     @Inject('IProductCategoryQueryRepository')
     private readonly repository: IProductCategoryQueryRepository,
   ) {}
 
-  async execute(query: GetListProductCategoryQuery): Promise<GetListProductCategoryResponseDTO> {
-    const { dto } = query;
+  async execute(dto: GetListProductCategoryDTO): Promise<GetListProductCategoryResponseDTO> {
 
     // Validate pagination parameters
     const page = dto.page || 1;
@@ -32,7 +28,7 @@ export class GetListProductCategoryQueryHandler
     // Validate page
     const MAX_PAGE = 1000;
     if (page > MAX_PAGE) {
-      throw new ApplicationException({
+      throw new ApplicationErrorException({
         messageKey: 'max.numeric',
         params: {
           attribute: 'Số trang',
@@ -41,7 +37,7 @@ export class GetListProductCategoryQueryHandler
       });
     }
     if (page < 1) {
-      throw new ApplicationException({
+      throw new ApplicationErrorException({
         messageKey: 'min.numeric',
         params: {
           attribute: 'Số trang',
@@ -54,7 +50,7 @@ export class GetListProductCategoryQueryHandler
     const MIN_SIZE = 1;
     const MAX_SIZE = 100;
     if (size < MIN_SIZE || size > MAX_SIZE) {
-      throw new ApplicationException({
+      throw new ApplicationErrorException({
         messageKey: 'between.numeric',
         params: {
           attribute: 'Kích thước trang',
@@ -77,7 +73,7 @@ export class GetListProductCategoryQueryHandler
 
     // Validate page is not beyond available pages (only if there are results)
     if (total > 0 && page > totalPages) {
-      throw new ApplicationException({
+      throw new ApplicationErrorException({
         messageKey: 'max.numeric',
         params: {
           attribute: 'Số trang',

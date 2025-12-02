@@ -37,6 +37,7 @@ export class I18nService {
    * - translate('success.stored', { resource: 'Product' }) → success type, stored key
    */
   translate(messageKey: string, params: Record<string, any> = {}): I18nMessage {
+    console.log("messageKey: ", messageKey);
     const parts = messageKey.split('.');
 
     if (parts.length < 2) {

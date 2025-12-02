@@ -6,17 +6,17 @@ export class AuthenticationResponseDTO {
     description: 'Access token',
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
-  access_token: string;
+  accessToken: string;
 
   @ApiProperty({
     description: 'Refresh token',
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
-  refresh_token: string;
+  refreshToken: string;
 
   constructor(accessToken: string, refreshToken: string) {
-    this.access_token = accessToken;
-    this.refresh_token = refreshToken;
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
   }
 
   static create(accessToken: string, refreshToken: string): AuthenticationResponseDTO {

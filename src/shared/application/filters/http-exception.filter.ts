@@ -10,11 +10,10 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { DomainException } from '../../domain/exceptions/domain.exception';
-import { ApplicationException } from '../exceptions/application.exception';
+import { ApplicationErrorException } from '../exceptions/application-error.exception';
 import { ValidationException } from '../exceptions/validation.exception';
 import { InfrastructureException } from '../../infrastructure/exceptions/infrastructure.exception';
 import { I18nService } from '../../infrastructure/i18n/i18n.service';
-import { ApplicationErrorException } from '../exceptions/application-error.exception';
 import { AuthErrorException } from '../exceptions/auth-error.exception';
 import { BusinessErrorException } from '../exceptions/business-error.exception';
 import { SystemErrorException } from '../exceptions/system-error.exception';
@@ -92,8 +91,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // AuthErrorException - Authentication/Authorization errors
     if (exception instanceof AuthErrorException) {
+      console.log("exception.messageKey: ", exception.messageKey)
       const messageKey = this.getFullMessageKey(exception.messageKey);
+      console.log("exception.messageKey2: ", messageKey)
       const translated = this.i18nService.translate(messageKey, exception.params);
+      console.log("exception.messageKey3: ", translated)
       return {
         messageKey: exception.messageKey,
         title: translated.title,
@@ -135,20 +137,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // DomainException - Business rule violations (400)
     if (exception instanceof DomainException) {
       // Auto-detect type: validation messages vs error messages
-      const messageKey = this.getFullMessageKey(exception.messageKey);
-      const translated = this.i18nService.translate(messageKey, exception.params);
-      return {
-        messageKey: exception.messageKey,
-        title: translated.title,
-        status: exception.httpStatus,
-        detail: translated.detail,
-        instance: exception.instance || instance,
-        timestamp,
-      };
-    }
-
-    // ApplicationException - Use case failures (400)
-    if (exception instanceof ApplicationException) {
       const messageKey = this.getFullMessageKey(exception.messageKey);
       const translated = this.i18nService.translate(messageKey, exception.params);
       return {
@@ -295,7 +283,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
       // Try to get translated message
       const messageKeyShort = this.getMessageKeyFromStatus(status);
-      const messageKey = `error.${messageKeyShort}`;
+      const messageKey = `system_error.${messageKeyShort}`;
       const translated = this.i18nService.translate(messageKey);
       if (translated) {
         title = translated.title;
@@ -317,9 +305,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       exception instanceof Error ? exception.stack : undefined,
     );
 
-    const translated = this.i18nService.translate('error.internal_error');
+    const translated = this.i18nService.translate('system_error.internal_error');
     return {
-      messageKey: 'internal_error',
+      messageKey: 'system_error.internal_error',
       title: translated.title,
       status: HttpStatus.INTERNAL_SERVER_ERROR,
       detail: translated.detail,
@@ -343,7 +331,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // Check if messageKey starts with any validation key
     const isValidation = validationKeys.some(key => messageKey === key || messageKey.startsWith(`${key}.`));
 
-    return isValidation ? `validation.${messageKey}` : `error.${messageKey}`;
+    return isValidation ? `validation.${messageKey}` : `${messageKey}`;
   }
 
   private getMessageKeyFromStatus(status: number): string {

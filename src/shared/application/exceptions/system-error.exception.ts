@@ -35,6 +35,9 @@ export class SystemErrorException extends HttpException {
       },
       status,
     );
+    this.messageKey = `system_error.${messageKey}`;
+    this.params = params;
+    this.instance = instance;
   }
 
   get httpStatus(): number {

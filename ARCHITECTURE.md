@@ -165,7 +165,11 @@ export class BasicAuthenticationCommandHandler {
     const isValid = await this.encryptionPort.verify(...);
     
     // 3. Business rules (domain logic)
-    if (user.isLocked()) throw new AccountLockedError();
+    if (user.isLocked()) {
+      throw new ApplicationException({
+        messageKey: 'account_locked',
+      });
+    }
     
     // 4. Get permissions
     const permissions = await this.permissionRepository.getUserPermissions(...);
@@ -424,12 +428,15 @@ export class BasicAuthenticationCommandHandler {
     );
 
     if (!user) {
-      throw new InvalidCredentialsError();
+      throw new AuthErrorException('auth_invalid_credentials');
     }
 
     // Step 3.2: Check if account is locked (Domain logic)
     if (user.isLocked(currentTimestamp)) {
-      throw new AccountLockedError(user.getAutoLockTime());
+      throw new ApplicationException({
+        messageKey: 'account_locked',
+        params: { lockTime: user.getAutoLockTime() }
+      });
     }
 
     // Step 3.3: Verify password (Infrastructure)
@@ -446,7 +453,7 @@ export class BasicAuthenticationCommandHandler {
         user.getLockCounter(),
         user.getAutoLockTime()
       );
-      throw new InvalidCredentialsError();
+      throw new AuthErrorException('auth_invalid_credentials');
     }
 
     // Step 3.4: Reset lock on success (Domain logic)

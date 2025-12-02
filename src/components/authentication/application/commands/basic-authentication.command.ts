@@ -6,11 +6,7 @@ import { IUserAuthenticationRepository } from '../../domain/repositories/user-au
 import { IPermissionRepository } from '../../domain/repositories/permission.repository';
 import { IEncryptionPort } from '../../domain/ports/encryption.port';
 import { IJWTTokenPort } from '../../domain/ports/jwt-token.port';
-import {
-  InvalidCredentialsError,
-  AccountLockedError,
-  NoActiveWorkspaceError,
-} from '../../domain/errors/authentication.error';
+import { AuthErrorException } from '../../../../shared/application/exceptions/auth-error.exception';
 
 export class BasicAuthenticationCommand {
   constructor(public readonly dto: BasicAuthenticationDTO) {}
@@ -42,13 +38,17 @@ export class BasicAuthenticationCommandHandler
     console.log('User found:', user);
 
     if (!user) {
-      throw new InvalidCredentialsError();
+      throw new AuthErrorException({
+        messageKey: 'auth_invalid_credentials'
+      });
     }
 
     // Check if account is locked
     if (user.isLocked(currentTimestamp)) {
-      const lockTime = user.getAutoLockTime();
-      throw new AccountLockedError(lockTime !== null ? lockTime : 0);
+      throw new AuthErrorException({
+        messageKey: 'account_locked',
+        params: { lockTime: user.getAutoLockTime() }
+      });
     }
 
     // Verify password
@@ -64,7 +64,9 @@ export class BasicAuthenticationCommandHandler
         user.getLockCounter(),
         user.getAutoLockTime(),
       );
-      throw new InvalidCredentialsError();
+      throw new AuthErrorException({
+        messageKey: 'auth_invalid_credentials'
+      });
     }
 
     // Reset lock counter on successful authentication
@@ -81,7 +83,9 @@ export class BasicAuthenticationCommandHandler
     const activeWorkspaces = workspaces.filter((w) => w.isActive());
 
     if (activeWorkspaces.length === 0) {
-      throw new NoActiveWorkspaceError();
+      throw new AuthErrorException({
+        messageKey: 'auth_invalid_credentials'
+      });
     }
 
     let tokenPayload;
@@ -119,6 +123,7 @@ export class BasicAuthenticationCommandHandler
         workspaces: workspaceList,
       });
     }
+      console.log("tokenPayload: ", tokenPayload)
 
     return new AuthenticationResponseDTO(
       tokenPayload.accessToken,

@@ -27,9 +27,8 @@ export class ProductCategoryQueryRepository implements IProductCategoryQueryRepo
 
     // Filter by name (search)
     if (productCategoryName) {
-      queryBuilder.andWhere('pc.name LIKE :name', {
-        name: `%${productCategoryName}%`,
-      });
+      const safeName = `%${productCategoryName.replace(/["']/g, '')}%`;
+      queryBuilder.andWhere('pc.name LIKE :safeName', { safeName, });
     }
 
     // Filter by active statuses
@@ -61,8 +60,6 @@ export class ProductCategoryQueryRepository implements IProductCategoryQueryRepo
     queryBuilder.orderBy('pc.id', 'ASC');
 
     const models = await queryBuilder.getMany();
-
-    console.log('Fetched ProductCategoryModels:', JSON.stringify(models, null, 2));
 
     // Trả về models trực tiếp, handler sẽ xử lý mapping
     return models;

@@ -652,8 +652,8 @@ implementation_knowledge:
     description: "File organization patterns"
 
     test_file_location:
-      pattern: "src/test/component/[bounded-context]/[feature]/"
-      example: "src/test/component/product-catalog/get-list-product-category/"
+      pattern: "src/tests/components/[bounded-context]/[feature]/"
+      example: "src/tests/components/product-catalog/get-list-product-category/"
       note: "All segments must use kebab-case"
 
     source_file_locations:
@@ -667,7 +667,7 @@ implementation_knowledge:
 
     path_calculation:
       rule: "Calculate relative path from test file location to source file location"
-      example: "From src/test/component/[bc]/[feature]/ to src/components/[bc]/presentation/requests/ = ../../../../components/[bc]/presentation/requests/"
+      example: "From src/tests/components/[bc]/[feature]/ to src/components/[bc]/presentation/requests/ = ../../../../components/[bc]/presentation/requests/"
 
   test_structure_syntax:
     description: "Jest test structure syntax"

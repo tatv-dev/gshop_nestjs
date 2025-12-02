@@ -1,15 +1,12 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { ExceptionParams } from './param.exception'
 
-/**
- * Authentication/Authorization Error Exception
- * Used for: authentication_required, auth_token_expired, auth_invalid_credentials, forbidden, account_locked
- */
 export class AuthErrorException extends HttpException {
-  constructor(
-    public readonly messageKey: string,
-    public readonly params?: Record<string, any>,
-    public readonly instance?: string,
-  ) {
+  public readonly messageKey: string;
+  public readonly params?: Record<string, any>;
+  public readonly instance?: string;
+
+  constructor({ messageKey, params = {}, instance }: ExceptionParams) {
     const statusMap: Record<string, number> = {
       authentication_required: HttpStatus.UNAUTHORIZED,
       auth_token_expired: HttpStatus.UNAUTHORIZED,
@@ -27,6 +24,9 @@ export class AuthErrorException extends HttpException {
       },
       status,
     );
+    this.messageKey = `auth_error.${messageKey}`;
+    this.params = params;
+    this.instance = instance;
   }
 
   get httpStatus(): number {

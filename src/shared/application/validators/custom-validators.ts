@@ -150,3 +150,88 @@ export function IsBooleanType(validationOptions?: ValidationOptions) {
     });
   };
 }
+
+/**
+ * Custom IsStrictString
+ */
+export function IsStrictString(validationOptions?: ValidationOptions) {
+  return function (object: Object, propertyName: string) {
+    registerDecorator({
+      name: 'isStrictString',
+      target: object.constructor,
+      propertyName: propertyName,
+      options: validationOptions,
+      validator: {
+        validate(value: any, args: ValidationArguments) {
+          return typeof value === 'string';
+        },
+        defaultMessage(args: ValidationArguments) {
+          return `${args.property} must be a string`;
+        },
+      },
+    });
+  };
+}
+
+
+// Helper to transform query string arrays (e.g., "[1,0]" or "1,0" -> [1, 0])
+// Preserves invalid values for proper validation error reporting
+export function transformToIntArray ({ value }) {
+  console.log("transformToIntArray: ", value)
+  // If already array, keep as-is to preserve original values for validation
+  if (Array.isArray(value)) {
+    return value.map(v => {
+      const num = parseInt(v, 10);
+      return isNaN(num) ? v : num;
+    });
+  }
+
+  if (typeof value === 'string') {
+    // Chỉ chấp nhận string có [] bao quanh
+    if (!/^\[.*\]$/.test(value)) {
+      // Nếu không có dấu [], trả về nguyên string để validator báo lỗi
+      return value;
+    }
+
+    // Handle "[1,0]" format
+    const cleaned = value.replace(/^\[|\]$/g, '');
+    if (!cleaned) return [];
+
+    const parts = cleaned.split(',');
+    const transformed = parts.map((v) => {
+      const trimmed = v.trim();
+      const num = parseInt(trimmed, 10);
+      // Preserve original value if parsing fails
+      return isNaN(num) ? trimmed : num;
+    });
+
+    // Nếu bất kỳ phần tử nào không parse được, trả về nguyên string để validator báo lỗi
+    if (transformed.some(v => typeof v === 'string')) {
+      return value;
+    }
+
+    return transformed;
+  }
+
+
+  return value;
+};
+
+// Helper to transform to integer (preserves invalid values for validation)
+export function transformToInt({ value }) {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const num = parseInt(value, 10);
+    // If parse fails, keep original to let validator catch it
+    return isNaN(num) ? value : num;
+  }
+  return value;
+};
+
+
+export function toArray(value: any): any[] {
+  if (Array.isArray(value)) return value;
+  if (value === undefined || value === null) return [];
+  return [value]; // convert single value thành array
+}
+
