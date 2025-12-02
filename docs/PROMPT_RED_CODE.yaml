@@ -69,7 +69,6 @@ process:
          - Use implementation_knowledge.naming_conventions.source_file_naming to determine source file names
          - MANDATORY: Ensure all path segments use kebab-case
          - Apply implementation_knowledge.import_syntax.rules for framework-specific syntax
-         - Example: For query handler test, import from '[action-domain].query.ts' NOT '[action-domain].query-handler.ts'
 
       5. Generate lifecycle hooks:
          - Apply standard_knowledge.lifecycle_management_principles based on test type
@@ -583,15 +582,15 @@ implementation_knowledge:
     source_file_naming:
       description: "Source code file naming patterns (for import paths)"
       request_dto: "[action-domain].request.ts"
-      query_handler: "[action-domain].query.ts"
-      command_handler: "[action-domain].command.ts"
+      query_handler: "[action-domain].query-handler.ts"
+      command_handler: "[action-domain].command-handler.ts"
       repository_interface: "i-[domain]-query.repository.ts"
       repository_implementation: "[domain]-query.repository.ts"
       controller: "[domain].controller.ts"
       note: "MANDATORY: All source files use kebab-case"
       examples:
         - "GetListProductCategoryRequest → get-list-product-category.request.ts"
-        - "GetListProductCategoryQueryHandler → get-list-product-category.query.ts"
+        - "GetListProductCategoryQueryHandler → get-list-product-category.query-handler.ts"
         - "IProductCategoryQueryRepository → i-product-category-query.repository.ts"
         - "ProductCategoryQueryRepository → product-category-query.repository.ts"
 
