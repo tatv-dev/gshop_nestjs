@@ -148,6 +148,9 @@ process:
     prompt: |
       1. Generate Request DTOs:
          - CRITICAL: ALL Request DTOs MUST extend BaseRequestDTO for validation error transformation
+         - CRITICAL: Import BaseRequestDTO from '../../../../shared/application/dtos/base-request.dto'
+         - CRITICAL: Import custom validators from '../../../../shared/application/validators/custom-validators'
+         - CRITICAL: Import transform helpers (transformToIntArray, transformToInt) from custom-validators
          - Extract field names from UT test cases (input sections from test_plan)
          - Extract validation rules from UT test cases (expected.errors messageKey patterns)
          - Map messageKey patterns to validation decorators (see implementation_knowledge.validation_decorator_mapping)
@@ -277,14 +280,161 @@ standard_knowledge:
     description: "Exception handling principles"
 
     exception_types:
-      ApplicationException: "Business rule violations, use cases failures"
-      DomainException: "Domain invariant violations"
-      InfrastructureException: "External system failures"
+      description: "Use predefined exception classes from src/shared"
+
+      application_layer_http_exceptions:
+        ApplicationErrorException:
+          usage: "General application errors (400 Bad Request)"
+          constructor: "new ApplicationErrorException({ messageKey, params?, instance? })"
+          messageKey_prefix: "application_error."
+          import: "src/shared/application/exceptions/application-error.exception"
+          example: |
+            throw new ApplicationErrorException({
+              messageKey: 'invalid_operation',
+              params: { field: 'status' }
+            });
+
+        BusinessErrorException:
+          usage: "Business rule violations with dynamic HTTP status"
+          constructor: "new BusinessErrorException({ messageKey, params?, instance? })"
+          messageKey_prefix: "business_error."
+          import: "src/shared/application/exceptions/business-error.exception"
+          status_mapping:
+            resource_not_found: "404 Not Found"
+            resource_conflict: "409 Conflict"
+            state_conflict: "409 Conflict"
+            resource_gone: "410 Gone"
+            default: "400 Bad Request"
+          example: |
+            throw new BusinessErrorException({
+              messageKey: 'resource_not_found',
+              params: { resource: 'ProductCategory', id: 123 }
+            });
+
+        AuthErrorException:
+          usage: "Authentication and authorization errors"
+          constructor: "new AuthErrorException({ messageKey, params?, instance? })"
+          messageKey_prefix: "auth_error."
+          import: "src/shared/application/exceptions/auth-error.exception"
+          status_mapping:
+            authentication_required: "401 Unauthorized"
+            auth_token_expired: "401 Unauthorized"
+            auth_invalid_credentials: "401 Unauthorized"
+            forbidden: "403 Forbidden"
+            account_locked: "403 Forbidden"
+            default: "401 Unauthorized"
+          example: |
+            throw new AuthErrorException({
+              messageKey: 'forbidden',
+              params: { action: 'delete' }
+            });
+
+        SystemErrorException:
+          usage: "System-level errors (infrastructure, network, etc.)"
+          constructor: "new SystemErrorException(messageKey, params?, instance?)"
+          messageKey_prefix: "system_error."
+          import: "src/shared/application/exceptions/system-error.exception"
+          status_mapping:
+            bad_request: "400 Bad Request"
+            endpoint_not_found: "404 Not Found"
+            method_not_allowed: "405 Method Not Allowed"
+            rate_limit_exceeded: "429 Too Many Requests"
+            internal_error: "500 Internal Server Error"
+            database_connection_error: "503 Service Unavailable"
+            service_unavailable: "503 Service Unavailable"
+            third_party_error: "502 Bad Gateway"
+          example: |
+            throw new SystemErrorException('internal_error', {
+              operation: 'database_query'
+            });
+
+      domain_layer_exception:
+        DomainException:
+          usage: "Domain invariant violations (pure domain logic)"
+          constructor: "new DomainException({ messageKey, params?, instance? })"
+          messageKey_format: "Custom format (no automatic prefix)"
+          import: "src/shared/domain/exceptions/domain.exception"
+          note: "This is Error (not HttpException), handler/filter will convert to HTTP response"
+          example: |
+            throw new DomainException({
+              messageKey: 'invalid_product_category_hierarchy',
+              params: { parentId, childId }
+            });
+
+      infrastructure_layer_exception:
+        InfrastructureException:
+          usage: "Technical failures (database, external APIs, file system)"
+          constructor: "new InfrastructureException({ messageKey, params?, instance?, cause? })"
+          messageKey_format: "Custom format (no automatic prefix)"
+          import: "src/shared/infrastructure/exceptions/infrastructure.exception"
+          note: "This is Error (not HttpException), includes cause for error chaining"
+          example: |
+            try {
+              await externalApi.call();
+            } catch (error) {
+              throw new InfrastructureException({
+                messageKey: 'external_api_failure',
+                params: { service: 'payment' },
+                cause: error
+              });
+            }
+
+    throw_correct_exception_by_layer:
+      description: "Guidelines for throwing appropriate exception types"
+
+      presentation_layer:
+        validation_errors: "Let ValidationPipe handle automatically (400 Bad Request)"
+        authorization_errors: "Let guards handle (401 Unauthorized, 403 Forbidden)"
+        custom_errors: "Rarely throw directly, let lower layers handle"
+
+      application_layer:
+        business_rule_violation: "throw new BusinessErrorException({ messageKey: 'state_conflict' })"
+        resource_not_found: "throw new BusinessErrorException({ messageKey: 'resource_not_found' })"
+        invalid_operation: "throw new ApplicationErrorException({ messageKey: 'invalid_operation' })"
+        permission_denied: "throw new AuthErrorException({ messageKey: 'forbidden' })"
+
+      domain_layer:
+        invariant_violation: "throw new DomainException({ messageKey: 'custom_invariant_key' })"
+        invalid_value_object: "throw new DomainException({ messageKey: 'invalid_value' })"
+
+      infrastructure_layer:
+        database_error: "throw new InfrastructureException({ messageKey: 'database_error', cause })"
+        external_api_error: "throw new InfrastructureException({ messageKey: 'api_error', cause })"
+
+      examples_by_scenario:
+        resource_not_found_in_repository: |
+          // In repository or handler
+          const category = await this.repository.findById(id);
+          if (!category) {
+            throw new BusinessErrorException({
+              messageKey: 'resource_not_found',
+              params: { resource: 'ProductCategory', id }
+            });
+          }
+
+        inactive_resource_check: |
+          // In handler or domain service
+          if (category.status === 0) {
+            throw new BusinessErrorException({
+              messageKey: 'state_conflict',
+              params: { resource: 'ProductCategory', state: 'inactive' }
+            });
+          }
+
+        domain_invariant: |
+          // In domain entity
+          if (this.parentLevel > 3) {
+            throw new DomainException({
+              messageKey: 'max_hierarchy_level_exceeded',
+              params: { maxLevel: 3, currentLevel: this.parentLevel }
+            });
+          }
 
     error_propagation:
       - "Throw exceptions at violation point"
-      - "Let framework handle HTTP status mapping"
-      - "Use error message keys for i18n"
+      - "Framework HttpExceptionFilter will handle HTTP status mapping"
+      - "Use messageKey for i18n lookup"
+      - "Include params for dynamic error messages"
 
   jwt_handling_principles:
     description: "JWT authentication and authorization principles (tech-agnostic)"
@@ -327,25 +477,51 @@ standard_knowledge:
   data_access_principles:
     description: "Data access patterns (tech-agnostic)"
 
+    sql_injection_prevention:
+      description: "CRITICAL: Prevent SQL injection in LIKE queries"
+
+      principle: "ALWAYS escape special characters in user input before using in LIKE queries"
+
+      dangerous_pattern: |
+        // ❌ DANGEROUS - vulnerable to SQL injection
+        queryBuilder.andWhere('name LIKE :term', { term: `%${userInput}%` })
+
+      safe_pattern: |
+        // ✅ SAFE - escape quotes and special chars
+        const safeTerm = `%${userInput.replace(/["']/g, '')}%`;
+        queryBuilder.andWhere('name LIKE :safeTerm', { safeTerm });
+
+      escape_rules:
+        - "Remove or escape single quotes (') and double quotes (\")"
+        - "Consider escaping LIKE wildcards (%, _) if needed for literal search"
+        - "Use parameterized queries (TypeORM handles SQL injection for params)"
+
+      apply_to:
+        - "All LIKE queries with user input"
+        - "String search filters"
+        - "Pattern matching operations"
+
     query_building:
       principle: "Build queries dynamically based on input parameters"
       patterns:
         - "Base query filters by tenant for multi-tenancy"
         - "Add conditional filters only when parameters present"
         - "Use parameterized queries to prevent SQL injection"
+        - "CRITICAL: Escape special characters in LIKE queries"
 
     pagination:
       principle: "Support pagination for list queries"
       pattern:
         - "Accept page and size parameters"
         - "Calculate skip/offset from page number"
-        - "Return data, page, size, and total count"
+        - "Return items, page, size, and total count"
         - "Default values if not provided (page=1, size=10)"
+      response_structure: "{ items: T[], page: number, size: number, total: number }"
 
     filtering:
       principle: "Support flexible filtering"
       patterns:
-        - "String search: Partial match (LIKE)"
+        - "String search: Partial match (LIKE) - MUST escape special characters"
         - "Array filters: Match any (IN)"
         - "Status filters: Match specific values"
         - "Hierarchical: Match ancestors or descendants"
@@ -419,6 +595,21 @@ implementation_knowledge:
   syntax_rules:
     description: "Framework-specific syntax rules (NO full templates)"
 
+    custom_validators:
+      description: "Custom validator usage patterns"
+      import: "import { ArrayNoDuplicates, IsStringType, IsIntegerType, IsArrayType, transformToIntArray, transformToInt } from '../../../../shared/application/validators/custom-validators';"
+
+      when_to_use_custom_validators:
+        description: "Use custom validators when tests expect specific messageKey format"
+        examples:
+          - "Test expects 'validation_error.wrong_type_string' → Use @IsStringType() instead of @IsString()"
+          - "Test expects 'validation_error.array_duplicate_items' → Use @ArrayNoDuplicates()"
+
+      standard_vs_custom:
+        standard_isString: "Returns generic 'property must be a string' message"
+        custom_IsStringType: "Returns 'wrong_type_string' message key"
+        note: "Check test expectations to decide which to use"
+
     controller:
       decorators:
         class: "@Controller('api/v1/path'), @ApiTags('Tag'), @UseGuards(JwtAuthGuard, PermissionGuard), @ApiBearerAuth()"
@@ -456,6 +647,14 @@ implementation_knowledge:
       dependency_injection: "constructor(@InjectRepository(EntityModel) private readonly repo: Repository<EntityModel>)"
       query_builder_usage: "this.repo.createQueryBuilder('alias')"
       conditional_where: "if (dto.field) { query.andWhere('alias.column = :param', { param: dto.field }); }"
+      safe_like_query:
+        description: "CRITICAL: Safe LIKE query pattern to prevent SQL injection"
+        pattern: |
+          if (dto.searchTerm) {
+            const safeTerm = `%${dto.searchTerm.replace(/["']/g, '')}%`;
+            query.andWhere('alias.name LIKE :safeTerm', { safeTerm });
+          }
+        note: "ALWAYS escape quotes before using in LIKE queries"
       pagination: "query.skip((page - 1) * size).take(size).getManyAndCount()"
 
     typeorm_entity:
@@ -490,32 +689,38 @@ implementation_knowledge:
 
     messageKey_to_decorator:
       wrong_type_string:
-        decorator: "@IsString()"
+        decorator: "@IsString() OR @IsStringType()"
+        custom_validator: "@IsStringType() - when test expects 'wrong_type_string' messageKey"
         field_type: "string"
 
       wrong_type_integer:
-        decorator: "@IsInt()"
+        decorator: "@IsInt() OR @IsIntegerType()"
+        custom_validator: "@IsIntegerType() - when test expects 'wrong_type_integer' messageKey"
         field_type: "number"
         transform_required: "@Transform(transformToInt)"
         note: "ALWAYS use transformToInt to preserve invalid values"
 
       wrong_type_number:
-        decorator: "@IsNumber()"
+        decorator: "@IsNumber() OR @IsNumberType()"
+        custom_validator: "@IsNumberType() - when test expects 'wrong_type_number' messageKey"
         field_type: "number"
         transform_required: "@Transform(transformToNumber)"
 
       wrong_type_boolean:
-        decorator: "@IsBoolean()"
+        decorator: "@IsBoolean() OR @IsBooleanType()"
+        custom_validator: "@IsBooleanType() - when test expects 'wrong_type_boolean' messageKey"
         field_type: "boolean"
 
       wrong_type_array:
-        decorator: "@IsArray()"
+        decorator: "@IsArray() OR @IsArrayType()"
+        custom_validator: "@IsArrayType() - when test expects 'wrong_type_array' messageKey"
         field_type: "array"
         transform_required: "@Transform(transformToIntArray) OR @Transform(transformToStringArray)"
         note: "ALWAYS use custom transform helpers to preserve invalid values"
 
       array_duplicate_items:
         decorator: "@ArrayNoDuplicates()"
+        custom_validator: "from custom-validators.ts"
         additional_decorators: ["@IsArray()", "@ArrayNotEmpty()"]
 
       max_value:
@@ -602,37 +807,21 @@ implementation_knowledge:
           reason: "Handle string inputs"
 
     step_6_generate_helpers:
-      description: "ALWAYS include transform helpers at top of file"
-      required_helpers:
-        transformToIntArray: |
-          const transformToIntArray = ({ value }) => {
-            if (Array.isArray(value)) return value;
-            if (typeof value === 'string') {
-              const cleaned = value.replace(/^\[|\]$/g, '');
-              if (!cleaned) return [];
-              const parts = cleaned.split(',');
-              const transformed = parts.map((v) => {
-                const trimmed = v.trim();
-                const num = parseInt(trimmed, 10);
-                return isNaN(num) ? trimmed : num;
-              });
-              if (transformed.some(v => typeof v === 'string')) return value;
-              return transformed;
-            }
-            return value;
-          };
+      description: "Import transform helpers from custom-validators instead of defining inline"
 
-        transformToInt: |
-          const transformToInt = ({ value }) => {
-            if (typeof value === 'number') return value;
-            if (typeof value === 'string') {
-              const num = parseInt(value, 10);
-              return isNaN(num) ? value : num;
-            }
-            return value;
-          };
+      import_statement: |
+        import {
+          transformToIntArray,
+          transformToInt,
+          ArrayNoDuplicates,
+          IsStringType,
+          IsIntegerType,
+          IsArrayType
+        } from '../../../../shared/application/validators/custom-validators';
 
-      note: "These helpers preserve invalid values so validation errors show original input"
+      note: "DO NOT define transform helpers inline. ALWAYS import from custom-validators.ts"
+
+      rationale: "Centralized helper functions ensure consistent behavior across all DTOs and preserve invalid values for proper error reporting"
 
     step_7_generate_class:
       description: "Generate DTO class extending BaseRequestDTO"
@@ -714,12 +903,31 @@ implementation_knowledge:
     description: "Common implementation patterns"
 
     pagination_response_structure:
-      pattern: "{ data: T[], page: number, size: number, total: number }"
+      pattern: "{ items: T[], page: number, size: number, total: number }"
+      note: "Use 'items' field (NOT 'data') for consistency"
+      example: |
+        return {
+          items: results,
+          page: dto.page,
+          size: dto.size,
+          total: totalCount
+        };
 
     query_builder_filters:
-      string_search: "query.andWhere('alias.name LIKE :term', { term: `%${dto.searchTerm}%` })"
-      array_filter: "if (dto.ids?.length > 0) { query.andWhere('alias.id IN (:...ids)', { ids: dto.ids }); }"
-      status_filter: "if (dto.statuses?.length > 0) { query.andWhere('alias.status IN (:...statuses)', { statuses: dto.statuses }); }"
+      string_search_with_like: |
+        // CRITICAL: Escape special characters to prevent SQL injection
+        if (dto.searchTerm) {
+          const safeTerm = `%${dto.searchTerm.replace(/["']/g, '')}%`;
+          query.andWhere('alias.name LIKE :safeTerm', { safeTerm });
+        }
+      array_filter_with_in: |
+        if (dto.filterIds?.length > 0) {
+          query.andWhere('alias.id IN (:...filterIds)', { filterIds: dto.filterIds });
+        }
+      status_filter: |
+        if (dto.statusList?.length > 0) {
+          query.andWhere('alias.status IN (:...statusList)', { statusList: dto.statusList });
+        }
 
     hierarchical_query:
       pattern: "query.andWhere('(alias.id IN (:...ancestors) OR alias.parent_level1_id IN (:...ancestors))', { ancestors: dto.ancestors })"

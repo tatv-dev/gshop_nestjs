@@ -83,6 +83,7 @@ process:
       1. Map test_plan.testcase array to testCases array:
          - Preserve acId and title exactly from test_plan
          - Map input: EXCLUDE JWT-decoded fields (identified in step_1)
+         - CRITICAL: For E2E tests with array parameters in query string, use JSON.stringify() to preserve string format
          - Map expected: Structure based on test type (refer to standard_knowledge.assertion_principles)
 
       2. Order test cases using standard_knowledge.test_organization_principles:
@@ -93,6 +94,9 @@ process:
          - acId: string (from test_plan.testcase[i].ac_id)
          - title: string (from test_plan.testcase[i].title)
          - input: object (request data, exclude JWT fields)
+           * For E2E tests with GET: Array params MUST use JSON.stringify([...])
+           * For E2E tests with POST/PUT: Arrays passed directly in body
+           * For UT tests: Pass arrays directly
          - expected: object (expected outcome based on test type)
 
   step_4_generate_seed_data:
@@ -495,7 +499,11 @@ standard_knowledge:
         failure: "Empty results or expected exception"
 
       e2e_response:
-        success: "HTTP status 2xx, response body structure correct, data present"
+        success_with_pagination: |
+          HTTP status 2xx
+          Response body structure: { items: T[], page: number, size: number, total: number }
+          Use 'items' field (NOT 'data')
+        success_without_pagination: "HTTP status 2xx, response body structure correct"
         validation_error: "HTTP status 400, error message key correct"
         permission_denied: "HTTP status 403, insufficient_permissions message"
         not_found: "HTTP status 404, not_found message"
@@ -741,12 +749,66 @@ implementation_knowledge:
   http_client_syntax:
     description: "Supertest HTTP request syntax"
 
+    array_parameter_handling:
+      description: "CRITICAL: How to pass array parameters in E2E tests"
+
+      query_string_arrays:
+        principle: "Pass arrays as JSON stringified strings to avoid premature transformation"
+        rationale: "Allows Request DTO's @Transform decorator to handle conversion and preserve invalid values"
+
+        pattern: |
+          // For GET requests with array query parameters
+          .query({
+            searchTerm: 'keyword',
+            arrayParam: JSON.stringify([value1, value2])  // ✅ Correct
+          })
+
+        wrong_example: |
+          // ❌ WRONG - Array will be transformed before reaching validator
+          .query({
+            arrayParam: [value1, value2]
+          })
+
+        correct_example: |
+          // ✅ CORRECT - Preserved as string for transformation
+          .query({
+            arrayParam: JSON.stringify([value1, value2])
+          })
+
+      post_body_arrays:
+        principle: "In POST body, arrays can be passed directly"
+        pattern: "send({ arrayField: [value1, value2] })"
+        note: "Body parsing preserves array structure"
+
     methods:
-      get: "request(app.getHttpServer()).get('/path').set('Authorization', `Bearer ${token}`).query(params)"
-      post: "request(app.getHttpServer()).post('/path').set('Authorization', `Bearer ${token}`).send(body)"
-      put: "request(app.getHttpServer()).put('/path').set('Authorization', `Bearer ${token}`).send(body)"
-      patch: "request(app.getHttpServer()).patch('/path').set('Authorization', `Bearer ${token}`).send(body)"
-      delete: "request(app.getHttpServer()).delete('/path').set('Authorization', `Bearer ${token}`)"
+      get_request: |
+        // GET with query params (arrays use JSON.stringify)
+        request(app.getHttpServer())
+          .get('/api/v1/resource-path')
+          .set('Authorization', `Bearer ${token}`)
+          .query({
+            searchTerm: 'value',
+            arrayParam: JSON.stringify([1, 2, 3]),  // Array parameter
+            page: 1,
+            size: 10
+          })
+
+      post_request: |
+        // POST with body (arrays passed directly)
+        request(app.getHttpServer())
+          .post('/api/v1/resource-path')
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            name: 'value',
+            items: [1, 2, 3],  // Array in body
+            status: 1
+          })
+
+      put_request: "request(app.getHttpServer()).put('/path').set('Authorization', `Bearer ${token}`).send(body)"
+
+      patch_request: "request(app.getHttpServer()).patch('/path').set('Authorization', `Bearer ${token}`).send(body)"
+
+      delete_request: "request(app.getHttpServer()).delete('/path').set('Authorization', `Bearer ${token}`)"
 
     response_access:
       status: "response.status"
@@ -942,6 +1004,28 @@ implementation_knowledge:
   transformation_syntax:
     description: "class-transformer patterns for Request DTO transformations"
 
+    helper_functions:
+      description: "Transform helper functions from custom-validators.ts"
+      import_path: "../../../../shared/application/validators/custom-validators"
+
+      transformToIntArray:
+        usage: "@Transform(transformToIntArray)"
+        purpose: "Transform string '[1,0]' to array [1, 0] while preserving invalid values"
+        e2e_usage: "In E2E tests, pass JSON.stringify([1,0]) in query params"
+        behavior: |
+          - If already array: preserve original values
+          - If string with []: parse to int array
+          - If string without []: return as-is (let validator catch error)
+          - Preserve invalid values that cannot be parsed
+
+      transformToInt:
+        usage: "@Transform(transformToInt)"
+        purpose: "Transform string to integer while preserving invalid values"
+        behavior: |
+          - If already number: return as-is
+          - If string: parse to int, keep original if NaN
+          - Preserve invalid values for validator to catch
+
     decorators:
       transform: "@Transform(({ value }) => transformLogic)"
       type: "@Type(() => TargetClass)"
@@ -963,6 +1047,18 @@ implementation_knowledge:
 
   validation_syntax:
     description: "class-validator decorators"
+
+    custom_validators:
+      description: "Custom validators with specific message keys"
+      available_validators:
+        - "@ArrayNoDuplicates() - for array_duplicate_items validation"
+        - "@IsStringType() - returns wrong_type_string message"
+        - "@IsIntegerType() - returns wrong_type_integer message"
+        - "@IsArrayType() - returns wrong_type_array message"
+        - "@IsNumberType() - returns wrong_type_number message"
+        - "@IsBooleanType() - returns wrong_type_boolean message"
+      import_path: "../../../../shared/application/validators/custom-validators"
+      usage_note: "Use custom validators instead of standard validators when you need specific messageKey format"
 
     common_decorators:
       - "@IsString()"
