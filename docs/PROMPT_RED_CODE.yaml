@@ -73,8 +73,57 @@ process:
       5. Generate lifecycle hooks:
          - Apply standard_knowledge.lifecycle_management_principles based on test type
          - Use implementation_knowledge.lifecycle_hooks_syntax for framework-specific hook names and signatures
+
+         - For E2E tests with authorization (DETAILED):
+           * beforeAll:
+             a) Create test module and initialize app
+             b) Apply ValidationPipe with transform: false
+             c) Seed core authorization data: `await seedTestData(dataSource);`
+             d) Login user WITH permission:
+                ```typescript
+                const loginRes = await request(app.getHttpServer())
+                  .post('/api/v1/auth/login')
+                  .send({
+                    username: TEST_USER_CREDENTIALS.username,
+                    password: TEST_USER_CREDENTIALS.password,
+                    softwareId: TEST_USER_CREDENTIALS.softwareId,
+                  });
+                expect(loginRes.status).toBeLessThan(400);
+                accessTokenWithPermission = loginRes.body?.data?.accessToken || loginRes.body?.accessToken;
+                expect(accessTokenWithPermission).toBeDefined();
+                ```
+             e) Login user WITHOUT permission (same pattern):
+                ```typescript
+                const loginResNoScope = await request(app.getHttpServer())
+                  .post('/api/v1/auth/login')
+                  .send({
+                    username: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.username,
+                    password: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.password,
+                    softwareId: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.softwareId,
+                  });
+                expect(loginResNoScope.status).toBeLessThan(400);
+                accessTokenWithoutPermission = loginResNoScope.body?.data?.accessToken || loginResNoScope.body?.accessToken;
+                expect(accessTokenWithoutPermission).toBeDefined();
+                ```
+             f) Declare variables at top of describe block:
+                - `let accessTokenWithPermission: string;`
+                - `let accessTokenWithoutPermission: string;`
+             g) CRITICAL: Login requests MUST send all 3 fields: username, password, softwareId
+
+           * beforeEach:
+             - Create queryRunner: `queryRunner = dataSource.createQueryRunner();`
+             - Connect: `await queryRunner.connect();`
+             - Optional: Start transaction and seed domain-specific data if needed
+
+           * afterEach:
+             - Rollback transaction if started: `await queryRunner.rollbackTransaction();`
+             - Release queryRunner: `await queryRunner.release();`
+
+           * afterAll:
+             - Optional: Call `await cleanup(dataSource);` to truncate all tables
+             - Close app: `await app.close();`
+
          - For IT/E2E: Setup transaction management for test isolation
-         - For E2E with authorization: Setup authentication in beforeAll (login to get token)
 
   step_3_generate_data_provider:
     description: "Generate data-driven test cases array"
@@ -97,6 +146,27 @@ process:
            * For E2E tests with POST/PUT: Arrays passed directly in body
            * For UT tests: Pass arrays directly
          - expected: object (expected outcome based on test type)
+
+      4. CRITICAL Rules for E2E Query Parameters (GET requests):
+         - IF parameter is array AND has values: `arrayParam: JSON.stringify([value1, value2])`
+         - IF parameter is array AND is empty: `arrayParam: []` (do NOT JSON.stringify empty arrays)
+         - IF parameter is primitive: use value directly
+         - Example E2E GET input:
+           ```typescript
+           {
+             productCategoryName: 'search term',  // string → direct
+             activeStatuses: JSON.stringify([1, 0]),  // non-empty array → JSON.stringify
+             productCategoryAncestors: [],  // empty array → direct
+             page: 1,  // number → direct
+             size: 20  // number → direct
+           }
+           ```
+
+      5. For UT tests (Request DTO validation):
+         - Pass ALL values exactly as specified in test_plan.testcase[i].input
+         - Arrays: Use array literals `[value1, value2]`
+         - Primitives: Use primitives directly
+         - Do NOT use JSON.stringify for any UT test inputs
 
   step_4_generate_seed_data:
     description: "Generate seed data functions for IT/E2E tests using graph theory"
@@ -121,12 +191,155 @@ process:
 
       4. Generate seed file structure:
          - File name: seed-data.helper.ts (in same directory as test file)
-         - Export test data ID constants (use standard_knowledge.seed_data_principles.id_strategy)
-         - Export test credentials constants (for authentication)
-         - CRITICAL: Export TWO sets of credentials for authorization testing (see implementation_knowledge.authorization_seeding_guidance.multiple_users_requirement)
-         - Generate main seedTestData() function that calls individual seed functions in topological order
-         - Generate cleanup() function that deletes in REVERSE topological order
-         - Generate individual seed function for each required table
+
+         - MANDATORY: Export ALL ID constants at top of file (use >= 100000 to avoid conflicts):
+           ```typescript
+           export const TEST_SOFTWARE_ID = 1;
+           export const TEST_TENANT_ID = 100000;
+           export const TEST_USER_ID = 100001;
+           export const TEST_USER_WITHOUT_PERMISSION_ID = 100002;
+           export const TEST_WORKSPACE_ID = 100001;
+           export const TEST_WORKSPACE_WITHOUT_PERMISSION_ID = 100002;
+           export const TEST_EMPLOYEE_ID = 100001;
+           export const TEST_EMPLOYEE_ID_2 = 100002;
+           export const TEST_PERMISSION_ID = 100000;
+           export const TEST_ROLE_WITH_PERMISSION_ID = 100001;
+           export const TEST_ROLE_WITHOUT_PERMISSION_ID = 100002;
+           export const REQUIRED_PERMISSION_NAME = '<DERIVED_PERMISSION_NAME>';
+           // Add domain-specific IDs as needed (e.g., TEST_PARENT_CATEGORY_ID, TEST_CHILD_CATEGORY_ID)
+           ```
+
+         - MANDATORY: Export TWO credential constants with EXACTLY 3 fields each:
+           ```typescript
+           export const TEST_USER_CREDENTIALS = {
+             username: 'user.with.permission',
+             password: 'Test@123456',
+             softwareId: TEST_SOFTWARE_ID,
+           };
+
+           export const TEST_USER_WITHOUT_PERMISSION_CREDENTIALS = {
+             username: 'user.without.permission',
+             password: 'Test@123456',
+             softwareId: TEST_SOFTWARE_ID,
+           };
+           ```
+
+         - Generate main seedTestData() function that wraps in transaction:
+           ```typescript
+           export async function seedTestData(dataSource: DataSource) {
+             const queryRunner = dataSource.createQueryRunner();
+             await queryRunner.connect();
+             await queryRunner.startTransaction();
+             try {
+               await seedSoftwares(queryRunner);
+               await seedTenants(queryRunner);
+               await seedUsers(queryRunner);
+               await seedWorkspaces(queryRunner);
+               await seedEmployees(queryRunner);
+               await seedPermissions(queryRunner);
+               await seedRoles(queryRunner);
+               await seedRolePermissions(queryRunner);
+               await seedRoleWorkspaces(queryRunner);
+               // Add domain-specific seed functions as needed
+
+               await queryRunner.commitTransaction();
+             } catch (error) {
+               await queryRunner.rollbackTransaction();
+               throw error;
+             } finally {
+               await queryRunner.release();
+             }
+           }
+           ```
+
+         - Generate cleanup() function using TRUNCATE with FK checks disabled:
+           ```typescript
+           export async function cleanup(dataSource: DataSource) {
+             const dbName = process.env.DB_DATABASE;
+             if (!dbName) throw new Error("Missing DB_DATABASE in environment");
+
+             const queryRunner = dataSource.createQueryRunner();
+             await queryRunner.connect();
+
+             try {
+               await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
+
+               const tables: Array<{ table_name: string }> = await queryRunner.query(
+                 `SELECT table_name FROM information_schema.tables WHERE table_schema = ?`,
+                 [dbName],
+               );
+
+               for (const { table_name } of tables) {
+                 await queryRunner.query(`TRUNCATE TABLE \`${table_name}\``);
+               }
+
+               await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
+             } finally {
+               await queryRunner.release();
+             }
+           }
+           ```
+
+         - CRITICAL: Individual seed function patterns:
+           * Softwares (FIRST, use INSERT IGNORE):
+             ```typescript
+             export async function seedSoftwares(queryRunner: QueryRunner) {
+               await queryRunner.query(
+                 'INSERT IGNORE INTO softwares (id, name, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
+                 [TEST_SOFTWARE_ID, 'Test Software']
+               );
+             }
+             ```
+
+           * Other tables (use ON DUPLICATE KEY UPDATE for idempotency):
+             ```typescript
+             export async function seedTenants(queryRunner: QueryRunner) {
+               await queryRunner.query(
+                 'INSERT INTO tenants (id, name, status, ..., created_at, updated_at) VALUES (?, ?, 1, ..., NOW(), NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name), status = VALUES(status)',
+                 [TEST_TENANT_ID, 'Tenant E2E', ...]
+               );
+             }
+             ```
+
+           * Users (seed TWO users with same bcrypt hash '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y'):
+             ```typescript
+             export async function seedUsers(queryRunner: QueryRunner) {
+               const passwordHash = '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y';
+               await queryRunner.query(
+                 'INSERT INTO users (id, user_name, password, ...) VALUES (?, ?, ?, ...) ON DUPLICATE KEY UPDATE user_name = VALUES(user_name), password = VALUES(password)',
+                 [TEST_USER_ID, TEST_USER_CREDENTIALS.username, passwordHash, ...]
+               );
+               await queryRunner.query(
+                 'INSERT INTO users (id, user_name, password, ...) VALUES (?, ?, ?, ...) ON DUPLICATE KEY UPDATE user_name = VALUES(user_name), password = VALUES(password)',
+                 [TEST_USER_WITHOUT_PERMISSION_ID, TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.username, passwordHash, ...]
+               );
+             }
+             ```
+
+           * Role Permissions (NO ON DUPLICATE KEY UPDATE - intentionally fails if duplicate):
+             ```typescript
+             export async function seedRolePermissions(queryRunner: QueryRunner) {
+               await queryRunner.query(
+                 'INSERT INTO role_permissions (role_id, permission_id, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
+                 [TEST_ROLE_WITH_PERMISSION_ID, TEST_PERMISSION_ID]
+               );
+               // NOTE: Do NOT insert for TEST_ROLE_WITHOUT_PERMISSION_ID - this is intentional
+             }
+             ```
+
+           * Role Workspaces (link BOTH roles to their workspaces):
+             ```typescript
+             export async function seedRoleWorkspaces(queryRunner: QueryRunner) {
+               await queryRunner.query(
+                 'INSERT INTO role_workspaces (workspace_id, role_id, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
+                 [TEST_WORKSPACE_ID, TEST_ROLE_WITH_PERMISSION_ID]
+               );
+               await queryRunner.query(
+                 'INSERT INTO role_workspaces (workspace_id, role_id, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
+                 [TEST_WORKSPACE_WITHOUT_PERMISSION_ID, TEST_ROLE_WITHOUT_PERMISSION_ID]
+               );
+             }
+             ```
 
       5. CRITICAL & MANDATORY - Seed authorization tables for IT/E2E tests:
          THIS STEP IS ABSOLUTELY REQUIRED. DO NOT SKIP. DO NOT OMIT.
@@ -157,12 +370,16 @@ process:
     description: "Generate test method body using Arrange-Act-Assert pattern"
     prompt: |
       1. Generate test functions:
-         - For Request DTO UT: Use INDIVIDUAL test functions (implementation_knowledge.test_structure_syntax.test_function_individual)
+         - For Request DTO UT: MANDATORY use INDIVIDUAL test functions (NOT it.each())
+         - Test function pattern: it('AC_UT_0X: <exact title from test_plan>', async () => { ... })
+         - CRITICAL: Each test case MUST be a separate it() function
          - For other test types: May use it.each() if all test cases have identical assertion logic
-         - CRITICAL: Request DTO UT should NOT use it.each() because each test case has different assertion patterns
 
       2. Generate Arrange phase:
-         - For Request DTO UT: Transform input to DTO instance using plainToClass
+         - For Request DTO UT:
+           * Declare input as `const input: any = { ... }`
+           * Copy input values EXACTLY from test_plan.testcase[i].input
+           * Preserve data types: numbers as numbers, strings as strings, arrays as arrays
          - For Handler UT: Setup mocks using standard_knowledge.mock_principles and implementation_knowledge.mock_syntax
          - For Handler IT: Data already seeded in beforeEach
          - For Repository IT: Data already seeded in beforeEach
@@ -170,34 +387,124 @@ process:
          - For E2E permission_denied: Login with user WITHOUT permission to get separate token
 
       3. Generate Act phase:
-         - For Request DTO UT: Call validate(dto) then transform errors using [RequestClass].transformValidationErrors()
+         - For Request DTO UT:
+           * Transform: `const dto = plainToClass(RequestClass, input);`
+           * Validate: `const validationErrors = await validate(dto);`
+           * MANDATORY: Add debug logging for RAW errors:
+             ```typescript
+             console.log('Raw validation errors:', validationErrors.map((e) => ({
+               property: e.property,
+               value: (e as any).value,
+               constraints: e.constraints
+             })));
+             ```
+           * Transform errors: `const errors = (RequestClass as any).transformValidationErrors(validationErrors);`
+           * MANDATORY: Add debug logging for TRANSFORMED errors:
+             ```typescript
+             console.log('AC_UT_XX Transformed Errors:', JSON.stringify(errors, null, 2));
+             ```
+           * Note: transformValidationErrors is a STATIC method accessed via class, NOT instance
          - For Handler UT/IT: Call handler.execute()
          - For Repository IT: Call repository method
          - For E2E: Make HTTP request with authorization header
          - Apply implementation_knowledge.http_client_syntax for HTTP methods (GET/POST/PUT/DELETE)
 
       4. Generate Assert phase:
-         - For Request DTO UT: Use implementation_knowledge.request_dto_ut_assertion_pattern
+         - For Request DTO UT:
+           * ALWAYS define helper function first:
+             ```typescript
+             const findError = (field: string) => errors.find((e: any) => e.field === field);
+             ```
+           * For each expected error from test_plan:
+             ```typescript
+             const <fieldName>Error = findError('<fieldName>');
+             expect(<fieldName>Error).toBeDefined();
+             expect(<fieldName>Error?.value).toBe(<expectedValue>);  // .toBe() for primitives
+             expect(<fieldName>Error?.value).toEqual(<expectedArray>);  // .toEqual() for arrays/objects
+             expect(<fieldName>Error?.messageKey).toBe('<expectedMessageKey>');
+             ```
+           * For happy path: `expect(errors).toHaveLength(0);`
          - For other tests: Apply standard_knowledge.assertion_principles based on test type and expected outcome
          - Use implementation_knowledge.assertion_syntax for framework-specific matchers
          - Include acId in assertion messages for traceability
 
   step_6_red_code_compliance:
-    description: "Ensure RED CODE compliance"
-    checklist:
-      - "Syntax completely valid (no syntax errors)"
-      - "All imports present with correct paths"
-      - "Test methods properly structured with Arrange-Act-Assert pattern"
-      - "Test MUST FAIL due to missing implementation (not syntax errors)"
-      - "NO placeholder code or mock implementations"
-      - "NO TODO/FIXME comments in code"
-      - "Code must compile/parse successfully"
-      - "FOR IT/E2E TESTS: seed-data.helper.ts MUST seed softwares table BEFORE permissions (use INSERT IGNORE)"
-      - "FOR IT/E2E TESTS: seed-data.helper.ts MUST include authorization seeding (permissions, roles, role_permissions, role_workspaces)"
-      - "FOR IT/E2E TESTS: seed-data.helper.ts MUST export TEST_USER_CREDENTIALS with 3 fields (username, password, softwareId)"
-      - "FOR IT/E2E TESTS: seed-data.helper.ts MUST export TEST_USER_WITHOUT_PERMISSION_CREDENTIALS with 3 fields (username, password, softwareId)"
-      - "FOR IT/E2E TESTS: Cleanup function MUST delete authorization tables in reverse order"
-      - "FOR E2E TESTS: Login requests MUST send all 3 fields (username, password, softwareId) in body"
+    description: "Ensure RED CODE compliance - MANDATORY validation checklist"
+
+    general_requirements:
+      - "✅ Syntax completely valid (no syntax errors)"
+      - "✅ All imports present with correct paths"
+      - "✅ Test methods properly structured with Arrange-Act-Assert pattern"
+      - "✅ Test MUST FAIL due to missing implementation (not syntax errors)"
+      - "✅ NO placeholder code or mock implementations"
+      - "✅ NO TODO/FIXME comments in code"
+      - "✅ Code must compile/parse successfully"
+
+    request_dto_ut_specific:
+      description: "Request DTO Unit Test validation"
+      checklist:
+        - "✅ Each test case is individual it() function (NOT it.each)"
+        - "✅ Test title matches EXACTLY test_plan.testcase[i].title"
+        - "✅ Test function pattern: it('AC_UT_0X: <title>', async () => { ... })"
+        - "✅ Input declared as: const input: any = { ... }"
+        - "✅ Include console.log for raw validation errors"
+        - "✅ Include console.log for transformed errors with AC ID"
+        - "✅ Use (RequestClass as any).transformValidationErrors() - static method"
+        - "✅ Define findError helper function before assertions"
+        - "✅ Use .toBe() for primitives, .toEqual() for arrays/objects"
+        - "✅ Imports: validate from 'class-validator', plainToClass from 'class-transformer'"
+
+    e2e_test_specific:
+      description: "E2E Test validation"
+      checklist:
+        - "✅ Array query params use JSON.stringify([...]) when non-empty"
+        - "✅ Empty arrays passed as [] directly (no JSON.stringify)"
+        - "✅ Login TWO users in beforeAll (with/without permission)"
+        - "✅ Login requests send all 3 fields: username, password, softwareId"
+        - "✅ Store both access tokens: accessTokenWithPermission, accessTokenWithoutPermission"
+        - "✅ Use correct token for each test case"
+        - "✅ Assert on response.body.items (NOT response.body.data)"
+        - "✅ Assert pagination fields: total, page, size"
+        - "✅ beforeAll: Seed core data with seedTestData(dataSource)"
+        - "✅ beforeEach: Create queryRunner, connect, optionally start transaction"
+        - "✅ afterEach: Rollback if needed, release queryRunner"
+        - "✅ afterAll: Optional cleanup(dataSource), close app"
+
+    seed_helper_specific:
+      description: "seed-data.helper.ts validation"
+      checklist:
+        - "✅ All ID constants exported at top (TEST_* prefix, >= 100000)"
+        - "✅ TWO credential constants with EXACTLY 3 fields each"
+        - "✅ seedTestData() function wraps all seeds in transaction"
+        - "✅ Seed softwares FIRST with INSERT IGNORE"
+        - "✅ Other tables use ON DUPLICATE KEY UPDATE"
+        - "✅ role_permissions does NOT use ON DUPLICATE KEY UPDATE"
+        - "✅ Seed TWO users with same bcrypt hash '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y'"
+        - "✅ Seed TWO roles (with/without permission)"
+        - "✅ role_permissions only links TEST_ROLE_WITH_PERMISSION_ID"
+        - "✅ role_workspaces links BOTH roles to their workspaces"
+        - "✅ cleanup() uses TRUNCATE with FK checks disabled"
+        - "✅ REQUIRED_PERMISSION_NAME constant matches derived permission"
+        - "✅ seedTestData() commits transaction on success, rollbacks on error"
+
+    handler_it_specific:
+      description: "Handler Integration Test validation"
+      checklist:
+        - "✅ Use dynamic import: await import('...')"
+        - "✅ Get handler: moduleRef.get<any>(HandlerClass)"
+        - "✅ Execute with currentUser object: { tenantId, ... }"
+        - "✅ Seed data in beforeEach with transaction"
+        - "✅ Rollback in afterEach"
+        - "✅ Assert result.toBeDefined()"
+
+    repository_it_specific:
+      description: "Repository Integration Test validation"
+      checklist:
+        - "✅ Import repository interface and implementation"
+        - "✅ Call repository method directly"
+        - "✅ Seed data in beforeEach with transaction"
+        - "✅ Rollback in afterEach"
+        - "✅ Assert on returned models structure"
 
 standard_knowledge:
   architecture_principles:
@@ -632,9 +939,30 @@ implementation_knowledge:
       pattern: "<ACTION>_<DOMAIN>"
       algorithm: |
         1. Extract Action and Domain from component_under_test
-           - GetListProductCategory → Action: GetList, Domain: ProductCategory
-        2. Convert to UPPER_SNAKE_CASE
-           - GET_LIST_PRODUCT_CATEGORY
+           - Example: "GetListProductCategory" → Action: "GetList", Domain: "ProductCategory"
+        2. Convert Action to UPPER_SNAKE_CASE
+           - "GetList" → "GET_LIST"
+           - "Create" → "CREATE"
+        3. Convert Domain to UPPER_SNAKE_CASE
+           - "ProductCategory" → "PRODUCT_CATEGORY"
+        4. Concatenate with underscore
+           - "GET_LIST" + "_" + "PRODUCT_CATEGORY" = "GET_LIST_PRODUCT_CATEGORY"
+
+      critical_note: "Permission name MUST match EXACTLY the permission required by the endpoint being tested"
+
+      common_patterns:
+        GetList: "GET_LIST_<DOMAIN>"
+        Get: "GET_<DOMAIN>"
+        Create: "CREATE_<DOMAIN>"
+        Update: "UPDATE_<DOMAIN>"
+        Delete: "DELETE_<DOMAIN>"
+        Approve: "APPROVE_<DOMAIN>"
+        Reject: "REJECT_<DOMAIN>"
+
+      export_constant_pattern: |
+        // In seed-data.helper.ts
+        export const REQUIRED_PERMISSION_NAME = '<DERIVED_PERMISSION_NAME>';
+
       examples:
         - "GetListProductCategory → GET_LIST_PRODUCT_CATEGORY"
         - "CreateProductCategory → CREATE_PRODUCT_CATEGORY"
