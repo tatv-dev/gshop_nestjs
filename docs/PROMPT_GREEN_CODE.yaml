@@ -11,6 +11,7 @@ core_principles:
     - "Code must be production-ready with proper error handling"
     - "NO placeholder code, NO TODO/FIXME comments"
     - "NO over-engineering, NO unnecessary abstractions"
+    - "MUST generate Controller file"
 
   input_requirements:
     required:

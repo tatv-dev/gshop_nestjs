@@ -432,79 +432,79 @@ process:
     description: "Ensure RED CODE compliance - MANDATORY validation checklist"
 
     general_requirements:
-      - "✅ Syntax completely valid (no syntax errors)"
-      - "✅ All imports present with correct paths"
-      - "✅ Test methods properly structured with Arrange-Act-Assert pattern"
-      - "✅ Test MUST FAIL due to missing implementation (not syntax errors)"
-      - "✅ NO placeholder code or mock implementations"
-      - "✅ NO TODO/FIXME comments in code"
-      - "✅ Code must compile/parse successfully"
+      - "Syntax completely valid (no syntax errors)"
+      - "All imports present with correct paths"
+      - "Test methods properly structured with Arrange-Act-Assert pattern"
+      - "Test MUST FAIL due to missing implementation (not syntax errors)"
+      - "NO placeholder code or mock implementations"
+      - "NO TODO/FIXME comments in code"
+      - "Code must compile/parse successfully"
 
     request_dto_ut_specific:
       description: "Request DTO Unit Test validation"
       checklist:
-        - "✅ Each test case is individual it() function (NOT it.each)"
-        - "✅ Test title matches EXACTLY test_plan.testcase[i].title"
-        - "✅ Test function pattern: it('AC_UT_0X: <title>', async () => { ... })"
-        - "✅ Input declared as: const input: any = { ... }"
-        - "✅ Include console.log for raw validation errors"
-        - "✅ Include console.log for transformed errors with AC ID"
-        - "✅ Use (RequestClass as any).transformValidationErrors() - static method"
-        - "✅ Define findError helper function before assertions"
-        - "✅ Use .toBe() for primitives, .toEqual() for arrays/objects"
-        - "✅ Imports: validate from 'class-validator', plainToClass from 'class-transformer'"
+        - "Each test case is individual it() function (NOT it.each)"
+        - "Test title matches EXACTLY test_plan.testcase[i].title"
+        - "Test function pattern: it('AC_UT_0X: <title>', async () => { ... })"
+        - "Input declared as: const input: any = { ... }"
+        - "Include console.log for raw validation errors"
+        - "Include console.log for transformed errors with AC ID"
+        - "Use (RequestClass as any).transformValidationErrors() - static method"
+        - "Define findError helper function before assertions"
+        - "Use .toBe() for primitives, .toEqual() for arrays/objects"
+        - "Imports: validate from 'class-validator', plainToClass from 'class-transformer'"
 
     e2e_test_specific:
       description: "E2E Test validation"
       checklist:
-        - "✅ Array query params use JSON.stringify([...]) when non-empty"
-        - "✅ Empty arrays passed as [] directly (no JSON.stringify)"
-        - "✅ Login TWO users in beforeAll (with/without permission)"
-        - "✅ Login requests send all 3 fields: username, password, softwareId"
-        - "✅ Store both access tokens: accessTokenWithPermission, accessTokenWithoutPermission"
-        - "✅ Use correct token for each test case"
-        - "✅ Assert on response.body.items (NOT response.body.data)"
-        - "✅ Assert pagination fields: total, page, size"
-        - "✅ beforeAll: Seed core data with seedTestData(dataSource)"
-        - "✅ beforeEach: Create queryRunner, connect, optionally start transaction"
-        - "✅ afterEach: Rollback if needed, release queryRunner"
-        - "✅ afterAll: Optional cleanup(dataSource), close app"
+        - "Array query params use JSON.stringify([...]) when non-empty"
+        - "Empty arrays passed as [] directly (no JSON.stringify)"
+        - "Login TWO users in beforeAll (with/without permission)"
+        - "Login requests send all 3 fields: username, password, softwareId"
+        - "Store both access tokens: accessTokenWithPermission, accessTokenWithoutPermission"
+        - "Use correct token for each test case"
+        - "Assert on response.body.items (NOT response.body.data)"
+        - "Assert pagination fields: total, page, size"
+        - "beforeAll: Seed core data with seedTestData(dataSource)"
+        - "beforeEach: Create queryRunner, connect, optionally start transaction"
+        - "afterEach: Rollback if needed, release queryRunner"
+        - "afterAll: Optional cleanup(dataSource), close app"
 
     seed_helper_specific:
       description: "seed-data.helper.ts validation"
       checklist:
-        - "✅ All ID constants exported at top (TEST_* prefix, >= 100000)"
-        - "✅ TWO credential constants with EXACTLY 3 fields each"
-        - "✅ seedTestData() function wraps all seeds in transaction"
-        - "✅ Seed softwares FIRST with INSERT IGNORE"
-        - "✅ Other tables use ON DUPLICATE KEY UPDATE"
-        - "✅ role_permissions does NOT use ON DUPLICATE KEY UPDATE"
-        - "✅ Seed TWO users with same bcrypt hash '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y'"
-        - "✅ Seed TWO roles (with/without permission)"
-        - "✅ role_permissions only links TEST_ROLE_WITH_PERMISSION_ID"
-        - "✅ role_workspaces links BOTH roles to their workspaces"
-        - "✅ cleanup() uses TRUNCATE with FK checks disabled"
-        - "✅ REQUIRED_PERMISSION_NAME constant matches derived permission"
-        - "✅ seedTestData() commits transaction on success, rollbacks on error"
+        - "All ID constants exported at top (TEST_* prefix, >= 100000)"
+        - "TWO credential constants with EXACTLY 3 fields each"
+        - "seedTestData() function wraps all seeds in transaction"
+        - "Seed softwares FIRST with INSERT IGNORE"
+        - "Other tables use ON DUPLICATE KEY UPDATE"
+        - "role_permissions does NOT use ON DUPLICATE KEY UPDATE"
+        - "Seed TWO users with same bcrypt hash '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y'"
+        - "Seed TWO roles (with/without permission)"
+        - "role_permissions only links TEST_ROLE_WITH_PERMISSION_ID"
+        - "role_workspaces links BOTH roles to their workspaces"
+        - "cleanup() uses TRUNCATE with FK checks disabled"
+        - "REQUIRED_PERMISSION_NAME constant matches derived permission"
+        - "seedTestData() commits transaction on success, rollbacks on error"
 
     handler_it_specific:
       description: "Handler Integration Test validation"
       checklist:
-        - "✅ Use dynamic import: await import('...')"
-        - "✅ Get handler: moduleRef.get<any>(HandlerClass)"
-        - "✅ Execute with currentUser object: { tenantId, ... }"
-        - "✅ Seed data in beforeEach with transaction"
-        - "✅ Rollback in afterEach"
-        - "✅ Assert result.toBeDefined()"
+        - "Use dynamic import: await import('...')"
+        - "Get handler: moduleRef.get<any>(HandlerClass)"
+        - "Execute with currentUser object: { tenantId, ... }"
+        - "Seed data in beforeEach with transaction"
+        - "Rollback in afterEach"
+        - "Assert result.toBeDefined()"
 
     repository_it_specific:
       description: "Repository Integration Test validation"
       checklist:
-        - "✅ Import repository interface and implementation"
-        - "✅ Call repository method directly"
-        - "✅ Seed data in beforeEach with transaction"
-        - "✅ Rollback in afterEach"
-        - "✅ Assert on returned models structure"
+        - "Import repository interface and implementation"
+        - "Call repository method directly"
+        - "Seed data in beforeEach with transaction"
+        - "Rollback in afterEach"
+        - "Assert on returned models structure"
 
 standard_knowledge:
   architecture_principles:
@@ -1087,17 +1087,17 @@ implementation_knowledge:
           // For GET requests with array query parameters
           .query({
             searchTerm: 'keyword',
-            arrayParam: JSON.stringify([value1, value2])  // ✅ Correct
+            arrayParam: JSON.stringify([value1, value2])  // Correct
           })
 
         wrong_example: |
-          // ❌ WRONG - Array will be transformed before reaching validator
+          // WRONG - Array will be transformed before reaching validator
           .query({
             arrayParam: [value1, value2]
           })
 
         correct_example: |
-          // ✅ CORRECT - Preserved as string for transformation
+          // CORRECT - Preserved as string for transformation
           .query({
             arrayParam: JSON.stringify([value1, value2])
           })
@@ -2212,4 +2212,5 @@ implementation_knowledge:
 
 config:
   api_version: "v1"
+  bounded_context: "product-catalog"
   auth_endpoint: "/api/v1/auth/login"
