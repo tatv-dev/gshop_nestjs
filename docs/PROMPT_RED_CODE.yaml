@@ -1536,6 +1536,113 @@ implementation_knowledge:
     description: "Complete code templates based on actual get-list-product-category implementation"
     note: "These templates are 100% based on real working code - use as reference for generating new tests"
 
+    usage_guidelines:
+      description: "How to use these templates effectively"
+      placeholders:
+        - "<ComponentName>: PascalCase class name (e.g., GetListProductCategory)"
+        - "<component-name>: kebab-case file name (e.g., get-list-product-category)"
+        - "<bounded-context>: kebab-case BC name (e.g., product-catalog)"
+        - "<Domain>: Domain entity name (e.g., ProductCategory)"
+        - "<domain>: lowercase domain name (e.g., product-category)"
+        - "<DomainName>: Domain without spaces (e.g., ProductCategory)"
+        - "<domain-name>: kebab-case domain (e.g., product-category)"
+        - "<DOMAIN_CONSTANT>: UPPER_SNAKE_CASE (e.g., PARENT_CATEGORY)"
+        - "<DERIVED_PERMISSION_NAME>: Generated permission (e.g., GET_LIST_PRODUCT_CATEGORY)"
+        - "<DomainSpecific>: Domain-specific function prefix (e.g., ProductCategories)"
+        - "<resources>: Plural resource name (e.g., product-categories)"
+        - "<HTTP_METHOD>: GET, POST, PUT, DELETE"
+        - "<FeatureName>: Feature name (e.g., GetListProductCategory)"
+        - "<parameter1>, <parameter2>: Parameter names for pairwise testing"
+        - "<table_name>: Database table name (e.g., product_categories)"
+
+      critical_notes:
+        arrays_in_e2e_get:
+          rule: "For E2E GET requests, arrays MUST use JSON.stringify() to preserve string format"
+          correct: "arrayField: JSON.stringify([1, 0])"
+          wrong: "arrayField: [1, 0]"
+
+        arrays_in_ut:
+          rule: "For UT tests, pass arrays directly (NO JSON.stringify)"
+          correct: "arrayField: [1, 0]"
+          wrong: "arrayField: JSON.stringify([1, 0])"
+
+        validation_pipe_transform:
+          rule: "E2E tests MUST set transform: false in ValidationPipe"
+          reason: "To allow Request DTO transformers to handle conversion and preserve invalid values"
+
+        static_method_access:
+          rule: "Use (RequestClass as any).transformValidationErrors() for static method access"
+          reason: "transformValidationErrors is a static method from BaseRequestDTO"
+
+        console_log_debugging:
+          rule: "ALWAYS include console.log for both raw and transformed validation errors"
+          reason: "Provides visibility during test execution for debugging"
+
+        bcrypt_hash:
+          rule: "Use pre-generated hash for test password: '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y'"
+          password: "Test@123456"
+
+        two_users_required:
+          rule: "MUST seed TWO users: one with permission, one without"
+          purpose: "To test both authorized (200) and forbidden (403) scenarios"
+
+        credential_structure:
+          rule: "Credential constants MUST have exactly 3 fields: username, password, softwareId"
+          reason: "Login endpoint requires all 3 fields"
+
+      common_mistakes:
+        description: "Common mistakes to avoid when generating tests from templates"
+
+        mistake_1:
+          error: "Forgetting to use JSON.stringify() for arrays in E2E GET requests"
+          symptom: "Array gets transformed early, causing incorrect validation behavior"
+          fix: "Always use JSON.stringify([...]) for E2E GET query params"
+
+        mistake_2:
+          error: "Using JSON.stringify() in UT tests"
+          symptom: "Test passes string instead of array, validation fails incorrectly"
+          fix: "NEVER use JSON.stringify() in UT tests - pass arrays directly"
+
+        mistake_3:
+          error: "Missing console.log in UT tests"
+          symptom: "Hard to debug validation errors when tests fail"
+          fix: "ALWAYS include both raw and transformed error logging"
+
+        mistake_4:
+          error: "Using it.each() for Request DTO UT tests"
+          symptom: "Code structure doesn't match template pattern"
+          fix: "Use individual it() functions, NOT it.each() for Request DTO UT"
+
+        mistake_5:
+          error: "Using .toBe() for array comparisons instead of .toEqual()"
+          symptom: "Array equality checks fail even when values are correct"
+          fix: "Use .toEqual([...]) for arrays, .toBe() for primitives"
+
+        mistake_6:
+          error: "Forgetting to seed permission for test user"
+          symptom: "Test user has token but still gets 403 Forbidden"
+          fix: "MUST seed: permission → role_permissions → role_workspaces"
+
+        mistake_7:
+          error: "Not seeding TWO users (with and without permission)"
+          symptom: "Cannot test 403 Forbidden scenario"
+          fix: "Always create both TEST_USER_ID and TEST_USER_WITHOUT_PERMISSION_ID"
+
+        mistake_8:
+          error: "Using queryRunner.rollbackTransaction() in E2E tests"
+          symptom: "Test data disappears before assertions run"
+          fix: "E2E tests should comment out transactions: // await queryRunner.rollbackTransaction();"
+
+        mistake_9:
+          error: "Forgetting dynamic import for Handler IT tests"
+          symptom: "Handler import fails or gets wrong instance"
+          fix: "Use: const { HandlerClass } = await import('...');"
+
+        mistake_10:
+          error: "Wrong provider token in Repository IT tests"
+          symptom: "DI fails to resolve repository"
+          fix: "Provider token MUST match interface name: 'I<Domain>QueryRepository'"
+
     request_dto_ut_template: |
       /**
        * Unit Tests for <ComponentName>Request
