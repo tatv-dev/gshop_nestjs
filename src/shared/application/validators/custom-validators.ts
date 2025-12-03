@@ -42,12 +42,12 @@ export function ArrayNoDuplicates(validationOptions?: ValidationOptions) {
 }
 
 /**
- * Custom IsString with wrong_type_string message
+ * Custom IsString with isStringTypeCustom message
  */
 export function IsStringType(validationOptions?: ValidationOptions) {
   return function (object: Object, propertyName: string) {
     registerDecorator({
-      name: 'wrong_type_string',
+      name: 'isStringTypeCustom',
       target: object.constructor,
       propertyName: propertyName,
       options: validationOptions,
@@ -56,7 +56,7 @@ export function IsStringType(validationOptions?: ValidationOptions) {
           return typeof value === 'string';
         },
         defaultMessage(args: ValidationArguments) {
-          return 'wrong_type_string';
+          return 'isStringTypeCustom';
         },
       },
     });
@@ -64,12 +64,12 @@ export function IsStringType(validationOptions?: ValidationOptions) {
 }
 
 /**
- * Custom IsInt with wrong_type_integer message
+ * Custom IsInt with isIntegerTypeCustom message
  */
 export function IsIntegerType(validationOptions?: ValidationOptions) {
   return function (object: Object, propertyName: string) {
     registerDecorator({
-      name: 'wrong_type_integer',
+      name: 'isIntegerTypeCustom',
       target: object.constructor,
       propertyName: propertyName,
       options: validationOptions,
@@ -78,7 +78,7 @@ export function IsIntegerType(validationOptions?: ValidationOptions) {
           return Number.isInteger(Number(value));
         },
         defaultMessage(args: ValidationArguments) {
-          return 'wrong_type_integer';
+          return 'isIntegerTypeCustom';
         },
       },
     });
@@ -86,12 +86,12 @@ export function IsIntegerType(validationOptions?: ValidationOptions) {
 }
 
 /**
- * Custom IsArray with wrong_type_array message
+ * Custom IsArray with isArrayTypeCustom message
  */
 export function IsArrayType(validationOptions?: ValidationOptions) {
   return function (object: Object, propertyName: string) {
     registerDecorator({
-      name: 'wrong_type_array',
+      name: 'isArrayTypeCustom',
       target: object.constructor,
       propertyName: propertyName,
       options: validationOptions,
@@ -100,7 +100,7 @@ export function IsArrayType(validationOptions?: ValidationOptions) {
           return Array.isArray(value);
         },
         defaultMessage(args: ValidationArguments) {
-          return 'wrong_type_array';
+          return 'isArrayTypeCustom';
         },
       },
     });
@@ -108,12 +108,12 @@ export function IsArrayType(validationOptions?: ValidationOptions) {
 }
 
 /**
- * Custom IsNumber with wrong_type_number message
+ * Custom IsNumber with isNumberTypeCustom message
  */
 export function IsNumberType(validationOptions?: ValidationOptions) {
   return function (object: Object, propertyName: string) {
     registerDecorator({
-      name: 'wrong_type_number',
+      name: 'isNumberTypeCustom',
       target: object.constructor,
       propertyName: propertyName,
       options: validationOptions,
@@ -122,7 +122,7 @@ export function IsNumberType(validationOptions?: ValidationOptions) {
           return typeof value === 'number' && !isNaN(value);
         },
         defaultMessage(args: ValidationArguments) {
-          return 'wrong_type_number';
+          return 'isNumberTypeCustom';
         },
       },
     });
@@ -130,12 +130,12 @@ export function IsNumberType(validationOptions?: ValidationOptions) {
 }
 
 /**
- * Custom IsBoolean with wrong_type_boolean message
+ * Custom IsBoolean with isBooleanTypeCustom message
  */
 export function IsBooleanType(validationOptions?: ValidationOptions) {
   return function (object: Object, propertyName: string) {
     registerDecorator({
-      name: 'wrong_type_boolean',
+      name: 'isBooleanTypeCustom',
       target: object.constructor,
       propertyName: propertyName,
       options: validationOptions,
@@ -144,7 +144,7 @@ export function IsBooleanType(validationOptions?: ValidationOptions) {
           return typeof value === 'boolean';
         },
         defaultMessage(args: ValidationArguments) {
-          return 'wrong_type_boolean';
+          return 'isBooleanTypeCustom';
         },
       },
     });

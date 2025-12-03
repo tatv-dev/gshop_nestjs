@@ -37,14 +37,19 @@ export abstract class BaseRequestDTO {
 
     // Build current field path
     const currentPath = parentPath ? `${parentPath}.${property}` : property;
+    console.log("debug 00: ", JSON.stringify(constraints));
+    console.log("debug 001: ", JSON.stringify(value));
+    console.log("debug 002: ", JSON.stringify(children));
 
     // Check if this is an array validation with "each: true"
     if (Array.isArray(value) && Object.keys(constraints).length > 0) {
+      console.log("debug 01: ", JSON.stringify(constraints));
       const isArrayElementValidation = Object.keys(constraints).some((key) =>
         ['isInt', 'isString', 'min', 'max', 'isIn', 'isNotIn'].includes(key),
       );
 
       if (isArrayElementValidation) {
+        console.log("debug 02");
         // Priority order for constraint checking (type validators first)
         const constraintPriority = ['isString', 'isInt', 'isNumber', 'isBoolean', 'min', 'max', 'isIn', 'isNotIn'];
 
@@ -82,6 +87,8 @@ export abstract class BaseRequestDTO {
               if (forbiddenValues.includes(elementValue)) {
                 hasError = true;
               }
+            } else {
+              hasError = true;
             }
 
             if (hasError) {
@@ -107,7 +114,9 @@ export abstract class BaseRequestDTO {
     if (Object.keys(constraints).length > 0) {
       // PRIORITY: Get the most important constraint (type checking first)
       const constraintType = this.getPriorityConstraint(Object.keys(constraints));
+      console.log("constraintType: ", constraintType );
       const messageKey = this.mapConstraintToMessageKey(constraintType);
+      console.log("messageKey: ", messageKey );
 
       results.push({
         field: currentPath,
@@ -132,13 +141,13 @@ export abstract class BaseRequestDTO {
     // Priority order (highest to lowest):
     // 1. Container type validators (isArray, isObject) - for wrong container type
     // 2. Scalar type validators (isString, isInt, isNumber, etc.)
-    // 3. Custom type validators (wrong_type_string, etc.)
+    // 3. Custom type validators (isStringTypeCustom, etc.)
     // 4. Structure validators (arrayNotEmpty, arrayNoDuplicates)
     // 5. Value validators (min, max, isIn, etc.)
 
     const containerTypeValidators = ['isArray', 'isObject'];
+    const customTypeValidators = ['isStringTypeCustom', 'isIntegerTypeCustom', 'isNumberTypeCustom', 'isBooleanTypeCustom', 'isArrayTypeCustom', 'isObjectTypeCustom'];
     const scalarTypeValidators = ['isString', 'isInt', 'isNumber', 'isBoolean', 'isDate'];
-    const customTypeValidators = ['wrong_type_string', 'wrong_type_integer', 'wrong_type_number', 'wrong_type_boolean', 'wrong_type_array', 'wrong_type_object'];
     const structureValidators = ['arrayNotEmpty', 'arrayNoDuplicates', 'isNotEmpty'];
 
     // Debug: Log all constraints
@@ -152,18 +161,18 @@ export abstract class BaseRequestDTO {
       }
     }
 
-    // Priority 2: Scalar type validators
-    for (const validator of scalarTypeValidators) {
+    // Priority 2: Custom type validators
+    for (const validator of customTypeValidators) {
       if (constraintKeys.includes(validator)) {
-        console.log('[getPriorityConstraint] Selected scalar type validator:', validator);
+        console.log('[getPriorityConstraint] Selected custom type validator:', validator);
         return validator;
       }
     }
 
-    // Priority 3: Custom type validators
-    for (const validator of customTypeValidators) {
+    // Priority 3: Scalar type validators
+    for (const validator of scalarTypeValidators) {
       if (constraintKeys.includes(validator)) {
-        console.log('[getPriorityConstraint] Selected custom type validator:', validator);
+        console.log('[getPriorityConstraint] Selected scalar type validator:', validator);
         return validator;
       }
     }
@@ -196,12 +205,12 @@ export abstract class BaseRequestDTO {
       isDate: 'wrong_type_date',
 
       // Custom validators (already have correct names)
-      wrong_type_string: 'wrong_type_string',
-      wrong_type_integer: 'wrong_type_integer',
-      wrong_type_number: 'wrong_type_number',
-      wrong_type_boolean: 'wrong_type_boolean',
-      wrong_type_array: 'wrong_type_array',
-      wrong_type_object: 'wrong_type_object',
+      isStringTypeCustom: 'wrong_type_string',
+      isIntegerTypeCustom: 'wrong_type_integer',
+      isNumberTypeCustom: 'wrong_type_number',
+      isBooleanTypeCustom: 'wrong_type_boolean',
+      isArrayTypeCustom: 'wrong_type_array',
+      isObjectTypeCustom: 'wrong_type_object',
       arrayNoDuplicates: 'array_duplicate_items',
 
       // Common validations

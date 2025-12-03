@@ -81,7 +81,7 @@ process:
          - Identify transformation requirements
 
   step_3_generate_domain:
-    description: "Generate Domain layer (if needed by tests)"
+    description: "Generate Domain layer (if command flow)"
     prompt: |
       1. Determine if domain layer is tested:
          - Check for domain entity tests
@@ -101,17 +101,15 @@ process:
          - Extract method signatures from handler tests
          - Define return types from test assertions
          - Use implementation_knowledge.naming_conventions.application_layer
+         - Use implementation_knowledge.code_templates.repository_interface_template
 
       2. Generate application DTOs:
          - Extract DTO structure from handler tests
          - Define constructor parameters
          - Use immutable properties (readonly)
-
-      3. Generate Query/Command classes:
-         - Simple wrapper around DTOs
-         - Use implementation_knowledge.syntax_rules.cqrs.query_command
-
-      4. Generate Query/Command handlers:
+         - Use implementation_knowledge.code_templates.application_dto_template
+         
+      3. Generate Query/Command handlers:
          - Inject repository interfaces via constructor
          - Implement execute() method to pass tests
          - Apply standard_knowledge.cqrs_principles
@@ -125,6 +123,7 @@ process:
          - Map from db_schema tables
          - Use @Entity, @Column decorators
          - Follow implementation_knowledge.syntax_rules.typeorm_entity
+         - Use implementation_knowledge.code_templates.typeorm_entity_template
 
       2. Generate repository implementations (Adapters):
          - Implement repository interfaces from application layer
@@ -133,6 +132,7 @@ process:
          - Build queries based on DTO parameters
          - Handle pagination if expected by tests
          - Map entities to response DTOs
+         - Use implementation_knowledge.code_templates.repository_implementation_template
 
       3. Handle data mapping:
          - Convert between domain/application models and ORM entities
@@ -154,10 +154,12 @@ process:
          - Use implementation_knowledge.syntax_rules.request_dto
          - Apply implementation_knowledge.validation_patterns
          - Apply implementation_knowledge.request_dto_generation_from_testplan for systematic DTO generation
+         - Use implementation_knowledge.code_templates.request_dto_template
 
-      2. Generate Response DTOs (if needed):
+      2. Generate Response DTOs:
          - Extract structure from E2E test assertions
          - Define properties based on expected response structure
+         - Use implementation_knowledge.code_templates.response_dto_template
 
       3. Generate Controllers:
          - Extract HTTP method from E2E test (GET/POST/PUT/DELETE)
@@ -169,6 +171,7 @@ process:
          - Apply guards: @UseGuards(JwtAuthGuard, PermissionGuard)
          - Apply permission: @RequirePermissions('PERMISSION_NAME') derived from component name
          - Use implementation_knowledge.syntax_rules.controller and implementation_knowledge.jwt_extraction_syntax
+         - Use implementation_knowledge.code_templates.controller_template
 
   step_7_generate_module:
     description: "Generate NestJS module configuration"
@@ -569,81 +572,6 @@ implementation_knowledge:
       repository_impl: "src/components/<bounded-context>/infrastructure/repositories/<domain>-query.repository.ts"
       entity_model: "src/components/<bounded-context>/infrastructure/entities/<domain>.model.ts"
       module: "src/components/<bounded-context>/<bounded-context>.module.ts"
-
-
-  syntax_rules:
-    description: "Framework-specific syntax rules (NO full templates)"
-
-    custom_validators:
-      description: "Custom validator usage patterns"
-      import: "import { ArrayNoDuplicates, IsStringType, IsIntegerType, IsArrayType, transformToIntArray, transformToInt } from '../../../../shared/application/validators/custom-validators';"
-
-      when_to_use_custom_validators:
-        description: "Use custom validators when tests expect specific messageKey format"
-        examples:
-          - "Test expects 'validation_error.wrong_type_string' → Use @IsStringType() instead of @IsString()"
-          - "Test expects 'validation_error.array_duplicate_items' → Use @ArrayNoDuplicates()"
-
-      standard_vs_custom:
-        standard_isString: "Returns generic 'property must be a string' message"
-        custom_IsStringType: "Returns 'wrong_type_string' message key"
-        note: "Check test expectations to decide which to use"
-
-    controller:
-      decorators:
-        class: "@Controller('api/<api_version>/path'), @ApiTags('Tag'), @UseGuards(JwtAuthGuard, PermissionGuard), @ApiBearerAuth()"
-        method_get: "@Get('resource'), @RequirePermissions('PERMISSION'), @ApiOperation(), @ApiResponse()"
-        method_post: "@Post('resource'), @RequirePermissions('PERMISSION')"
-        parameters: "@Query() request: RequestDTO, @CurrentUser() user: any"
-      dependency_injection: "constructor(private readonly queryBus: QueryBus, private readonly commandBus: CommandBus)"
-      jwt_extraction_note: "CRITICAL: Extract tenantId, userId, workspaceId, employeeId, permissions from @CurrentUser() user object (decoded from JWT), NOT from request DTO. See jwt_extraction_syntax for full pattern"
-
-    request_dto:
-      imports: "class-validator, class-transformer, @nestjs/swagger"
-      optional_field_pattern: "@ApiProperty(), @ValidateIf((o) => o.field !== undefined), @IsNotIn([null]), @IsString()"
-      array_field_pattern: "@Transform(transformToIntArray), @IsArray(), @ArrayNotEmpty(), @IsInt({ each: true })"
-      transformation_function: "const transformToIntArray = ({ value }) => { /* conversion logic */ }"
-
-    application_dto:
-      pattern: "export class DTO { constructor(public readonly field1: type, ...) {} }"
-      note: "Use readonly for immutability"
-
-    cqrs:
-      query_command:
-        pattern: "export class SomeQuery { constructor(public readonly dto: DTO) {} }"
-
-      handler:
-        decorators: "@QueryHandler(SomeQuery) or @CommandHandler(SomeCommand)"
-        interface: "implements IQueryHandler<Query, Result> or ICommandHandler<Command>"
-        dependency_injection: "constructor(@Inject('IRepository') private readonly repository: IRepository)"
-        execute_method: "async execute(query: Query): Promise<Result> { /* orchestration */ }"
-
-    repository_interface:
-      pattern: "export interface IRepository { method(dto: DTO): Promise<Result>; }"
-
-    repository_implementation:
-      decorators: "@Injectable()"
-      dependency_injection: "constructor(@InjectRepository(EntityModel) private readonly repo: Repository<EntityModel>)"
-      query_builder_usage: "this.repo.createQueryBuilder('alias')"
-      conditional_where: "if (dto.field) { query.andWhere('alias.column = :param', { param: dto.field }); }"
-      safe_like_query:
-        description: "CRITICAL: Safe LIKE query pattern to prevent SQL injection"
-        pattern: |
-          if (dto.searchTerm) {
-            const safeTerm = `%${dto.searchTerm.replace(/["']/g, '')}%`;
-            query.andWhere('alias.name LIKE :safeTerm', { safeTerm });
-          }
-        note: "ALWAYS escape quotes before using in LIKE queries"
-      pagination: "query.skip((page - 1) * size).take(size).getManyAndCount()"
-
-    typeorm_entity:
-      decorators: "@Entity('table_name'), @Column(), @PrimaryGeneratedColumn(), @CreateDateColumn(), @UpdateDateColumn()"
-      column_mapping: "@Column({ name: 'database_column_name' })"
-
-    module:
-      imports: "CqrsModule, TypeOrmModule.forFeature([EntityModels])"
-      providers_pattern: "[...QueryHandlers, ...CommandHandlers, { provide: 'IRepository', useClass: RepositoryImpl }]"
-      exports_pattern: "['IRepository']"
 
   controller_structure_guidelines:
     description: "CRITICAL: Controller structure rules for maintainability and scalability"
@@ -1415,35 +1343,6 @@ implementation_knowledge:
         @UpdateDateColumn()
         updated_at: Date;
       }
-
-quality_checklist:
-  implementation_quality:
-    - "YAGNI: Only implement what tests require"
-    - "No over-engineering: No unnecessary abstractions"
-    - "No placeholder code or TODO comments"
-    - "Proper type annotations (avoid 'any' except JWT user)"
-    - "Follow single responsibility principle"
-    - "Use dependency injection for all dependencies"
-
-  architecture_compliance:
-    - "Strict layer separation (DDD/Hexagonal)"
-    - "Dependencies point inward (Infrastructure → Application → Domain)"
-    - "Application layer defines interfaces, Infrastructure implements"
-    - "Presentation layer has no business logic"
-
-  test_compatibility:
-    - "All class names match test imports exactly"
-    - "All method signatures match test calls exactly"
-    - "All DTO properties match test assertions"
-    - "All validation rules match test expectations"
-    - "All imports use relative paths as tests expect"
-
-  code_organization:
-    - "Files in correct directories per file_structure"
-    - "File names follow naming_conventions exactly"
-    - "Module properly configured with all providers"
-    - "No circular dependencies"
-    - "Clean import structure"
 
 config:
   api_version: "v1"
