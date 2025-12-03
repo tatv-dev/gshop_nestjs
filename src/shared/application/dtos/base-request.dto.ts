@@ -37,19 +37,14 @@ export abstract class BaseRequestDTO {
 
     // Build current field path
     const currentPath = parentPath ? `${parentPath}.${property}` : property;
-    console.log("debug 00: ", JSON.stringify(constraints));
-    console.log("debug 001: ", JSON.stringify(value));
-    console.log("debug 002: ", JSON.stringify(children));
 
     // Check if this is an array validation with "each: true"
     if (Array.isArray(value) && Object.keys(constraints).length > 0) {
-      console.log("debug 01: ", JSON.stringify(constraints));
       const isArrayElementValidation = Object.keys(constraints).some((key) =>
         ['isInt', 'isString', 'min', 'max', 'isIn', 'isNotIn'].includes(key),
       );
 
       if (isArrayElementValidation) {
-        console.log("debug 02");
         // Priority order for constraint checking (type validators first)
         const constraintPriority = ['isString', 'isInt', 'isNumber', 'isBoolean', 'min', 'max', 'isIn', 'isNotIn'];
 
