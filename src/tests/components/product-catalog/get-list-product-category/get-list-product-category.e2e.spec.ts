@@ -65,20 +65,20 @@ describe('GET /api/v1/product-catalog/product-categories E2E', () => {
   beforeEach(async () => {
     queryRunner = dataSource.createQueryRunner();
     await queryRunner.connect();
-    // await queryRunner.startTransaction();
-    // await seedProductCategoriesTestData(queryRunner);
+    await queryRunner.startTransaction();
+    await seedProductCategoriesTestData(queryRunner);
   });
 
   afterEach(async () => {
     try {
-      // await queryRunner.rollbackTransaction();
+      await queryRunner.rollbackTransaction();
     } finally {
       await queryRunner.release();
     }
   });
 
   afterAll(async () => {
-    // await cleanup(dataSource);
+    await cleanup(dataSource);
     await app.close();
   });
 
@@ -101,7 +101,7 @@ describe('GET /api/v1/product-catalog/product-categories E2E', () => {
     // Assert
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('total');
-    expect(res.body.total).toBe(1);
+    expect(res.body.total).toBe(2);
     expect(res.body.page).toBe(1);
     expect(res.body.size).toBe(20);
     expect(Array.isArray(res.body.items)).toBe(true);
