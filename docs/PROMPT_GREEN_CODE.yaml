@@ -12,11 +12,6 @@ core_principles:
     - "NO placeholder code, NO TODO/FIXME comments"
     - "NO over-engineering, NO unnecessary abstractions"
 
-  tdd_workflow:
-    red_phase: "Tests written and failing"
-    green_phase: "Implement minimal code to pass ALL tests"
-    refactor_phase: "Improve code quality while keeping tests green"
-
   input_requirements:
     required:
       - "red_code_tests: RED CODE test files that must pass"
@@ -442,7 +437,7 @@ standard_knowledge:
     jwt_extraction:
       principle: "Extract context fields (tenantId, userId, workspaceId, creatorId/employeeId) from JWT token, NOT from request parameters"
       rationale: "Context fields come from authenticated user session, not user input. These fields should NEVER be accepted from request body/query/params to prevent security vulnerabilities"
-      common_jwt_fields:
+      common_jwt_fields: #Người dùng định nghĩa thêm vào common
         - "tenantId: Multi-tenancy identifier (decoded from JWT)"
         - "userId: Authenticated user identifier (decoded from JWT)"
         - "workspaceId: User's current workspace (decoded from JWT)"
@@ -483,11 +478,11 @@ standard_knowledge:
       principle: "ALWAYS escape special characters in user input before using in LIKE queries"
 
       dangerous_pattern: |
-        // ❌ DANGEROUS - vulnerable to SQL injection
+        //DANGEROUS - vulnerable to SQL injection
         queryBuilder.andWhere('name LIKE :term', { term: `%${userInput}%` })
 
       safe_pattern: |
-        // ✅ SAFE - escape quotes and special chars
+        //SAFE - escape quotes and special chars
         const safeTerm = `%${userInput.replace(/["']/g, '')}%`;
         queryBuilder.andWhere('name LIKE :safeTerm', { safeTerm });
 
@@ -684,77 +679,6 @@ implementation_knowledge:
       size: "@ValidateIf((o) => o.size !== undefined), @IsNotIn([null]), @Transform(transformToInt), @IsInt(), @Min(1), @Max(500)"
       note: "CRITICAL: Use transformToInt instead of @Type(() => Number)"
 
-  validation_decorator_mapping:
-    description: "Map validation error messageKey patterns to class-validator decorators"
-
-    messageKey_to_decorator:
-      wrong_type_string:
-        decorator: "@IsString() OR @IsStringType()"
-        custom_validator: "@IsStringType() - when test expects 'wrong_type_string' messageKey"
-        field_type: "string"
-
-      wrong_type_integer:
-        decorator: "@IsInt() OR @IsIntegerType()"
-        custom_validator: "@IsIntegerType() - when test expects 'wrong_type_integer' messageKey"
-        field_type: "number"
-        transform_required: "@Transform(transformToInt)"
-        note: "ALWAYS use transformToInt to preserve invalid values"
-
-      wrong_type_number:
-        decorator: "@IsNumber() OR @IsNumberType()"
-        custom_validator: "@IsNumberType() - when test expects 'wrong_type_number' messageKey"
-        field_type: "number"
-        transform_required: "@Transform(transformToNumber)"
-
-      wrong_type_boolean:
-        decorator: "@IsBoolean() OR @IsBooleanType()"
-        custom_validator: "@IsBooleanType() - when test expects 'wrong_type_boolean' messageKey"
-        field_type: "boolean"
-
-      wrong_type_array:
-        decorator: "@IsArray() OR @IsArrayType()"
-        custom_validator: "@IsArrayType() - when test expects 'wrong_type_array' messageKey"
-        field_type: "array"
-        transform_required: "@Transform(transformToIntArray) OR @Transform(transformToStringArray)"
-        note: "ALWAYS use custom transform helpers to preserve invalid values"
-
-      array_duplicate_items:
-        decorator: "@ArrayNoDuplicates()"
-        custom_validator: "from custom-validators.ts"
-        additional_decorators: ["@IsArray()", "@ArrayNotEmpty()"]
-
-      max_value:
-        decorator: "@Max(value)"
-        extract_value_from: "Test assertion or business requirements"
-
-      min_value:
-        decorator: "@Min(value)"
-        extract_value_from: "Test assertion or business requirements"
-
-      max_length:
-        decorator: "@MaxLength(value)"
-        field_type: "string"
-
-      min_length:
-        decorator: "@MinLength(value)"
-        field_type: "string"
-
-      required:
-        decorator: "@IsNotEmpty()"
-        note: "Do NOT use @ValidateIf for required fields"
-
-      invalid_value:
-        decorator: "@IsIn([allowedValues])"
-        extract_values_from: "Test cases with valid inputs"
-
-      forbidden_value:
-        decorator: "@IsNotIn([forbiddenValues])"
-        example: "@IsNotIn([null])"
-
-      array_empty:
-        decorator: "@ArrayNotEmpty()"
-        field_type: "array"
-
   request_dto_generation_from_testplan:
     description: "Systematic approach to generate Request DTO from test_plan UT test cases"
 
@@ -914,24 +838,18 @@ implementation_knowledge:
         };
 
     query_builder_filters:
-      string_search_with_like: |
-        // CRITICAL: Escape special characters to prevent SQL injection
-        if (dto.searchTerm) {
-          const safeTerm = `%${dto.searchTerm.replace(/["']/g, '')}%`;
-          query.andWhere('alias.name LIKE :safeTerm', { safeTerm });
-        }
-      array_filter_with_in: |
-        if (dto.filterIds?.length > 0) {
-          query.andWhere('alias.id IN (:...filterIds)', { filterIds: dto.filterIds });
-        }
-      status_filter: |
-        if (dto.statusList?.length > 0) {
-          query.andWhere('alias.status IN (:...statusList)', { statusList: dto.statusList });
-        }
-
-    hierarchical_query:
-      pattern: "query.andWhere('(alias.id IN (:...ancestors) OR alias.parent_level1_id IN (:...ancestors))', { ancestors: dto.ancestors })"
-
+      string_search_with_like:
+        example: |
+          // CRITICAL: Escape special characters to prevent SQL injection
+          if (dto.searchTerm) {
+            const safeTerm = `%${dto.searchTerm.replace(/["']/g, '')}%`;
+            query.andWhere('alias.name LIKE :safeTerm', { safeTerm });
+          }
+      array_filter_with_in:
+        example: |
+          if (dto.filterIds?.length > 0) {
+            query.andWhere('alias.id IN (:...filterIds)', { filterIds: dto.filterIds });
+          }
     entity_to_dto_mapping:
       pattern: "private toDTO(entity: EntityModel): ResponseDTO { return { id: entity.id, name: entity.name }; }"
 
