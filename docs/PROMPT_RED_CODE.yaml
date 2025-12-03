@@ -1532,6 +1532,577 @@ implementation_knowledge:
       unauthorized_401: "JWT token invalid or expired"
       forbidden_403: "User lacks required permission (messageKey: 'insufficient_permissions')"
 
+  code_templates:
+    description: "Complete code templates based on actual get-list-product-category implementation"
+    note: "These templates are 100% based on real working code - use as reference for generating new tests"
+
+    request_dto_ut_template: |
+      /**
+       * Unit Tests for <ComponentName>Request
+       * Test Suite: Request DTO Validation
+       * Layer: Presentation
+       * Type: UT
+       */
+
+      import { validate } from 'class-validator';
+      import { plainToClass } from 'class-transformer';
+      import { <ComponentName>Request } from '../../../../components/<bounded-context>/presentation/requests/<component-name>.request';
+
+      describe('<ComponentName>Request Validation', () => {
+        it('AC_UT_01: return error message when: <field1> is <condition1>, <field2> is <condition2>', async () => {
+          // Arrange
+          const input: any = {
+            field1: invalidValue1,
+            field2: invalidValue2,
+          };
+
+          // Act
+          const dto = plainToClass(<ComponentName>Request, input);
+          const validationErrors = await validate(dto);
+
+          // Debug output (ALWAYS include for visibility)
+          console.log('Raw validation errors:', validationErrors.map((e) => ({ property: e.property, value: (e as any).value, constraints: e.constraints })));
+
+          // Transform using BaseRequestDTO method
+          const errors = (<ComponentName>Request as any).transformValidationErrors(validationErrors);
+
+          // Debug output (ALWAYS include)
+          console.log('AC_UT_01 Transformed Errors:', JSON.stringify(errors, null, 2));
+
+          // Assert
+          const findError = (field: string) => errors.find((e: any) => e.field === field);
+
+          const field1Error = findError('field1');
+          expect(field1Error).toBeDefined();
+          expect(field1Error?.value).toBe(invalidValue1);
+          expect(field1Error?.messageKey).toBe('validation_error.expected_messageKey');
+
+          const field2Error = findError('field2');
+          expect(field2Error).toBeDefined();
+          expect(field2Error?.value).toBe(invalidValue2);
+          expect(field2Error?.messageKey).toBe('validation_error.expected_messageKey');
+        });
+
+        it('AC_UT_02: return successful message when valid data is provided', async () => {
+          // Arrange
+          const input: any = {
+            field1: validValue1,
+            field2: validValue2,
+          };
+
+          // Act
+          const dto = plainToClass(<ComponentName>Request, input);
+          const validationErrors = await validate(dto);
+          const errors = (<ComponentName>Request as any).transformValidationErrors(validationErrors);
+
+          // Assert
+          expect(errors).toHaveLength(0);
+        });
+      });
+
+    e2e_test_template: |
+      import { Test, TestingModule } from '@nestjs/testing';
+      import { INestApplication, ValidationPipe } from '@nestjs/common';
+      import { DataSource, QueryRunner } from 'typeorm';
+      import request from 'supertest';
+      import { AppModule } from '../../../../app.module';
+      import {
+        cleanup,
+        seed<DomainSpecific>TestData,
+        seedTestData,
+        TEST_<DOMAIN_CONSTANT>_ID,
+        TEST_USER_CREDENTIALS,
+        TEST_USER_WITHOUT_PERMISSION_CREDENTIALS,
+      } from './seed-data.helper';
+
+      describe('<HTTP_METHOD> /api/v1/<bounded-context>/<resources> E2E', () => {
+        let app: INestApplication;
+        let dataSource: DataSource;
+        let queryRunner: QueryRunner;
+        let accessTokenWithPermission: string;
+        let accessTokenWithoutPermission: string;
+
+        beforeAll(async () => {
+          const moduleFixture: TestingModule = await Test.createTestingModule({
+            imports: [AppModule],
+          }).compile();
+
+          app = moduleFixture.createNestApplication();
+          app.useGlobalPipes(
+            new ValidationPipe({
+              whitelist: true,
+              transform: false,
+              forbidUnknownValues: false,
+            })
+          );
+          await app.init();
+
+          dataSource = app.get(DataSource);
+          await seedTestData(dataSource);
+
+          // Login user with permission
+          const loginRes = await request(app.getHttpServer())
+            .post('/api/v1/auth/login')
+            .send({
+              username: TEST_USER_CREDENTIALS.username,
+              password: TEST_USER_CREDENTIALS.password,
+              softwareId: TEST_USER_CREDENTIALS.softwareId,
+            });
+          expect(loginRes.status).toBeLessThan(400);
+          accessTokenWithPermission = loginRes.body?.data?.accessToken || loginRes.body?.accessToken;
+          expect(accessTokenWithPermission).toBeDefined();
+
+          // Login user without permission
+          const loginResNoScope = await request(app.getHttpServer())
+            .post('/api/v1/auth/login')
+            .send({
+              username: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.username,
+              password: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.password,
+              softwareId: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.softwareId,
+            });
+          expect(loginResNoScope.status).toBeLessThan(400);
+          accessTokenWithoutPermission = loginResNoScope.body?.data?.accessToken || loginResNoScope.body?.accessToken;
+          expect(accessTokenWithoutPermission).toBeDefined();
+        });
+
+        beforeEach(async () => {
+          queryRunner = dataSource.createQueryRunner();
+          await queryRunner.connect();
+        });
+
+        afterEach(async () => {
+          try {
+            // await queryRunner.rollbackTransaction();
+          } finally {
+            await queryRunner.release();
+          }
+        });
+
+        afterAll(async () => {
+          // await cleanup(dataSource);
+          await app.close();
+        });
+
+        it('AC_E2E_01: return successful response when user inputs valid data', async () => {
+          // Arrange
+          const query = {
+            searchField: 'value',
+            arrayField: JSON.stringify([1, 0]),  // For GET requests with array params
+            otherArrayField: JSON.stringify([TEST_<DOMAIN_CONSTANT>_ID]),
+            page: 1,
+            size: 20,
+          };
+
+          // Act
+          const res = await request(app.getHttpServer())
+            .get('/api/v1/<bounded-context>/<resources>')
+            .set('Authorization', `Bearer ${accessTokenWithPermission}`)
+            .query(query);
+
+          // Assert
+          expect(res.status).toBe(200);
+          expect(res.body).toHaveProperty('total');
+          expect(res.body.page).toBe(1);
+          expect(res.body.size).toBe(20);
+          expect(Array.isArray(res.body.items)).toBe(true);
+        });
+
+        it('AC_E2E_02: return error response when user inputs invalid data', async () => {
+          // Arrange
+          const query = {
+            arrayField: 1,  // Invalid: should be array
+          };
+
+          // Act
+          const res = await request(app.getHttpServer())
+            .get('/api/v1/<bounded-context>/<resources>')
+            .set('Authorization', `Bearer ${accessTokenWithPermission}`)
+            .query(query);
+
+          // Assert
+          expect(res.status).toBe(422);
+          expect(res.body).toHaveProperty('messageKey');
+          expect(res.body.messageKey).toContain('validation_error');
+        });
+
+        it('AC_E2E_03: return error response when Token is expired', async () => {
+          // Arrange
+          const query = { /* valid query */ };
+
+          // Act
+          const res = await request(app.getHttpServer())
+            .get('/api/v1/<bounded-context>/<resources>')
+            .query(query);
+
+          // Assert
+          expect(res.status).toBe(401);
+        });
+
+        it('AC_E2E_04: return error response when Permission is denied', async () => {
+          // Arrange
+          const query = { /* valid query */ };
+
+          // Act
+          const res = await request(app.getHttpServer())
+            .get('/api/v1/<bounded-context>/<resources>')
+            .set('Authorization', `Bearer ${accessTokenWithoutPermission}`)
+            .query(query);
+
+          // Assert
+          expect(res.status).toBe(403);
+        });
+      });
+
+    handler_it_template: |
+      import { Test, TestingModule } from '@nestjs/testing';
+      import { DataSource, QueryRunner } from 'typeorm';
+      import { AppModule } from '../../../../app.module';
+      import {
+        cleanup,
+        seed<DomainSpecific>TestData,
+        seedTestData,
+        TEST_<DOMAIN_CONSTANT>_ID,
+        TEST_TENANT_ID,
+      } from './seed-data.helper';
+
+      describe('<ComponentName>QueryHandler Integration Tests', () => {
+        let moduleRef: TestingModule;
+        let dataSource: DataSource;
+        let queryRunner: QueryRunner;
+
+        beforeAll(async () => {
+          moduleRef = await Test.createTestingModule({
+            imports: [AppModule],
+          }).compile();
+
+          dataSource = moduleRef.get(DataSource);
+          await seedTestData(dataSource);
+        });
+
+        beforeEach(async () => {
+          queryRunner = dataSource.createQueryRunner();
+          await queryRunner.connect();
+          await queryRunner.startTransaction();
+          await seed<DomainSpecific>TestData(queryRunner);
+        });
+
+        afterEach(async () => {
+          try {
+            await queryRunner.rollbackTransaction();
+          } finally {
+            await queryRunner.release();
+          }
+        });
+
+        afterAll(async () => {
+          await cleanup(dataSource);
+          await moduleRef.close();
+        });
+
+        it('AC_IT_01: return successful message when: <condition>', async () => {
+          // Arrange
+          const { <ComponentName>QueryHandler } = await import('../../../../components/<bounded-context>/application/queries/<component-name>.query-handler');
+          const handler = moduleRef.get<any>(<ComponentName>QueryHandler);
+          expect(handler).toBeDefined();
+
+          const query = {
+            field1: 'value1',
+            field2: [TEST_<DOMAIN_CONSTANT>_ID],
+            page: 1,
+            size: 20,
+          };
+
+          // Act
+          const result = await handler.execute({ ...query, currentUser: { tenantId: TEST_TENANT_ID } });
+
+          // Assert
+          expect(result).toBeDefined();
+        });
+      });
+
+    repository_it_template: |
+      /**
+       * Integration Tests for <DomainName>QueryRepository
+       * Test Suite: <FeatureName>
+       * Layer: Infrastructure (outboundDB)
+       * Type: ITQueryRepository
+       */
+
+      import { Test, TestingModule } from '@nestjs/testing';
+      import { DataSource, QueryRunner } from 'typeorm';
+      import { <DomainName>QueryRepository } from '../../../../components/<bounded-context>/infrastructure/repositories/<domain-name>-query.repository';
+      import { I<DomainName>QueryRepository } from '../../../../components/<bounded-context>/application/repositories/<domain-name>-query.repository';
+      import { seed<DomainSpecific>TestData, TEST_TENANT_ID } from './seed-data.helper';
+      import { TypeOrmModule } from '@nestjs/typeorm';
+      import { ConfigModule } from '@nestjs/config';
+      import { <DomainName>Model } from '../../../../components/<bounded-context>/infrastructure/entities/<domain-name>.model';
+
+      describe('<DomainName>QueryRepository - Integration Tests', () => {
+        let module: TestingModule;
+        let dataSource: DataSource;
+        let queryRunner: QueryRunner;
+        let repository: I<DomainName>QueryRepository;
+
+        beforeAll(async () => {
+          module = await Test.createTestingModule({
+            imports: [
+              ConfigModule.forRoot({ isGlobal: true }),
+              TypeOrmModule.forRoot({
+                type: 'mariadb',
+                host: process.env.DB_HOST || 'localhost',
+                port: parseInt(process.env.DB_PORT || '3306'),
+                username: process.env.DB_USERNAME || 'root',
+                password: process.env.DB_PASSWORD || '',
+                database: process.env.DB_DATABASE || 'test_db',
+                synchronize: false,
+                logging: false,
+                entities: [<DomainName>Model],
+              }),
+              TypeOrmModule.forFeature([<DomainName>Model]),
+            ],
+            providers: [
+              {
+                provide: 'I<DomainName>QueryRepository',
+                useClass: <DomainName>QueryRepository,
+              },
+            ],
+          }).compile();
+
+          dataSource = module.get(DataSource);
+          repository = module.get<I<DomainName>QueryRepository>('I<DomainName>QueryRepository');
+        });
+
+        beforeEach(async () => {
+          queryRunner = dataSource.createQueryRunner();
+          await queryRunner.connect();
+          await queryRunner.startTransaction();
+          await seed<DomainSpecific>TestData(queryRunner);
+        });
+
+        afterEach(async () => {
+          await queryRunner.rollbackTransaction();
+          await queryRunner.release();
+        });
+
+        afterAll(async () => {
+          await module.close();
+        });
+
+        describe('Pairwise Tests - <parameter1> × <parameter2>', () => {
+          const pairwiseTestCases = [
+            {
+              acId: 'AC_Pairwise_01',
+              title: 'Pairwise: description',
+              input: { tenantId: TEST_TENANT_ID, field1: 'value', page: 1, size: 10 },
+              expected: { page: 1, size: 10 },
+            },
+          ];
+
+          it.each(pairwiseTestCases)('[$acId] $title', async ({ acId, input, expected }) => {
+            // Act
+            const models = await repository.findAll(
+              input.tenantId,
+              input.field1,
+              input.arrayField,
+              input.page,
+              input.size,
+            );
+
+            const total = await repository.count(
+              input.tenantId,
+              input.field1,
+              input.arrayField,
+            );
+
+            // Assert
+            expect(Array.isArray(models)).toBe(true);
+            expect(total).toBeGreaterThanOrEqual(0);
+
+            if (expected.total !== undefined) {
+              expect(total).toBe(expected.total);
+            }
+
+            // Verify model structure
+            if (models.length > 0) {
+              const firstModel = models[0];
+              expect(firstModel).toHaveProperty('id');
+              expect(firstModel).toHaveProperty('name');
+              expect(firstModel).toHaveProperty('tenant_id');
+            }
+          });
+        });
+      });
+
+    seed_data_helper_template: |
+      import { DataSource, QueryRunner } from 'typeorm';
+
+      export const TEST_SOFTWARE_ID = 1;
+      export const TEST_TENANT_ID = 100000;
+      export const TEST_USER_ID = 100001;
+      export const TEST_USER_WITHOUT_PERMISSION_ID = 100002;
+      export const TEST_WORKSPACE_ID = 100001;
+      export const TEST_WORKSPACE_WITHOUT_PERMISSION_ID = 100002;
+      export const TEST_EMPLOYEE_ID = 100001;
+      export const TEST_EMPLOYEE_ID_2 = 100002;
+      export const TEST_PERMISSION_ID = 100000;
+      export const TEST_ROLE_WITH_PERMISSION_ID = 100001;
+      export const TEST_ROLE_WITHOUT_PERMISSION_ID = 100002;
+      export const TEST_<DOMAIN_CONSTANT>_ID = 100010;
+      export const REQUIRED_PERMISSION_NAME = '<DERIVED_PERMISSION_NAME>';
+
+      export const TEST_USER_CREDENTIALS = {
+        username: 'user.with.permission',
+        password: 'Test@123456',
+        softwareId: TEST_SOFTWARE_ID,
+      };
+
+      export const TEST_USER_WITHOUT_PERMISSION_CREDENTIALS = {
+        username: 'user.without.permission',
+        password: 'Test@123456',
+        softwareId: TEST_SOFTWARE_ID,
+      };
+
+      export async function seedTestData(dataSource: DataSource) {
+        const queryRunner = dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+        try {
+          await seedSoftwares(queryRunner);
+          await seedTenants(queryRunner);
+          await seedUsers(queryRunner);
+          await seedWorkspaces(queryRunner);
+          await seedEmployees(queryRunner);
+          await seedRoles(queryRunner);
+          await seedPermissions(queryRunner);
+          await seedRolePermissions(queryRunner);
+          await seedRoleWorkspaces(queryRunner);
+
+          await queryRunner.commitTransaction();
+        } catch (error) {
+          await queryRunner.rollbackTransaction();
+          throw error;
+        } finally {
+          await queryRunner.release();
+        }
+      }
+
+      export async function cleanup(dataSource: DataSource) {
+        const dbName = process.env.DB_DATABASE;
+        if (!dbName) throw new Error("Missing DB_DATABASE in environment");
+
+        const queryRunner = dataSource.createQueryRunner();
+        await queryRunner.connect();
+
+        try {
+          await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
+
+          const tables: Array<{ table_name: string }> = await queryRunner.query(
+            `SELECT table_name FROM information_schema.tables WHERE table_schema = ?`,
+            [dbName],
+          );
+
+          for (const { table_name } of tables) {
+            await queryRunner.query(`TRUNCATE TABLE \`${table_name}\``);
+          }
+
+          await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
+        } finally {
+          await queryRunner.release();
+        }
+      }
+
+      export async function seedSoftwares(queryRunner: QueryRunner) {
+        await queryRunner.query(
+          'INSERT IGNORE INTO softwares (id, name, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
+          [TEST_SOFTWARE_ID, 'Test Software']
+        );
+      }
+
+      export async function seedTenants(queryRunner: QueryRunner) {
+        await queryRunner.query(
+          'INSERT INTO tenants (id, name, status, remaining_account_quota, total_account_quota, created_at, updated_at) VALUES (?, ?, 1, 0, 0, NOW(), NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name)',
+          [TEST_TENANT_ID, 'Tenant E2E']
+        );
+      }
+
+      export async function seedUsers(queryRunner: QueryRunner) {
+        const passwordHash = '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y';
+        await queryRunner.query(
+          'INSERT INTO users (id, user_name, password, phone_number, created_at, updated_at, lock_counter, auto_lock_time) VALUES (?, ?, ?, NULL, NOW(), NOW(), NULL, NULL) ON DUPLICATE KEY UPDATE user_name = VALUES(user_name), password = VALUES(password)',
+          [TEST_USER_ID, TEST_USER_CREDENTIALS.username, passwordHash]
+        );
+        await queryRunner.query(
+          'INSERT INTO users (id, user_name, password, phone_number, created_at, updated_at, lock_counter, auto_lock_time) VALUES (?, ?, ?, NULL, NOW(), NOW(), NULL, NULL) ON DUPLICATE KEY UPDATE user_name = VALUES(user_name), password = VALUES(password)',
+          [TEST_USER_WITHOUT_PERMISSION_ID, TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.username, passwordHash]
+        );
+      }
+
+      export async function seedWorkspaces(queryRunner: QueryRunner) {
+        await queryRunner.query(
+          'INSERT INTO workspaces (id, status, user_id, tenant_id, created_at, updated_at) VALUES (?, 1, ?, ?, NOW(), NOW()) ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), tenant_id = VALUES(tenant_id)',
+          [TEST_WORKSPACE_ID, TEST_USER_ID, TEST_TENANT_ID]
+        );
+        await queryRunner.query(
+          'INSERT INTO workspaces (id, status, user_id, tenant_id, created_at, updated_at) VALUES (?, 1, ?, ?, NOW(), NOW()) ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), tenant_id = VALUES(tenant_id)',
+          [TEST_WORKSPACE_WITHOUT_PERMISSION_ID, TEST_USER_WITHOUT_PERMISSION_ID, TEST_TENANT_ID]
+        );
+      }
+
+      export async function seedEmployees(queryRunner: QueryRunner) {
+        await queryRunner.query(
+          'INSERT INTO employees (id, name, workspace_id, reseller_id, branch_id, status, dob, email, gender, address, note, created_at, creator_id, type, updated_at) VALUES (?, ?, ?, NULL, NULL, 1, NULL, NULL, 1, NULL, NULL, NOW(), NULL, 1, NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name), workspace_id = VALUES(workspace_id)',
+          [TEST_EMPLOYEE_ID, 'Admin E2E', TEST_WORKSPACE_ID]
+        );
+        await queryRunner.query(
+          'INSERT INTO employees (id, name, workspace_id, reseller_id, branch_id, status, dob, email, gender, address, note, created_at, creator_id, type, updated_at) VALUES (?, ?, ?, NULL, NULL, 1, NULL, NULL, 1, NULL, NULL, NOW(), NULL, 1, NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name), workspace_id = VALUES(workspace_id)',
+          [TEST_EMPLOYEE_ID_2, 'Staff E2E', TEST_WORKSPACE_WITHOUT_PERMISSION_ID]
+        );
+      }
+
+      export async function seedPermissions(queryRunner: QueryRunner) {
+        await queryRunner.query(
+          'INSERT INTO permissions (id, name, software_id, permission_parent_id, type, display_name, created_at, updated_at) VALUES (?, ?, ?, NULL, 1, NULL, NOW(), NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name), software_id = VALUES(software_id)',
+          [TEST_PERMISSION_ID, REQUIRED_PERMISSION_NAME, TEST_SOFTWARE_ID]
+        );
+      }
+
+      export async function seedRoles(queryRunner: QueryRunner) {
+        await queryRunner.query(
+          'INSERT INTO roles (id, name, note, creator_id, created_at, tenant_id, type, updated_at) VALUES (?, ?, NULL, ?, NOW(), ?, 2, NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name), tenant_id = VALUES(tenant_id)',
+          [TEST_ROLE_WITH_PERMISSION_ID, 'Admin E2E', TEST_EMPLOYEE_ID, TEST_TENANT_ID]
+        );
+        await queryRunner.query(
+          'INSERT INTO roles (id, name, note, creator_id, created_at, tenant_id, type, updated_at) VALUES (?, ?, NULL, ?, NOW(), ?, 2, NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name), tenant_id = VALUES(tenant_id)',
+          [TEST_ROLE_WITHOUT_PERMISSION_ID, 'Staff E2E', TEST_EMPLOYEE_ID, TEST_TENANT_ID]
+        );
+      }
+
+      export async function seedRolePermissions(queryRunner: QueryRunner) {
+        await queryRunner.query(
+          'INSERT INTO role_permissions (role_id, permission_id, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
+          [TEST_ROLE_WITH_PERMISSION_ID, TEST_PERMISSION_ID]
+        );
+      }
+
+      export async function seedRoleWorkspaces(queryRunner: QueryRunner) {
+        await queryRunner.query(
+          'INSERT INTO role_workspaces (workspace_id, role_id, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
+          [TEST_WORKSPACE_ID, TEST_ROLE_WITH_PERMISSION_ID]
+        );
+        await queryRunner.query(
+          'INSERT INTO role_workspaces (workspace_id, role_id, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
+          [TEST_WORKSPACE_WITHOUT_PERMISSION_ID, TEST_ROLE_WITHOUT_PERMISSION_ID]
+        );
+      }
+
+      export async function seed<DomainSpecific>TestData(queryRunner: QueryRunner) {
+        // Domain-specific seed data
+        await queryRunner.query(
+          'INSERT INTO <table_name> (id, field1, field2, tenant_id, created_at, updated_at, creator_id) VALUES (?, ?, ?, ?, NOW(), NOW(), ?)',
+          [TEST_<DOMAIN_CONSTANT>_ID, 'value1', 'value2', TEST_TENANT_ID, TEST_EMPLOYEE_ID]
+        );
+      }
+
 config:
   api_version: "v1"
   auth_endpoint: "/api/v1/auth/login"

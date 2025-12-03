@@ -935,6 +935,493 @@ implementation_knowledge:
     entity_to_dto_mapping:
       pattern: "private toDTO(entity: EntityModel): ResponseDTO { return { id: entity.id, name: entity.name }; }"
 
+  code_templates:
+    description: "Complete code templates based on actual get-list-product-category implementation"
+    note: "These templates are 100% based on real working GREEN CODE - use as reference for generating implementations"
+
+    request_dto_template: |
+      // src/components/<bounded-context>/presentation/requests/<component-name>.request.ts
+      import { ApiProperty } from '@nestjs/swagger';
+      import {
+        IsOptional,
+        IsString,
+        MaxLength,
+        IsArray,
+        ArrayNotEmpty,
+        IsInt,
+        Min,
+        Max,
+        IsIn,
+        IsNotEmpty,
+        IsNotIn,
+        ValidateIf,
+      } from 'class-validator';
+      import { Type, Transform } from 'class-transformer';
+      import { ArrayNoDuplicates, transformToIntArray, transformToInt, toArray } from '../../../../shared/application/validators/custom-validators';
+      import { BaseRequestDTO } from '../../../../shared/application/dtos/base-request.dto';
+
+      export class <ComponentName>Request extends BaseRequestDTO {
+        @ApiProperty({
+          description: 'Description of field',
+          required: false,
+          example: 'Example value',
+        })
+        @ValidateIf((o) => o.fieldName !== undefined)
+        @IsNotIn([null])
+        @IsString()
+        @IsNotEmpty()
+        @MaxLength(255)
+        fieldName?: string;
+
+        @ApiProperty({
+          description: 'Array field description',
+          required: false,
+          example: [1, 0],
+          type: [Number],
+        })
+        @ValidateIf((o) => o.arrayField !== undefined)
+        @IsNotIn([null])
+        @Transform(transformToIntArray)
+        @IsArray()
+        @ArrayNotEmpty()
+        @ArrayNoDuplicates()
+        @IsInt({ each: true })
+        @IsIn([0, 1], { each: true })
+        arrayField?: number[];
+
+        @ApiProperty({
+          description: 'Page number (1-1000)',
+          required: false,
+          example: 1,
+        })
+        @ValidateIf((o) => o.page !== undefined)
+        @IsNotIn([null])
+        @Transform(transformToInt)
+        @IsInt()
+        @Min(1)
+        @Max(1000)
+        page?: number;
+
+        @ApiProperty({
+          description: 'Page size (1-500)',
+          required: false,
+          example: 10,
+        })
+        @ValidateIf((o) => o.size !== undefined)
+        @IsNotIn([null])
+        @Transform(transformToInt)
+        @IsInt()
+        @Min(1)
+        @Max(500)
+        size?: number;
+      }
+
+    response_dto_template: |
+      // src/components/<bounded-context>/presentation/responses/<component-name>.response.ts
+      import { ApiProperty } from '@nestjs/swagger';
+
+      /**
+       * Response DTO cho single <domain>
+       */
+      export class <Domain>ResponseDTO {
+        @ApiProperty({
+          description: '<Domain> ID',
+          example: 1,
+        })
+        id: number;
+
+        @ApiProperty({
+          description: 'Field description',
+          example: 'Example value',
+        })
+        name: string;
+
+        @ApiProperty({
+          description: 'Tenant ID',
+          example: 1,
+        })
+        tenantId: number;
+
+        @ApiProperty({
+          description: 'Active status (0: inactive, 1: active)',
+          example: 1,
+        })
+        activeStatus: number;
+      }
+
+      /**
+       * Response DTO cho get list <domain> với pagination
+       */
+      export class <ComponentName>ResponseDTO {
+        @ApiProperty({
+          description: 'List of <domain>',
+          type: [<Domain>ResponseDTO],
+        })
+        items: <Domain>ResponseDTO[];
+
+        @ApiProperty({
+          description: 'Current page number',
+          example: 1,
+        })
+        page: number;
+
+        @ApiProperty({
+          description: 'Page size',
+          example: 10,
+        })
+        size: number;
+
+        @ApiProperty({
+          description: 'Total number of items',
+          example: 100,
+        })
+        total: number;
+
+        @ApiProperty({
+          description: 'Total number of pages',
+          example: 10,
+        })
+        totalPages: number;
+
+        constructor(
+          items: <Domain>ResponseDTO[],
+          page: number,
+          size: number,
+          total: number,
+          totalPages: number,
+        ) {
+          this.items = items;
+          this.page = page;
+          this.size = size;
+          this.total = total;
+          this.totalPages = totalPages;
+        }
+
+        static create(
+          items: <Domain>ResponseDTO[],
+          page: number,
+          size: number,
+          total: number,
+          totalPages: number,
+        ): <ComponentName>ResponseDTO {
+          return new <ComponentName>ResponseDTO(items, page, size, total, totalPages);
+        }
+      }
+
+    application_dto_template: |
+      // src/components/<bounded-context>/application/dtos/<component-name>.dto.ts
+      export class <ComponentName>DTO {
+        constructor(
+          public readonly tenantId: number,
+          public readonly fieldName?: string,
+          public readonly arrayField?: number[],
+          public readonly page?: number,
+          public readonly size?: number,
+        ) {}
+      }
+
+    query_handler_template: |
+      // src/components/<bounded-context>/application/queries/<component-name>.query-handler.ts
+      import { IQuery, IQueryHandler, QueryHandler } from '@nestjs/cqrs';
+      import { Inject } from '@nestjs/common';
+      import { <ComponentName>DTO } from '../dtos/<component-name>.dto';
+      import { I<Domain>QueryRepository } from '../repositories/<domain>-query.repository';
+      import { ApplicationErrorException } from '../../../../shared/application/exceptions/application-error.exception';
+      import {
+        <Domain>ResponseDTO,
+        <ComponentName>ResponseDTO,
+      } from '../../presentation/responses/<component-name>.response';
+
+
+      @QueryHandler(<ComponentName>DTO)
+      export class <ComponentName>QueryHandler
+        implements IQueryHandler<<ComponentName>DTO, <ComponentName>ResponseDTO>
+      {
+        constructor(
+          @Inject('I<Domain>QueryRepository')
+          private readonly repository: I<Domain>QueryRepository,
+        ) {}
+
+        async execute(dto: <ComponentName>DTO): Promise<<ComponentName>ResponseDTO> {
+
+          // Validate pagination parameters
+          const page = dto.page || 1;
+          const size = dto.size || 10;
+
+          // Validate page
+          const MAX_PAGE = 1000;
+          if (page > MAX_PAGE) {
+            throw new ApplicationErrorException({
+              messageKey: 'max.numeric',
+              params: {
+                attribute: 'Số trang',
+                max: MAX_PAGE
+              },
+            });
+          }
+          if (page < 1) {
+            throw new ApplicationErrorException({
+              messageKey: 'min.numeric',
+              params: {
+                attribute: 'Số trang',
+                min: 1
+              },
+            });
+          }
+
+          // Validate size
+          const MIN_SIZE = 1;
+          const MAX_SIZE = 100;
+          if (size < MIN_SIZE || size > MAX_SIZE) {
+            throw new ApplicationErrorException({
+              messageKey: 'between.numeric',
+              params: {
+                attribute: 'Kích thước trang',
+                min: MIN_SIZE,
+                max: MAX_SIZE
+              },
+            });
+          }
+
+          // Get total count for pagination
+          const total = await this.repository.count(
+            dto.tenantId,
+            dto.fieldName,
+            dto.arrayField,
+          );
+
+          // Calculate total pages
+          const totalPages = Math.ceil(total / size);
+
+          // Validate page is not beyond available pages (only if there are results)
+          if (total > 0 && page > totalPages) {
+            throw new ApplicationErrorException({
+              messageKey: 'max.numeric',
+              params: {
+                attribute: 'Số trang',
+                max: totalPages
+              },
+            });
+          }
+
+          // Get paginated data (TypeORM models)
+          const models = await this.repository.findAll(
+            dto.tenantId,
+            dto.fieldName,
+            dto.arrayField,
+            dto.page,
+            dto.size,
+          );
+
+          // Map models to response DTOs (snake_case → camelCase)
+          const data: <Domain>ResponseDTO[] = models.map((model) => ({
+            id: Number(model.id),
+            name: model.name,
+            tenantId: Number(model.tenant_id),
+            activeStatus: Number(model.active_status),
+            // Map other fields as needed
+          }));
+
+          return <ComponentName>ResponseDTO.create(data, page, size, total, totalPages);
+        }
+      }
+
+    repository_interface_template: |
+      // src/components/<bounded-context>/application/repositories/<domain>-query.repository.ts
+      import { <Domain>Model } from '../../infrastructure/entities/<domain>.model';
+
+      /**
+       * Query repository - chỉ query thuần túy
+       * Trả về TypeORM models để handler xử lý mapping sang DTO response
+       */
+      export interface I<Domain>QueryRepository {
+        findAll(
+          tenantId: number,
+          fieldName?: string,
+          arrayField?: number[],
+          page?: number,
+          size?: number,
+        ): Promise<<Domain>Model[]>;
+
+        count(
+          tenantId: number,
+          fieldName?: string,
+          arrayField?: number[],
+        ): Promise<number>;
+      }
+
+    repository_implementation_template: |
+      // src/components/<bounded-context>/infrastructure/repositories/<domain>-query.repository.ts
+      import { Injectable } from '@nestjs/common';
+      import { InjectRepository } from '@nestjs/typeorm';
+      import { Repository } from 'typeorm';
+      import { <Domain>Model } from '../entities/<domain>.model';
+      import { I<Domain>QueryRepository } from '../../application/repositories/<domain>-query.repository';
+
+      @Injectable()
+      export class <Domain>QueryRepository implements I<Domain>QueryRepository {
+        constructor(
+          @InjectRepository(<Domain>Model)
+          private readonly repository: Repository<<Domain>Model>,
+        ) {}
+
+        async findAll(
+          tenantId: number,
+          fieldName?: string,
+          arrayField?: number[],
+          page?: number,
+          size?: number,
+        ): Promise<<Domain>Model[]> {
+          const queryBuilder = this.repository.createQueryBuilder('t');
+
+          // Filter by tenant
+          queryBuilder.where('t.tenant_id = :tenantId', { tenantId });
+
+          // Filter by name (search) - CRITICAL: Escape special chars to prevent SQL injection
+          if (fieldName) {
+            const safeTerm = `%${fieldName.replace(/["']/g, '')}%`;
+            queryBuilder.andWhere('t.name LIKE :safeTerm', { safeTerm });
+          }
+
+          // Filter by array field
+          if (arrayField && arrayField.length > 0) {
+            queryBuilder.andWhere('t.status IN (:...arrayField)', { arrayField });
+          }
+
+          // Apply pagination
+          if (page && size) {
+            const skip = (page - 1) * size;
+            queryBuilder.skip(skip).take(size);
+          }
+
+          // Order by id
+          queryBuilder.orderBy('t.id', 'ASC');
+
+          const models = await queryBuilder.getMany();
+
+          // Trả về models trực tiếp, handler sẽ xử lý mapping
+          return models;
+        }
+
+        async count(
+          tenantId: number,
+          fieldName?: string,
+          arrayField?: number[],
+        ): Promise<number> {
+          const queryBuilder = this.repository.createQueryBuilder('t');
+
+          // Filter by tenant
+          queryBuilder.where('t.tenant_id = :tenantId', { tenantId });
+
+          // Filter by name (search)
+          if (fieldName) {
+            const safeTerm = `%${fieldName.replace(/["']/g, '')}%`;
+            queryBuilder.andWhere('t.name LIKE :safeTerm', { safeTerm });
+          }
+
+          // Filter by array field
+          if (arrayField && arrayField.length > 0) {
+            queryBuilder.andWhere('t.status IN (:...arrayField)', { arrayField });
+          }
+
+          return await queryBuilder.getCount();
+        }
+      }
+
+    controller_template: |
+      // src/components/<bounded-context>/presentation/controllers/<domain>.controller.ts
+      import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+      import { QueryBus } from '@nestjs/cqrs';
+      import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+      import { <ComponentName>Request } from '../requests/<component-name>.request';
+      import { <ComponentName>DTO } from '../../application/dtos/<component-name>.dto';
+      import { JwtAuthGuard } from '../../../../shared/infrastructure/guards/jwt-auth.guard';
+      import { PermissionGuard } from '../../../../shared/infrastructure/guards/permission.guard';
+      import { CurrentUser } from '../../../../shared/infrastructure/decorators/current-user.decorator';
+      import { RequirePermissions } from '../../../../shared/infrastructure/decorators/require-permissions.decorator';
+      import { ApplicationErrorException } from '../../../../shared/application/exceptions/application-error.exception';
+
+      @ApiTags('<Domain Catalog>')
+      @Controller('api/v1/<bounded-context>')
+      @UseGuards(JwtAuthGuard, PermissionGuard)
+      @ApiBearerAuth()
+      export class <Domain>Controller {
+        constructor(private readonly queryBus: QueryBus) {}
+
+        @Get('<resources>')
+        @RequirePermissions('<DERIVED_PERMISSION_NAME>')
+        @ApiOperation({ summary: 'Description of endpoint' })
+        @ApiResponse({ status: 200, description: 'Returns paginated list' })
+        @ApiResponse({ status: 400, description: 'Bad Request - Invalid parameters' })
+        @ApiResponse({ status: 401, description: 'Unauthorized' })
+        @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+        async getList(
+          @Query() request: <ComponentName>Request,
+          @CurrentUser() user: any,
+        ) {
+          // Get tenantId from JWT token (single workspace: user.tenantId, multi-workspace: user.workspaces[0].tenantId)
+          let tenantId: number | undefined = Number(user.tenantId);
+
+          if (!tenantId && user.workspaces?.length > 0) {
+            tenantId = user.workspaces[0].tenantId;
+          }
+
+          if (!tenantId || !Number.isInteger(tenantId) || tenantId <= 0) {
+            throw new ApplicationErrorException({
+              messageKey: 'missing_parameter',
+              params: { parameter: 'Tenant ID' },
+            });
+          }
+
+          const dto = new <ComponentName>DTO(
+            tenantId,
+            request.fieldName,
+            request.arrayField,
+            request.page,
+            request.size,
+          );
+
+          return await this.queryBus.execute(dto);
+        }
+      }
+
+    typeorm_entity_template: |
+      // src/components/<bounded-context>/infrastructure/entities/<domain>.model.ts
+      import {
+        Entity,
+        PrimaryGeneratedColumn,
+        Column,
+        CreateDateColumn,
+        UpdateDateColumn,
+        Index,
+      } from 'typeorm';
+
+      @Entity('<table_name>')
+      @Index('idx_tenant_id', ['tenant_id'])
+      @Index('idx_active_status', ['active_status'])
+      export class <Domain>Model {
+        @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
+        id: number;
+
+        @Column({ type: 'varchar', length: 255 })
+        name: string;
+
+        @Column({ type: 'bigint', unsigned: true })
+        tenant_id: number;
+
+        @Column({ type: 'tinyint', default: 1 })
+        active_status: number;
+
+        @Column({ type: 'bigint', unsigned: true })
+        creator_id: number;
+
+        @CreateDateColumn()
+        created_at: Date;
+
+        @UpdateDateColumn()
+        updated_at: Date;
+      }
+
 quality_checklist:
   implementation_quality:
     - "YAGNI: Only implement what tests require"
