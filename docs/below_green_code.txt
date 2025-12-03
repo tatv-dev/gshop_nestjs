@@ -1,0 +1,791 @@
+db_schema:
+  bounded_context: "ProductCatalog"
+  description: "Database schema cho Product Category management"
+  
+  ddl_statements: |
+    -- Bảng tenants (root table)
+    CREATE TABLE IF NOT EXISTS `tenants` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(50) NOT NULL,
+      `status` int(11) NOT NULL DEFAULT 1,
+      `remaining_account_quota` int(11) NOT NULL DEFAULT 0 COMMENT 'số lượng tài khoản có thể tạo thêm trong công ty',
+      `total_account_quota` int(11) NOT NULL DEFAULT 0 COMMENT 'số lượng tài khoản tối đa trong công ty, -1 là không giới hạn',
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `name` (`name`)
+    );
+
+    -- Bảng users (cho workspace)
+    CREATE TABLE IF NOT EXISTS `users` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `user_name` varchar(50) NOT NULL,
+      `password` varchar(200) NOT NULL,
+      `phone_number` varchar(50) DEFAULT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      `lock_counter` tinyint(4) DEFAULT NULL COMMENT 'Số lần đăng nhập sai liên tiếp',
+      `auto_lock_time` int(11) DEFAULT NULL COMMENT 'Thời gian khóa sau khi đăng nhập sai liên tiếp quá nhiều',
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `user_name` (`user_name`)
+    );
+
+    -- Bảng workspaces (liên kết user-tenant)
+    CREATE TABLE IF NOT EXISTS `workspaces` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `status` int(11) NOT NULL DEFAULT 1 COMMENT '0: tạm ngừng, 1: hoạt động',
+      `user_id` bigint(20) unsigned NOT NULL,
+      `tenant_id` bigint(20) unsigned NOT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_users_TO_workspaces` (`user_id`),
+      KEY `FK_tenants_TO_workspaces` (`tenant_id`),
+      CONSTRAINT `FK_tenants_TO_workspaces` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+      CONSTRAINT `FK_users_TO_workspaces` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+    );
+
+    -- Bảng branches (chi nhánh)
+    CREATE TABLE IF NOT EXISTS `branches` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(100) NOT NULL,
+      `tenant_id` bigint(20) unsigned NOT NULL DEFAULT 0,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      `primary_phone` varchar(20) NOT NULL,
+      `secondary_phone` varchar(20) DEFAULT NULL,
+      `note` varchar(250) DEFAULT NULL,
+      `address` varchar(200) DEFAULT NULL,
+      `code` varchar(100) DEFAULT NULL,
+      `status` int(11) NOT NULL DEFAULT 1 COMMENT '0: tạm ngừng, 1: hoạt động',
+      `creator_id` bigint(20) unsigned DEFAULT NULL,
+      PRIMARY KEY (`id`),
+      KEY `FK_tenants_TO_branches` (`tenant_id`),
+      KEY `idx_branches_created_at` (`created_at`),
+      KEY `FK_branch_employees_TO_creators` (`creator_id`),
+      FULLTEXT KEY `idx_branches_name_ft` (`name`),
+      CONSTRAINT `FK_branch_employees_TO_creators` FOREIGN KEY (`creator_id`) REFERENCES `employees` (`id`),
+      CONSTRAINT `FK_tenants_TO_branches` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
+    );
+
+    -- Bảng resellers (nhà phân phối)
+    CREATE TABLE IF NOT EXISTS `resellers` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(150) NOT NULL,
+      `tenant_id` bigint(20) unsigned NOT NULL,
+      `code` varchar(100) DEFAULT NULL,
+      `address` varchar(250) DEFAULT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      `phone` varchar(20) DEFAULT NULL,
+      `status` int(11) NOT NULL DEFAULT 1 COMMENT '0: tạm ngừng, 1: hoạt động',
+      `note` text DEFAULT NULL,
+      `creator_id` bigint(20) unsigned DEFAULT NULL,
+      PRIMARY KEY (`id`),
+      KEY `FK_tenants_TO_resellers` (`tenant_id`),
+      KEY `idx_resellers_created_at` (`created_at`),
+      FULLTEXT KEY `idx_resellers_name_ft` (`name`),
+      FULLTEXT KEY `idx_resellers_code_ft` (`code`),
+      CONSTRAINT `FK_tenants_TO_resellers` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
+    );
+
+    -- Bảng employees (nhân viên - có circular dependency với branches)
+    CREATE TABLE IF NOT EXISTS `employees` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(150) NOT NULL,
+      `workspace_id` bigint(20) unsigned NOT NULL,
+      `reseller_id` bigint(20) unsigned DEFAULT NULL,
+      `branch_id` bigint(20) unsigned DEFAULT NULL,
+      `status` int(11) NOT NULL DEFAULT 1 COMMENT '0: tạm ngừng, 1: hoạt động',
+      `dob` date DEFAULT NULL COMMENT 'ngày sinh',
+      `email` varchar(200) DEFAULT NULL COMMENT 'email',
+      `gender` int(11) DEFAULT 1 COMMENT '0: khác, 1: nam, 2: nữ',
+      `address` varchar(250) DEFAULT NULL,
+      `note` varchar(250) DEFAULT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `creator_id` bigint(20) unsigned DEFAULT NULL COMMENT 'người tạo',
+      `type` int(11) NOT NULL DEFAULT 1 COMMENT '0: tài khoản ẩn, 1: tài khoản bình thường',
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_workspaces_TO_employees` (`workspace_id`),
+      KEY `FK_resellers_TO_employees` (`reseller_id`),
+      KEY `FK_branches_TO_employees` (`branch_id`),
+      KEY `FK_employees_TO_employees` (`creator_id`),
+      KEY `idx_employees_created_at` (`created_at`),
+      FULLTEXT KEY `idx_employees_name_ft` (`name`),
+      CONSTRAINT `FK_branches_TO_employees` FOREIGN KEY (`branch_id`) REFERENCES `branches` (`id`),
+      CONSTRAINT `FK_employees_TO_employees` FOREIGN KEY (`creator_id`) REFERENCES `employees` (`id`),
+      CONSTRAINT `FK_resellers_TO_employees` FOREIGN KEY (`reseller_id`) REFERENCES `resellers` (`id`),
+      CONSTRAINT `FK_workspaces_TO_employees` FOREIGN KEY (`workspace_id`) REFERENCES `workspaces` (`id`)
+    );
+
+    -- Bảng permissions (quyền)
+    CREATE TABLE IF NOT EXISTS `permissions` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(50) NOT NULL,
+      `software_id` bigint(20) unsigned NOT NULL,
+      `permission_parent_id` bigint(20) unsigned DEFAULT NULL,
+      `type` int(11) NOT NULL DEFAULT 1 COMMENT '0: admin, 1 dành cho người dùng không phải admin',
+      `display_name` varchar(100) DEFAULT NULL COMMENT 'Tên của quyền để hiển thị lên UI',
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_softwares_TO_permissions` (`software_id`),
+      KEY `FK_permissions_TO_permissions` (`permission_parent_id`),
+      CONSTRAINT `FK_permissions_TO_permissions` FOREIGN KEY (`permission_parent_id`) REFERENCES `permissions` (`id`),
+      CONSTRAINT `FK_softwares_TO_permissions` FOREIGN KEY (`software_id`) REFERENCES `softwares` (`id`)
+    );
+
+    -- Bảng roles (vai trò)
+    CREATE TABLE IF NOT EXISTS `roles` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(50) NOT NULL,
+      `note` varchar(255) DEFAULT NULL,
+      `creator_id` bigint(20) unsigned DEFAULT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `tenant_id` bigint(20) unsigned NOT NULL,
+      `type` int(11) NOT NULL DEFAULT 0 COMMENT '-1 vai trò admin system do hệ thống tạo,0: vai trò admin company do hệ thống tạo, 1 vai trò admin do người dùng tạo,2 vai trò thường',
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_tenant_TO_roles` (`tenant_id`),
+      KEY `FK_employees_TO_roles` (`creator_id`),
+      CONSTRAINT `FK_employees_TO_roles` FOREIGN KEY (`creator_id`) REFERENCES `employees` (`id`),
+      CONSTRAINT `FK_tenant_TO_roles` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
+    );
+
+    -- Bảng role_permissions (liên kết vai trò và quyền)
+    CREATE TABLE IF NOT EXISTS `role_permissions` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `role_id` bigint(20) unsigned NOT NULL,
+      `permission_id` bigint(20) unsigned NOT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_roles_TO_role_permissions` (`role_id`),
+      KEY `FK_permissions_TO_role_permissions` (`permission_id`),
+      CONSTRAINT `FK_permissions_TO_role_permissions` FOREIGN KEY (`permission_id`) REFERENCES `permissions` (`id`),
+      CONSTRAINT `FK_roles_TO_role_permissions` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`)
+    );
+
+    -- Bảng role_workspaces (liên kết vai trò và workspace)
+    CREATE TABLE IF NOT EXISTS `role_workspaces` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `workspace_id` bigint(20) unsigned NOT NULL,
+      `role_id` bigint(20) unsigned NOT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_workspaces_TO_role_workspaces` (`workspace_id`),
+      KEY `FK_roles_TO_role_workspaces` (`role_id`),
+      CONSTRAINT `FK_roles_TO_role_workspaces` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`),
+      CONSTRAINT `FK_workspaces_TO_role_workspaces` FOREIGN KEY (`workspace_id`) REFERENCES `workspaces` (`id`)
+    );
+
+    -- Bảng product_categories (danh mục sản phẩm - cây phân cấp)
+    CREATE TABLE IF NOT EXISTS `product_categories` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(100) NOT NULL,
+      `tenant_id` bigint(20) unsigned NOT NULL,
+      `product_category_parent_id` bigint(20) unsigned DEFAULT NULL,
+      `level` int(11) NOT NULL DEFAULT 1,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      `parent_level1_id` bigint(11) unsigned DEFAULT NULL,
+      `parent_level2_id` bigint(11) unsigned DEFAULT NULL,
+      `active_status` bigint(11) unsigned DEFAULT NULL,
+      `creator_id` bigint(20) unsigned DEFAULT NULL,
+      PRIMARY KEY (`id`),
+      KEY `FK_tenants_TO_product_categories` (`tenant_id`),
+      KEY `FK_product_categories_TO_product_categories` (`product_category_parent_id`),
+      KEY `FK_employees_TO_product_categories` (`creator_id`),
+      KEY `fk_parent_level1` (`parent_level1_id`),
+      KEY `fk_parent_level2` (`parent_level2_id`),
+      KEY `idx_product_categories_created_at` (`created_at`),
+      FULLTEXT KEY `idx_product_categories_name_ft` (`name`),
+      CONSTRAINT `FK_product_categories_TO_product_categories` FOREIGN KEY (`product_category_parent_id`) REFERENCES `product_categories` (`id`),
+      CONSTRAINT `FK_empployees_TO_product_categories` FOREIGN KEY (`creator_id`) REFERENCES `employees` (`id`),
+      CONSTRAINT `FK_tenants_TO_product_categories` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+      CONSTRAINT `fk_parent_level1` FOREIGN KEY (`parent_level1_id`) REFERENCES `product_categories` (`id`) ON DELETE SET NULL,
+      CONSTRAINT `fk_parent_level2` FOREIGN KEY (`parent_level2_id`) REFERENCES `product_categories` (`id`) ON DELETE SET NULL
+    );
+
+
+Logic nghiệp vụ: |
+    given: |	
+    1. Các thông tin input API gồm:	
+    - searchString (optional): tìm kiếm theo productCategoryName hoặc productCategoryCode	
+    + tìm theo productCategoryName : không phân biệt hoa/thường; chỉ chấp nhân tìm kiếm kí tự chữ , số , khoảng cách và không bao gồm dấu -	
+    + tìm theo productCategoryCode : phân biệt hoa/thường; chỉ chấp nhân tìm kiếm kí tự chữ , số và dấu _	
+    - activeStatuses (optional): mảng trạng thái activeStatus của nhóm hàng.	
+    + Chỉ chấp nhận các activeStatus là "Hoạt động" tương ứng với 1 và/hoặc "Tạm ngừng" tương ứng với 0	
+    + mặc định activeStatus là "Hoạt động" và "Tạm ngừng"	
+    - productCategoryAncestors (optional): mảng các id của parentId hoặc/và grandparentId.	
+    - Phân trang (optional): page & size.	
+    2. Security (thông tin được tự động lấy từ access_token và không thể chỉnh sửa giá trị)	
+    - tenantId (required): mã định danh id của tenant	
+    - Permissions : mảng các thông tin permission của người dùng	
+    + Người dùng có quyền getAllProductCategories	
+    + Người dùng có quyền getOwnProductCategories thì truyền thêm : creatorId = <ID của user login>	
+    - ID của user login : mã định danh ID của user đang logic 	
+    3. Validation rule :	
+    when: |- Người dùng gọi tìm kiếm productCategories với các thông tin input tại given	
+    then: |	
+    - Trả về collection {productCategories,total,page,size} như tại mục return bên dưới	
+    - Sắp xếp: createdAt.desc; tie-break: productCategoryId.desc.	
+    - Nếu không truyền filter optional nào ⇒ trả theo mặc định (sort + pagination).	
+    - Nếu không tìm thấy dữ liệu thì trả kết quả ⇒ status 200 với items=[], total=0.	
+    - Kiểm tra logic tìm kiếm với searchString dựa trên dữ liệu đã được định nghĩa chuẩn	
+    "return: |
+    - Thông tin phân trang gồm total, page, size
+    - Danh sách nhóm hàng productCategories với mỗi bản ghi gồm các thông tin: productCategoryId, productCategoryName, productCategoryParentId, productCategoryGrandParentId,productCategoryGrandParentName, creatorName, createdAt, activeStatus"	
+
+
+Red code:
+
+import { validate } from 'class-validator';
+import { plainToClass } from 'class-transformer';
+import { GetListProductCategoryRequest } from '../../../../components/product-catalog/presentation/requests/get-list-product-category.request';
+
+describe('GetListProductCategoryRequest Validation', () => {
+  it('AC_UT_01: return error message when: <productCategoryName> is provided as non-string, <activeStatuses> is provided as non-array, <productCategoryAncestors> is provided as non-array, <page> is provided as non-integer, <size> is provided as non-integer', async () => {
+    // Arrange
+    const input: any = {
+      productCategoryName: 123,
+      activeStatuses: 'abc',
+      productCategoryAncestors: 2,
+      page: 'abc',
+      size: 'abc',
+    };
+
+    // Act
+    const dto = plainToClass(GetListProductCategoryRequest, input);
+    const validationErrors = await validate(dto);
+
+    // Debug output (ALWAYS include for visibility)
+    console.log('Raw validation errors:', validationErrors.map((e) => ({ property: e.property, value: (e as any).value, constraints: e.constraints })));
+
+    // Transform using BaseRequestDTO method
+    const errors = (GetListProductCategoryRequest as any).transformValidationErrors(validationErrors);
+
+    // Debug output (ALWAYS include)
+    console.log('AC_UT_01 Transformed Errors:', JSON.stringify(errors, null, 2));
+
+    // Assert
+    const findError = (field: string) => errors.find((e: any) => e.field === field);
+
+    const nameError = findError('productCategoryName');
+    expect(nameError).toBeDefined();
+    expect(nameError?.value).toBe(123);
+    expect(nameError?.messageKey).toBe('validation_error.wrong_type_string');
+
+    const activeStatusesError = findError('activeStatuses');
+    expect(activeStatusesError).toBeDefined();
+    expect(activeStatusesError?.value).toBe('abc');
+    expect(activeStatusesError?.messageKey).toBe('validation_error.wrong_type_array');
+
+    const ancestorsError = findError('productCategoryAncestors');
+    expect(ancestorsError).toBeDefined();
+    expect(ancestorsError?.value).toBe(2);
+    expect(ancestorsError?.messageKey).toBe('validation_error.wrong_type_array');
+
+    const pageError = findError('page');
+    expect(pageError).toBeDefined();
+    expect(pageError?.value).toBe('abc');
+    expect(pageError?.messageKey).toBe('validation_error.wrong_type_integer');
+
+    const sizeError = findError('size');
+    expect(sizeError).toBeDefined();
+    expect(sizeError?.value).toBe('abc');
+    expect(sizeError?.messageKey).toBe('validation_error.wrong_type_integer');
+  });
+
+  it('AC_UT_02: return error message when: <activeStatuses> array contains duplicate elements', async () => {
+    // Arrange
+    const input: any = {
+      productCategoryName: '123v',
+      activeStatuses: [1, 1],
+      productCategoryAncestors: [1],
+      page: 1,
+      size: 20,
+    };
+
+    // Act
+    const dto = plainToClass(GetListProductCategoryRequest, input);
+    const validationErrors = await validate(dto);
+
+    // Debug output
+    console.log('Raw validation errors:', validationErrors.map((e) => ({ property: e.property, value: (e as any).value, constraints: e.constraints })));
+
+    const errors = (GetListProductCategoryRequest as any).transformValidationErrors(validationErrors);
+
+    // Debug output
+    console.log('AC_UT_02 Transformed Errors:', JSON.stringify(errors, null, 2));
+
+    // Assert
+    const findError = (field: string) => errors.find((e: any) => e.field === field);
+
+    const duplicateError = findError('activeStatuses');
+    expect(duplicateError).toBeDefined();
+    expect(duplicateError?.value).toEqual([1, 1]);
+    expect(duplicateError?.messageKey).toBe('validation_error.array_duplicate_items');
+  });
+
+  it('AC_UT_03: return successful message when valid data is provided', async () => {
+    // Arrange
+    const input: any = {
+      productCategoryName: 'Điện thoại 123',
+      productCategoryAncestors: [1, 2],
+      page: 1,
+      size: 20,
+    };
+
+    // Act
+    const dto = plainToClass(GetListProductCategoryRequest, input);
+    const validationErrors = await validate(dto);
+    const errors = (GetListProductCategoryRequest as any).transformValidationErrors(validationErrors);
+
+    // Assert
+    expect(errors).toHaveLength(0);
+  });
+});
+
+import { Test, TestingModule } from '@nestjs/testing';
+import { DataSource, QueryRunner } from 'typeorm';
+import { AppModule } from '../../../../app.module';
+import {
+  cleanup,
+  seedProductCategoriesTestData,
+  seedTestData,
+  TEST_PARENT_CATEGORY_ID,
+  TEST_TENANT_ID,
+} from './seed-data.helper';
+
+describe('GetListProductCategoryQueryHandler Integration Tests', () => {
+  let moduleRef: TestingModule;
+  let dataSource: DataSource;
+  let queryRunner: QueryRunner;
+
+  beforeAll(async () => {
+    moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    dataSource = moduleRef.get(DataSource);
+    await seedTestData(dataSource);
+  });
+
+  beforeEach(async () => {
+    queryRunner = dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    await seedProductCategoriesTestData(queryRunner);
+  });
+
+  afterEach(async () => {
+    try {
+      await queryRunner.rollbackTransaction();
+    } finally {
+      await queryRunner.release();
+    }
+  });
+
+  afterAll(async () => {
+    await cleanup(dataSource);
+    await moduleRef.close();
+  });
+
+  it('AC_IT_01: return successful message when: <productCategoryName> is <valid value> and <activeStatuses> is <default_value>', async () => {
+    // Arrange
+    const { GetListProductCategoryQueryHandler } = await import('../../../../components/product-catalog/application/queries/get-list-product-category.query-handler');
+    const handler = moduleRef.get<any>(GetListProductCategoryQueryHandler);
+    expect(handler).toBeDefined();
+
+    const query = {
+      productCategoryName: 'Điện thoại 123',
+      productCategoryAncestors: [TEST_PARENT_CATEGORY_ID],
+      page: 1,
+      size: 20,
+    };
+
+    // Act
+    const result = await handler.execute({ ...query, currentUser: { tenantId: TEST_TENANT_ID } });
+
+    // Assert
+    expect(result).toBeDefined(); // AC_IT_01
+  });
+
+  it('AC_IT_02: return successful message when: <productCategoryAncestors> is <valid value> and <activeStatuses> is <valid value>', async () => {
+    // Arrange
+    const { GetListProductCategoryQueryHandler } = await import('../../../../components/product-catalog/application/queries/get-list-product-category.query-handler');
+    const handler = moduleRef.get<any>(GetListProductCategoryQueryHandler);
+    expect(handler).toBeDefined();
+
+    const query = {
+      productCategoryName: '123',
+      activeStatuses: [0],
+      productCategoryAncestors: [TEST_PARENT_CATEGORY_ID],
+      page: 1,
+      size: 20,
+    };
+
+    // Act
+    const result = await handler.execute({ ...query, currentUser: { tenantId: TEST_TENANT_ID } });
+
+    // Assert
+    expect(result).toBeDefined(); // AC_IT_02
+  });
+});
+
+/**
+ * Integration Tests for ProductCategoryQueryRepository
+ * Test Suite: GetListProductCategory
+ * Layer: Infrastructure (outboundDB)
+ * Type: ITQueryRepository
+ */
+
+import { Test, TestingModule } from '@nestjs/testing';
+import { DataSource, QueryRunner } from 'typeorm';
+import { ProductCategoryQueryRepository } from '../../../../components/product-catalog/infrastructure/repositories/product-category-query.repository';
+import { IProductCategoryQueryRepository } from '../../../../components/product-catalog/application/repositories/product-category-query.repository';
+import { seedProductCategoriesTestData, TEST_TENANT_ID } from './seed-data.helper';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
+import { ProductCategoryModel } from '../../../../components/product-catalog/infrastructure/entities/product-category.model';
+
+describe('ProductCategoryQueryRepository - Integration Tests', () => {
+  let module: TestingModule;
+  let dataSource: DataSource;
+  let queryRunner: QueryRunner;
+  let repository: IProductCategoryQueryRepository;
+
+  beforeAll(async () => {
+    module = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        TypeOrmModule.forRoot({
+          type: 'mariadb',
+          host: process.env.DB_HOST || 'localhost',
+          port: parseInt(process.env.DB_PORT || '3306'),
+          username: process.env.DB_USERNAME || 'root',
+          password: process.env.DB_PASSWORD || '',
+          database: process.env.DB_DATABASE || 'test_db',
+          synchronize: false,
+          logging: false,
+          entities: [ProductCategoryModel],
+        }),
+        TypeOrmModule.forFeature([ProductCategoryModel]),
+      ],
+      providers: [
+        {
+          provide: 'IProductCategoryQueryRepository',
+          useClass: ProductCategoryQueryRepository,
+        },
+      ],
+    }).compile();
+
+    dataSource = module.get(DataSource);
+    repository = module.get<IProductCategoryQueryRepository>('IProductCategoryQueryRepository');
+  });
+
+  beforeEach(async () => {
+    queryRunner = dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    await seedProductCategoriesTestData(queryRunner);
+  });
+
+  afterEach(async () => {
+    await queryRunner.rollbackTransaction();
+    await queryRunner.release();
+  });
+
+  afterAll(async () => {
+    await module.close();
+  });
+
+  describe('Pairwise Tests - activeStatuses × productCategoryAncestors', () => {
+    const pairwiseTestCases = [
+      {
+        acId: 'AC_Pairwise_01',
+        title: 'Pairwise: page 2',
+        input: { tenantId: TEST_TENANT_ID, productCategoryName: 'Điện thoại 123', page: 2, size: 10 },
+        expected: { page: 2, size: 10 },
+      },
+      {
+        acId: 'AC_Pairwise_02',
+        title: 'Pairwise: empty productCategoryAncestors',
+        input: { tenantId: TEST_TENANT_ID, productCategoryName: 'Điện thoại 123', productCategoryAncestors: [], page: 1, size: 20 },
+        expected: { page: 1, size: 20 },
+      },
+      {
+        acId: 'AC_Pairwise_03',
+        title: 'Pairwise: single productCategoryAncestor',
+        input: { tenantId: TEST_TENANT_ID, productCategoryName: 'Điện thoại 123', productCategoryAncestors: [1], page: 1, size: 20 },
+        expected: { page: 1, size: 20 },
+      },
+      {
+        acId: 'AC_Pairwise_05',
+        title: 'Pairwise: empty activeStatuses',
+        input: { tenantId: TEST_TENANT_ID, productCategoryName: 'Điện thoại 123', activeStatuses: [], page: 1, size: 20 },
+        expected: { page: 1, size: 20 },
+      },
+      {
+        acId: 'AC_Pairwise_09',
+        title: 'Pairwise: activeStatuses [0] only',
+        input: { tenantId: TEST_TENANT_ID, productCategoryName: 'Điện thoại 123', activeStatuses: [0], page: 1, size: 20 },
+        expected: { page: 1, size: 20, expectedActiveStatus: 0 },
+      },
+      {
+        acId: 'AC_Pairwise_14',
+        title: 'Pairwise: activeStatuses [1] + empty ancestors',
+        input: { tenantId: TEST_TENANT_ID, productCategoryName: 'Điện thoại 123', activeStatuses: [1], productCategoryAncestors: [], page: 1, size: 20 },
+        expected: { page: 1, size: 20, expectedActiveStatus: 1 },
+      },
+      {
+        acId: 'AC_Pairwise_20',
+        title: 'Pairwise: no data case',
+        input: { tenantId: TEST_TENANT_ID, productCategoryName: 'NonExistentCategory12345', activeStatuses: [0, 1], productCategoryAncestors: [1, 2], page: 1, size: 20 },
+        expected: { total: 0, page: 1, size: 20 },
+      },
+    ];
+
+    it.each(pairwiseTestCases)('[$acId] $title', async ({ acId, input, expected }) => {
+      // Act
+      const models = await repository.findAll(
+        input.tenantId,
+        input.productCategoryName,
+        input.activeStatuses,
+        input.productCategoryAncestors,
+        input.page,
+        input.size,
+      );
+
+      const total = await repository.count(
+        input.tenantId,
+        input.productCategoryName,
+        input.activeStatuses,
+        input.productCategoryAncestors,
+      );
+
+      // Assert
+      expect(Array.isArray(models)).toBe(true);
+      expect(total).toBeGreaterThanOrEqual(0);
+
+      if (expected.total !== undefined) {
+        expect(total).toBe(expected.total);
+      }
+
+      if (expected.expectedActiveStatus !== undefined && models.length > 0) {
+        models.forEach((model) => {
+          expect(Number(model.active_status)).toBe(expected.expectedActiveStatus);
+        });
+      }
+
+      // Verify model structure
+      if (models.length > 0) {
+        const firstModel = models[0];
+        expect(firstModel).toHaveProperty('id');
+        expect(firstModel).toHaveProperty('name');
+        expect(firstModel).toHaveProperty('tenant_id');
+        expect(firstModel).toHaveProperty('active_status');
+      }
+    });
+  });
+});
+
+
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { DataSource, QueryRunner } from 'typeorm';
+import request from 'supertest';
+import { AppModule } from '../../../../app.module';
+import {
+  cleanup,
+  seedProductCategoriesTestData,
+  seedTestData,
+  TEST_PARENT_CATEGORY_ID,
+  TEST_USER_CREDENTIALS,
+  TEST_USER_WITHOUT_PERMISSION_CREDENTIALS,
+} from './seed-data.helper';
+
+describe('GET /api/v1/product-catalog/product-categories E2E', () => {
+  let app: INestApplication;
+  let dataSource: DataSource;
+  let queryRunner: QueryRunner;
+  let accessTokenWithPermission: string;
+  let accessTokenWithoutPermission: string;
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        transform: false,
+        forbidUnknownValues: false,
+      })
+    );
+    await app.init();
+
+    dataSource = app.get(DataSource);
+    await seedTestData(dataSource);
+
+    // Login user with permission
+    const loginRes = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({
+        username: TEST_USER_CREDENTIALS.username,
+        password: TEST_USER_CREDENTIALS.password,
+        softwareId: TEST_USER_CREDENTIALS.softwareId,
+      });
+    expect(loginRes.status).toBeLessThan(400);
+    accessTokenWithPermission = loginRes.body?.data?.accessToken || loginRes.body?.accessToken;
+    expect(accessTokenWithPermission).toBeDefined();
+
+    // Login user without permission
+    const loginResNoScope = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({
+        username: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.username,
+        password: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.password,
+        softwareId: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.softwareId,
+      });
+    expect(loginResNoScope.status).toBeLessThan(400);
+    accessTokenWithoutPermission = loginResNoScope.body?.data?.accessToken || loginResNoScope.body?.accessToken;
+    expect(accessTokenWithoutPermission).toBeDefined();
+  });
+
+  beforeEach(async () => {
+    queryRunner = dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    await seedProductCategoriesTestData(queryRunner);
+  });
+
+  afterEach(async () => {
+    try {
+      await queryRunner.rollbackTransaction();
+    } finally {
+      await queryRunner.release();
+    }
+  });
+
+  afterAll(async () => {
+    await cleanup(dataSource);
+    await app.close();
+  });
+
+  it('AC_E2E_01: return successful response when user inputs valid data', async () => {
+    // Arrange
+    const query = {
+      productCategoryName: 'Điện thoại 123',
+      activeStatuses: JSON.stringify([1, 0]),
+      productCategoryAncestors: JSON.stringify([TEST_PARENT_CATEGORY_ID]),
+      page: 1,
+      size: 20,
+    };
+
+    // Act
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/product-catalog/product-categories')
+      .set('Authorization', `Bearer ${accessTokenWithPermission}`)
+      .query(query);
+
+    // Assert
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('total');
+    expect(res.body.total).toBe(2);
+    expect(res.body.page).toBe(1);
+    expect(res.body.size).toBe(20);
+    expect(Array.isArray(res.body.items)).toBe(true);
+  });
+
+  it('AC_E2E_02: return successful response when user inputs valid data but no data is matched', async () => {
+    // Arrange
+    const query = {
+      productCategoryName: 'Tên danh mục không tồn tại XYZ',
+      activeStatuses: [],
+      productCategoryAncestors: [],
+      page: 1,
+      size: 20,
+    };
+
+    // Act
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/product-catalog/product-categories')
+      .set('Authorization', `Bearer ${accessTokenWithPermission}`)
+      .query(query);
+
+    // Assert
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(0);
+    expect(res.body.page).toBe(1);
+    expect(res.body.size).toBe(20);
+    expect(Array.isArray(res.body.items)).toBe(true);
+  });
+
+  it('AC_E2E_03: return error response when user inputs invalid data', async () => {
+    // Arrange
+    const query = {
+      productCategoryName: "123",
+      activeStatuses: 1,
+      productCategoryAncestors: [TEST_PARENT_CATEGORY_ID],
+      page: 1,
+      size: 20,
+    };
+
+    // Act
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/product-catalog/product-categories')
+      .set('Authorization', `Bearer ${accessTokenWithPermission}`)
+      .query(query);
+
+    // Assert
+    expect(res.status).toBe(422);
+    expect(res.body).toHaveProperty('messageKey');
+    expect(res.body.messageKey).toContain('validation_error');
+    expect(Array.isArray(res.body.errors) || res.body.errors === undefined).toBe(true);
+  });
+
+  it('AC_E2E_04: return error response when Token is expired', async () => {
+    // Arrange
+    const query = {
+      productCategoryName: 'Điện thoại 123',
+      activeStatuses: [1],
+      productCategoryAncestors: [TEST_PARENT_CATEGORY_ID],
+      page: 1,
+      size: 20,
+    };
+
+    // Act
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/product-catalog/product-categories')
+      .query(query);
+
+    // Assert
+    expect(res.status).toBe(401);
+  });
+
+  it('AC_E2E_05: return error response when Permission is denied', async () => {
+    // Arrange
+    const query = {
+      productCategoryName: 'Điện thoại 123',
+      activeStatuses: [1],
+      productCategoryAncestors: [TEST_PARENT_CATEGORY_ID],
+      page: 1,
+      size: 20,
+    };
+
+    // Act
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/product-catalog/product-categories')
+      .set('Authorization', `Bearer ${accessTokenWithoutPermission}`)
+      .query(query);
+
+    // Assert
+    expect(res.status).toBe(403);
+  });
+});

@@ -671,7 +671,7 @@ implementation_knowledge:
       pattern_explanation: "Use <Domain>Controller for all operations on that domain entity"
 
       correct_pattern: |
-        // ✅ CORRECT: Single controller for all operations on one domain entity
+        // CORRECT: Single controller for all operations on one domain entity
         // NOTE: Replace <Domain>, <bounded-context>, <resources> with your actual names
         @Controller('api/v1/<bounded-context>')
         export class <Domain>Controller {
@@ -697,7 +697,7 @@ implementation_knowledge:
         }
 
       wrong_pattern: |
-        // ❌ WRONG: Separate controller for each operation
+        // WRONG: Separate controller for each operation
         @Controller('api/v1/<bounded-context>')
         export class <Action><Domain>Controller { /* ... */ }  // Don't do this!
 
@@ -1123,16 +1123,16 @@ implementation_knowledge:
         note: "Shared imports always start with ../../../../shared/"
 
     verification_checklist:
-      - "✅ All directory names are lowercase with hyphens (kebab-case)"
-      - "✅ All file names are kebab-case with appropriate suffix"
-      - "✅ Layer directories (presentation/application/infrastructure) present in path"
-      - "✅ Type directories (controllers/requests/queries/repositories/entities) present in path"
-      - "✅ Bounded context name is consistent throughout all paths"
-      - "✅ Repository interface in application/, implementation in infrastructure/"
-      - "✅ TypeORM models in infrastructure/entities/, NOT domain/entities/"
-      - "✅ Module file at bounded context root, not in layer subdirectory"
-      - "✅ All imports use relative paths, NOT absolute paths"
-      - "✅ Import paths correctly calculated from source to target file"
+      - "All directory names are lowercase with hyphens (kebab-case)"
+      - "All file names are kebab-case with appropriate suffix"
+      - "Layer directories (presentation/application/infrastructure) present in path"
+      - "Type directories (controllers/requests/queries/repositories/entities) present in path"
+      - "Bounded context name is consistent throughout all paths"
+      - "Repository interface in application/, implementation in infrastructure/"
+      - "TypeORM models in infrastructure/entities/, NOT domain/entities/"
+      - "Module file at bounded context root, not in layer subdirectory"
+      - "All imports use relative paths, NOT absolute paths"
+      - "Import paths correctly calculated from source to target file"
 
   validation_patterns:
     description: "Validation decorator patterns for common scenarios"
@@ -2025,5 +2025,4 @@ quality_checklist:
 
 config:
   api_version: "v1"
-  bounded_context_example: "product-catalog (use as reference pattern, NOT literal values)"
-  note: "All examples in this prompt use placeholders like <bounded-context>, <Domain>, <ComponentName>. Replace with actual values from your business requirements."
+  bounded_context: "product-catalog"
