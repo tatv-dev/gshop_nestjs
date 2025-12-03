@@ -665,37 +665,49 @@ implementation_knowledge:
     description: "CRITICAL: Controller structure rules for maintainability and scalability"
 
     rule_1_single_controller_per_bounded_context:
-      principle: "Create ONE controller per bounded context, NOT per endpoint"
+      principle: "Create ONE controller per domain entity, NOT per endpoint"
       rationale: "Makes it easy to add new queries/commands later without creating new controllers"
+
+      pattern_explanation: "Use <Domain>Controller for all operations on that domain entity"
+
       correct_pattern: |
-        // ✅ CORRECT: Single ProductCategoryController for all product category operations
-        @Controller('api/v1/product-catalog')
-        export class ProductCategoryController {
+        // ✅ CORRECT: Single controller for all operations on one domain entity
+        // NOTE: Replace <Domain>, <bounded-context>, <resources> with your actual names
+        @Controller('api/v1/<bounded-context>')
+        export class <Domain>Controller {
           constructor(
             private readonly queryBus: QueryBus,
             private readonly commandBus: CommandBus,
           ) {}
 
-          @Get('product-categories')  // GET list
+          @Get('<resources>')  // GET list
           async getList() { /* ... */ }
 
-          @Get('product-categories/:id')  // GET single (add later)
+          @Get('<resources>/:id')  // GET single (add later)
           async getById() { /* ... */ }
 
-          @Post('product-categories')  // CREATE (add later)
+          @Post('<resources>')  // CREATE (add later)
           async create() { /* ... */ }
 
-          @Put('product-categories/:id')  // UPDATE (add later)
+          @Put('<resources>/:id')  // UPDATE (add later)
           async update() { /* ... */ }
+
+          @Delete('<resources>/:id')  // DELETE (add later)
+          async delete() { /* ... */ }
         }
 
       wrong_pattern: |
         // ❌ WRONG: Separate controller for each operation
-        @Controller('api/v1/product-catalog')
-        export class GetListProductCategoryController { /* ... */ }
+        @Controller('api/v1/<bounded-context>')
+        export class <Action><Domain>Controller { /* ... */ }  // Don't do this!
 
+      concrete_example_for_reference: |
+        // Example ONLY (use placeholders in actual implementation):
         @Controller('api/v1/product-catalog')
-        export class CreateProductCategoryController { /* ... */ }
+        export class ProductCategoryController {
+          @Get('product-categories')
+          async getList() { }
+        }
 
     rule_2_inject_both_buses:
       principle: "ALWAYS inject BOTH QueryBus AND CommandBus in constructor"
@@ -742,16 +754,19 @@ implementation_knowledge:
       Request → Controller → DTO → QueryBus → Handler → Repository → Database
       Database → Repository → Models → Handler → Response DTO → Controller → Client
 
+    note: "All examples below use placeholders like <bc>, <domain>, <ComponentName>. Replace with actual names from your requirements."
+
     detailed_flow:
       step_1_http_request:
         component: "HTTP Client (Browser/Postman/etc.)"
         action: "Sends HTTP GET request with query parameters"
-        example: "GET /api/v1/product-catalog/product-categories?page=1&size=10"
+        pattern: "GET /api/v1/<bounded-context>/<resources>?param1=value1&param2=value2"
+        example_for_reference: "GET /api/v1/product-catalog/product-categories?page=1&size=10"
         headers: "Authorization: Bearer <JWT_TOKEN>"
 
       step_2_controller_entry:
         component: "Controller (Presentation Layer)"
-        file: "src/components/[bc]/presentation/controllers/[domain].controller.ts"
+        file: "src/components/<bc>/presentation/controllers/<domain>.controller.ts"
         responsibilities:
           - "Receives HTTP request"
           - "Validates JWT via JwtAuthGuard"
@@ -759,15 +774,15 @@ implementation_knowledge:
           - "Extracts tenantId/userId from JWT (@CurrentUser decorator)"
           - "Binds query params to Request DTO"
           - "Validates Request DTO via ValidationPipe"
-        example: |
-          @Get('product-categories')
-          @RequirePermissions('GET_LIST_PRODUCT_CATEGORY')
+        pattern: |
+          @Get('<resources>')
+          @RequirePermissions('<DERIVED_PERMISSION_NAME>')
           async getList(
-            @Query() request: GetListProductCategoryRequest,
+            @Query() request: <ComponentName>Request,
             @CurrentUser() user: any,
           ) {
             const tenantId = Number(user.tenantId);
-            const dto = new GetListProductCategoryDTO(tenantId, request.page, ...);
+            const dto = new <ComponentName>DTO(tenantId, request.field1, ...);
             return await this.queryBus.execute(dto);
           }
 
@@ -960,112 +975,152 @@ implementation_knowledge:
   file_path_structure_guide:
     description: "CRITICAL: Common file path mistakes and correct patterns"
 
-    bounded_context_examples:
-      product_catalog:
-        description: "Example for product-catalog bounded context"
+    general_patterns:
+      note: "Use these patterns for ANY bounded context and domain. Replace placeholders with actual names."
+      controller: "src/components/<bounded-context>/presentation/controllers/<domain>.controller.ts"
+      request_dto: "src/components/<bounded-context>/presentation/requests/<action-domain>.request.ts"
+      response_dto: "src/components/<bounded-context>/presentation/responses/<action-domain>.response.ts"
+      application_dto: "src/components/<bounded-context>/application/dtos/<action-domain>.dto.ts"
+      query_handler: "src/components/<bounded-context>/application/queries/<action-domain>.query-handler.ts"
+      command_handler: "src/components/<bounded-context>/application/commands/<action-domain>.command-handler.ts"
+      repository_interface: "src/components/<bounded-context>/application/repositories/<domain>-query.repository.ts"
+      repository_impl: "src/components/<bounded-context>/infrastructure/repositories/<domain>-query.repository.ts"
+      entity_model: "src/components/<bounded-context>/infrastructure/entities/<domain>.model.ts"
+      module: "src/components/<bounded-context>/<bounded-context>.module.ts"
+
+    placeholder_examples:
+      example_1:
+        description: "Example ONLY - demonstrates placeholder usage pattern"
+        bounded_context: "product-catalog"
+        domain: "product-category"
+        action: "get-list"
         controller: "src/components/product-catalog/presentation/controllers/product-category.controller.ts"
         request_dto: "src/components/product-catalog/presentation/requests/get-list-product-category.request.ts"
-        response_dto: "src/components/product-catalog/presentation/responses/get-list-product-category.response.ts"
-        application_dto: "src/components/product-catalog/application/dtos/get-list-product-category.dto.ts"
-        query_handler: "src/components/product-catalog/application/queries/get-list-product-category.query-handler.ts"
-        repository_interface: "src/components/product-catalog/application/repositories/product-category-query.repository.ts"
-        repository_impl: "src/components/product-catalog/infrastructure/repositories/product-category-query.repository.ts"
-        entity_model: "src/components/product-catalog/infrastructure/entities/product-category.model.ts"
-        module: "src/components/product-catalog/product-catalog.module.ts"
+        handler: "src/components/product-catalog/application/queries/get-list-product-category.query-handler.ts"
+        note: "This is JUST AN EXAMPLE. For your implementation, replace product-catalog, product-category, get-list with your actual bounded context, domain, and action names."
+
+      example_2:
+        description: "Another example showing different domain"
+        bounded_context: "order-management"
+        domain: "order"
+        action: "create"
+        controller: "src/components/order-management/presentation/controllers/order.controller.ts"
+        request_dto: "src/components/order-management/presentation/requests/create-order.request.ts"
+        handler: "src/components/order-management/application/commands/create-order.command-handler.ts"
+        note: "Again, this is JUST AN EXAMPLE to show the pattern. Use YOUR business domain names."
 
     common_mistakes:
+      note: "These examples use <bounded-context> and <domain> as placeholders. Replace with your actual names."
+
       mistake_1:
         error: "Using wrong bounded context name"
-        wrong: "src/components/product/presentation/..."
-        correct: "src/components/product-catalog/presentation/..."
-        fix: "Bounded context name MUST match the business domain, usually multi-word with hyphen"
+        wrong: "src/components/<wrong-bc>/presentation/..."
+        correct: "src/components/<bounded-context>/presentation/..."
+        fix: "Bounded context name MUST match the business domain from db_schema/requirements"
+        example: "If your BC is 'product-catalog', use 'product-catalog' NOT 'product' or 'catalog'"
 
       mistake_2:
         error: "Using PascalCase in directory names"
-        wrong: "src/components/ProductCatalog/Presentation/Controllers/..."
-        correct: "src/components/product-catalog/presentation/controllers/..."
+        wrong: "src/components/<BoundedContext>/Presentation/Controllers/..."
+        correct: "src/components/<bounded-context>/presentation/controllers/..."
         fix: "ALL directory names use lowercase kebab-case"
 
       mistake_3:
         error: "Wrong file naming for files with multiple words"
-        wrong: "getListProductCategory.request.ts"
-        correct: "get-list-product-category.request.ts"
+        wrong: "<ActionDomain>.request.ts (camelCase)"
+        correct: "<action-domain>.request.ts (kebab-case)"
         fix: "File names use kebab-case with type suffix (.request.ts, .handler.ts, etc.)"
 
       mistake_4:
         error: "Putting repository interface in infrastructure layer"
-        wrong: "src/components/[bc]/infrastructure/repositories/i-[domain]-query.repository.ts"
-        correct: "src/components/[bc]/application/repositories/[domain]-query.repository.ts"
+        wrong: "src/components/<bc>/infrastructure/repositories/i-<domain>-query.repository.ts"
+        correct: "src/components/<bc>/application/repositories/<domain>-query.repository.ts"
         fix: "Interface (Port) goes in APPLICATION layer, Implementation (Adapter) in INFRASTRUCTURE"
 
       mistake_5:
         error: "Wrong import paths (using absolute instead of relative)"
-        wrong: "import { Model } from 'src/components/product-catalog/...'"
+        wrong: "import { Model } from 'src/components/<bc>/...'"
         correct: "import { Model } from '../../infrastructure/entities/...'"
         fix: "ALWAYS use relative paths, calculate from current file location"
 
       mistake_6:
         error: "Module file in wrong location"
-        wrong: "src/components/product-catalog/infrastructure/product-catalog.module.ts"
-        correct: "src/components/product-catalog/product-catalog.module.ts"
+        wrong: "src/components/<bc>/infrastructure/<bc>.module.ts"
+        correct: "src/components/<bc>/<bc>.module.ts"
         fix: "Module file at ROOT of bounded context directory, NOT in layer subdirectory"
 
       mistake_7:
         error: "Using 'repositories' plural in file name"
-        wrong: "product-category-query.repositories.ts"
-        correct: "product-category-query.repository.ts"
+        wrong: "<domain>-query.repositories.ts"
+        correct: "<domain>-query.repository.ts"
         fix: "File name is singular, directory name is plural"
 
       mistake_8:
         error: "Missing layer name in path"
-        wrong: "src/components/product-catalog/get-list-product-category.request.ts"
-        correct: "src/components/product-catalog/presentation/requests/get-list-product-category.request.ts"
+        wrong: "src/components/<bc>/<action-domain>.request.ts"
+        correct: "src/components/<bc>/presentation/requests/<action-domain>.request.ts"
         fix: "Must include layer (presentation/application/infrastructure/domain) in path"
 
       mistake_9:
         error: "Wrong entity file location"
-        wrong: "src/components/product-catalog/domain/entities/product-category.model.ts"
-        correct: "src/components/product-catalog/infrastructure/entities/product-category.model.ts"
+        wrong: "src/components/<bc>/domain/entities/<domain>.model.ts"
+        correct: "src/components/<bc>/infrastructure/entities/<domain>.model.ts"
         fix: "TypeORM entity models are INFRASTRUCTURE concern, NOT domain"
 
       mistake_10:
         error: "Inconsistent naming between interface and implementation"
-        wrong_interface: "product-category-repository.interface.ts"
-        wrong_impl: "product-category-repository.ts"
-        correct_interface: "product-category-query.repository.ts (in application layer)"
-        correct_impl: "product-category-query.repository.ts (in infrastructure layer)"
+        wrong_interface: "<domain>-repository.interface.ts"
+        wrong_impl: "<domain>-repository.ts"
+        correct_interface: "<domain>-query.repository.ts (in application layer)"
+        correct_impl: "<domain>-query.repository.ts (in infrastructure layer)"
         fix: "Same base name for both, distinguished by directory location"
 
     path_calculation_examples:
-      from_controller_to_request:
-        from: "src/components/product-catalog/presentation/controllers/product-category.controller.ts"
-        to: "src/components/product-catalog/presentation/requests/get-list-product-category.request.ts"
-        import: "import { GetListProductCategoryRequest } from '../requests/get-list-product-category.request';"
-        calculation: "Same presentation layer, go up one level (..), then into requests/"
+      note: "Use <bc>, <domain>, <action-domain> as placeholders below. Replace with your actual names."
 
-      from_handler_to_repository_interface:
-        from: "src/components/product-catalog/application/queries/get-list-product-category.query-handler.ts"
-        to: "src/components/product-catalog/application/repositories/product-category-query.repository.ts"
-        import: "import { IProductCategoryQueryRepository } from '../repositories/product-category-query.repository';"
-        calculation: "Same application layer, go up one level (..), then into repositories/"
+      pattern_1_same_layer_same_type:
+        description: "Within same layer, same type directory"
+        from: "src/components/<bc>/<layer>/<type>/<file1>.ts"
+        to: "src/components/<bc>/<layer>/<type>/<file2>.ts"
+        import: "import { Class } from './<file2>'"
+        calculation: "Same directory, use ./ prefix"
 
-      from_repository_impl_to_entity:
-        from: "src/components/product-catalog/infrastructure/repositories/product-category-query.repository.ts"
-        to: "src/components/product-catalog/infrastructure/entities/product-category.model.ts"
-        import: "import { ProductCategoryModel } from '../entities/product-category.model';"
-        calculation: "Same infrastructure layer, go up one level (..), then into entities/"
+      pattern_2_same_layer_different_type:
+        description: "Within same layer, different type directory"
+        from: "src/components/<bc>/presentation/controllers/<domain>.controller.ts"
+        to: "src/components/<bc>/presentation/requests/<action-domain>.request.ts"
+        import: "import { <ComponentName>Request } from '../requests/<action-domain>.request'"
+        calculation: "Go up one level (..), then into target type directory"
+        concrete_example: "controllers/ → ../requests/ (both in presentation/)"
 
-      from_repository_impl_to_interface:
-        from: "src/components/product-catalog/infrastructure/repositories/product-category-query.repository.ts"
-        to: "src/components/product-catalog/application/repositories/product-category-query.repository.ts"
-        import: "import { IProductCategoryQueryRepository } from '../../application/repositories/product-category-query.repository';"
-        calculation: "Go up to infrastructure (..),  up to product-catalog (../..), then into application/repositories"
+      pattern_3_cross_layer_down:
+        description: "From higher layer to lower layer (presentation → application)"
+        from: "src/components/<bc>/presentation/controllers/<domain>.controller.ts"
+        to: "src/components/<bc>/application/dtos/<action-domain>.dto.ts"
+        import: "import { <ComponentName>DTO } from '../../application/dtos/<action-domain>.dto'"
+        calculation: "Go up to presentation (..),  up to <bc> (../.. = 2 levels), then down to application/dtos/"
 
-      from_handler_to_response_dto:
-        from: "src/components/product-catalog/application/queries/get-list-product-category.query-handler.ts"
-        to: "src/components/product-catalog/presentation/responses/get-list-product-category.response.ts"
-        import: "import { GetListProductCategoryResponseDTO } from '../../presentation/responses/get-list-product-category.response';"
-        calculation: "Go up to application (..),  up to product-catalog (../..), then into presentation/responses"
+      pattern_4_cross_layer_up:
+        description: "From lower layer to higher layer (application → presentation)"
+        from: "src/components/<bc>/application/queries/<action-domain>.query-handler.ts"
+        to: "src/components/<bc>/presentation/responses/<action-domain>.response.ts"
+        import: "import { <ComponentName>ResponseDTO } from '../../presentation/responses/<action-domain>.response'"
+        calculation: "Go up to queries (..),  up to application (../.. = application/), then to presentation/responses/"
+
+      pattern_5_infrastructure_to_application:
+        description: "Repository Implementation importing Interface"
+        from: "src/components/<bc>/infrastructure/repositories/<domain>-query.repository.ts"
+        to: "src/components/<bc>/application/repositories/<domain>-query.repository.ts"
+        import: "import { I<Domain>QueryRepository } from '../../application/repositories/<domain>-query.repository'"
+        calculation: "Go up to repositories (..),  up to infrastructure (../..), then into application/repositories/"
+
+      pattern_6_to_shared:
+        description: "Any component importing from shared/"
+        from: "src/components/<bc>/<layer>/<type>/<file>.ts"
+        to: "src/shared/application/validators/custom-validators.ts"
+        import: "import { Validator } from '../../../../shared/application/validators/custom-validators'"
+        calculation: "Go up 4 levels to reach src/, then into shared/"
+        note: "Shared imports always start with ../../../../shared/"
 
     verification_checklist:
       - "✅ All directory names are lowercase with hyphens (kebab-case)"
@@ -1758,6 +1813,187 @@ implementation_knowledge:
         updated_at: Date;
       }
 
+  file_class_relationships:
+    description: "CRITICAL: Understanding relationships between files and classes for complete implementation"
+
+    relationship_diagram: |
+      HTTP Request
+          ↓
+      [Controller]                     (Presentation Layer)
+          ├─ imports: RequestDTO, ApplicationDTO, Guards, Decorators
+          ├─ injects: QueryBus / CommandBus
+          ↓
+      [Request DTO] → validates input  (Presentation Layer)
+          ├─ extends: BaseRequestDTO
+          ├─ imports: validators, transformers from shared/
+          ↓
+      [Application DTO]                (Application Layer - internal contract)
+          ├─ simple constructor with readonly fields
+          ├─ includes: JWT-extracted fields (tenantId, userId, etc.)
+          ↓
+      [Query/Command Handler]          (Application Layer - orchestration)
+          ├─ decorator: @QueryHandler(ApplicationDTO) or @CommandHandler(ApplicationDTO)
+          ├─ implements: IQueryHandler<DTO, ResponseDTO> or ICommandHandler<DTO>
+          ├─ injects: Repository Interface (via @Inject token)
+          ├─ imports: Repository Interface, Response DTO, Exceptions
+          ├─ calls: repository.findAll(), repository.count()
+          ├─ maps: Models → Response DTOs (snake_case → camelCase)
+          ↓
+      [Repository Interface]           (Application Layer - Port/Contract)
+          ├─ defines: method signatures
+          ├─ imports: TypeORM Model from infrastructure
+          ├─ returns: Promise<Model[]>, Promise<number>
+          ↓
+      [Repository Implementation]      (Infrastructure Layer - Adapter)
+          ├─ decorator: @Injectable()
+          ├─ implements: Repository Interface
+          ├─ injects: TypeORM Repository<Model> via @InjectRepository
+          ├─ imports: Model, Repository Interface
+          ├─ uses: QueryBuilder to build dynamic SQL
+          ├─ returns: TypeORM Models
+          ↓
+      [TypeORM Entity Model]           (Infrastructure Layer - ORM mapping)
+          ├─ decorator: @Entity('table_name')
+          ├─ properties: snake_case matching database columns
+          ├─ decorators: @Column, @PrimaryGeneratedColumn, @Index
+          ↓
+      Database (MariaDB/MySQL)
+          ↑
+      [Response back up the chain]
+          Model → Handler (maps to DTO) → Controller → HTTP Response
+
+    key_relationships:
+      controller_to_request_dto:
+        relationship: "Controller receives and validates Request DTO"
+        import_path: "import { <ComponentName>Request } from '../requests/<component-name>.request'"
+        usage: "@Query() request: <ComponentName>Request"
+        note: "Controller does NOT modify Request DTO, only passes validated values to Application DTO"
+
+      controller_to_application_dto:
+        relationship: "Controller creates Application DTO from Request DTO + JWT fields"
+        import_path: "import { <ComponentName>DTO } from '../../application/dtos/<component-name>.dto'"
+        usage: "const dto = new <ComponentName>DTO(tenantId, request.field1, request.field2)"
+        note: "Application DTO includes BOTH request params AND JWT-extracted context"
+
+      controller_to_bus:
+        relationship: "Controller dispatches DTO to appropriate bus"
+        import_path: "import { QueryBus, CommandBus } from '@nestjs/cqrs'"
+        usage: "return await this.queryBus.execute(dto)"
+        note: "Bus routes DTO to handler based on @QueryHandler/@CommandHandler decorator"
+
+      handler_to_repository_interface:
+        relationship: "Handler depends on Repository Interface (Dependency Inversion)"
+        import_path: "import { I<Domain>QueryRepository } from '../repositories/<domain>-query.repository'"
+        injection: "@Inject('I<Domain>QueryRepository') private readonly repository: I<Domain>QueryRepository"
+        usage: "const models = await this.repository.findAll(...)"
+        note: "Handler depends on INTERFACE, not implementation (Hexagonal Architecture)"
+
+      handler_to_response_dto:
+        relationship: "Handler maps models to Response DTOs"
+        import_path: "import { <ComponentName>ResponseDTO } from '../../presentation/responses/<component-name>.response'"
+        usage: "return <ComponentName>ResponseDTO.create(data, page, size, total)"
+        note: "Handler performs snake_case → camelCase mapping"
+
+      repository_impl_to_interface:
+        relationship: "Repository Implementation implements Interface"
+        import_path: "import { I<Domain>QueryRepository } from '../../application/repositories/<domain>-query.repository'"
+        usage: "export class <Domain>QueryRepository implements I<Domain>QueryRepository"
+        note: "Infrastructure layer implements contract defined in Application layer"
+
+      repository_impl_to_model:
+        relationship: "Repository works with TypeORM Models"
+        import_path: "import { <Domain>Model } from '../entities/<domain>.model'"
+        injection: "@InjectRepository(<Domain>Model) private readonly repository: Repository<<Domain>Model>"
+        usage: "this.repository.createQueryBuilder('alias')"
+        note: "Repository returns Models, Handler maps them to DTOs"
+
+      model_to_database:
+        relationship: "TypeORM Model maps to database table"
+        decorator: "@Entity('table_name')"
+        mapping: "@Column({ name: 'database_column_name' })"
+        note: "Model uses snake_case to match database, Handler converts to camelCase for API"
+
+    dependency_injection_chain:
+      module_registers_providers: |
+        Module (@Module decorator) registers:
+        1. Controllers (imports array)
+        2. Handlers (@QueryHandler/@CommandHandler - auto-registered by CqrsModule)
+        3. Repository Implementations (providers: [{ provide: 'IRepository', useClass: RepositoryImpl }])
+        4. TypeORM Models (TypeOrmModule.forFeature([Model]))
+
+      injection_flow: |
+        NestJS DI Container:
+        1. Creates Repository Implementation instance (injects TypeORM Repository)
+        2. Registers with token 'I<Domain>QueryRepository'
+        3. Handler requests 'I<Domain>QueryRepository' → receives Implementation
+        4. Controller requests QueryBus/CommandBus → receives from CqrsModule
+        5. CqrsModule routes DTO to Handler based on decorator metadata
+
+    naming_correlation:
+      description: "How naming conventions connect related files"
+
+      example_feature: "GetListProductCategory (for demonstration only)"
+
+      patterns:
+        controller_method: "getList() in <Domain>Controller"
+        request_dto_file: "get-list-<domain>.request.ts"
+        request_dto_class: "<ComponentName>Request (e.g., GetListProductCategoryRequest)"
+        application_dto_file: "get-list-<domain>.dto.ts"
+        application_dto_class: "<ComponentName>DTO (e.g., GetListProductCategoryDTO)"
+        handler_file: "get-list-<domain>.query-handler.ts"
+        handler_class: "<ComponentName>QueryHandler (e.g., GetListProductCategoryQueryHandler)"
+        response_dto_file: "get-list-<domain>.response.ts"
+        response_dto_class: "<ComponentName>ResponseDTO (e.g., GetListProductCategoryResponseDTO)"
+        repository_interface_file: "<domain>-query.repository.ts (in application/repositories/)"
+        repository_interface_class: "I<Domain>QueryRepository (e.g., IProductCategoryQueryRepository)"
+        repository_impl_file: "<domain>-query.repository.ts (in infrastructure/repositories/)"
+        repository_impl_class: "<Domain>QueryRepository (e.g., ProductCategoryQueryRepository)"
+        model_file: "<domain>.model.ts"
+        model_class: "<Domain>Model (e.g., ProductCategoryModel)"
+
+      correlation_rules:
+        - "All files for one feature share same action prefix (get-list-, create-, update-, delete-)"
+        - "Controller method name (getList) matches action in file names (get-list-)"
+        - "Domain name consistent across all files (<domain> = product-category)"
+        - "Handler class decorated with Application DTO class: @QueryHandler(GetListProductCategoryDTO)"
+        - "Repository interface token matches interface name: 'IProductCategoryQueryRepository'"
+
+    import_path_relationships:
+      description: "How to calculate import paths between related files"
+
+      same_layer_same_type:
+        example: "Request DTO importing another Request DTO"
+        pattern: "import { OtherRequest } from './other.request'"
+
+      same_layer_different_type:
+        example: "Controller importing Request DTO"
+        from: "controllers/domain.controller.ts"
+        to: "requests/action-domain.request.ts"
+        path: "import { Request } from '../requests/action-domain.request'"
+
+      cross_layer_presentation_to_application:
+        example: "Controller importing Application DTO"
+        from: "presentation/controllers/domain.controller.ts"
+        to: "application/dtos/action-domain.dto.ts"
+        path: "import { DTO } from '../../application/dtos/action-domain.dto'"
+
+      cross_layer_application_to_presentation:
+        example: "Handler importing Response DTO"
+        from: "application/queries/action-domain.query-handler.ts"
+        to: "presentation/responses/action-domain.response.ts"
+        path: "import { ResponseDTO } from '../../presentation/responses/action-domain.response'"
+
+      cross_layer_infrastructure_to_application:
+        example: "Repository Implementation importing Interface"
+        from: "infrastructure/repositories/domain-query.repository.ts"
+        to: "application/repositories/domain-query.repository.ts"
+        path: "import { IRepository } from '../../application/repositories/domain-query.repository'"
+
+      shared_imports:
+        exceptions: "import { Exception } from '../../../../shared/application/exceptions/exception'"
+        validators: "import { Validator } from '../../../../shared/application/validators/custom-validators'"
+        base_dto: "import { BaseRequestDTO } from '../../../../shared/application/dtos/base-request.dto'"
+
 quality_checklist:
   implementation_quality:
     - "YAGNI: Only implement what tests require"
@@ -1786,3 +2022,8 @@ quality_checklist:
     - "Module properly configured with all providers"
     - "No circular dependencies"
     - "Clean import structure"
+
+config:
+  api_version: "v1"
+  bounded_context_example: "product-catalog (use as reference pattern, NOT literal values)"
+  note: "All examples in this prompt use placeholders like <bounded-context>, <Domain>, <ComponentName>. Replace with actual values from your business requirements."
