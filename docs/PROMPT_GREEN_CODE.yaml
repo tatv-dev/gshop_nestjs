@@ -18,7 +18,36 @@ core_principles:
       - "business_requirements: Business logic, rules, and requirements"
       - "db_schema: Database schema definition (tables, columns, FKs, constraints)"
 
+  generation_order:
+    description: "CRITICAL: Components must be generated in dependency order to avoid compilation errors"
+
+    mandatory_sequence:
+      1: "Application DTOs - Required by handlers as input parameters"
+      2: "Response DTOs - Required by handlers as return types"
+      3: "Repository Interfaces - Required by handlers for dependency injection"
+      4: "Query/Command Handlers - Depend on DTOs, Response DTOs, and Repository Interfaces"
+      5: "TypeORM Entity Models - Required by repository implementations"
+      6: "Repository Implementations - Implement interfaces, use entity models"
+      7: "Request DTOs - For API layer validation"
+      8: "Controllers - Orchestrate all components"
+      9: "Module Configuration - Wire everything together"
+
+    critical_rules:
+      - "NEVER generate handler before its DTO and Response DTO exist"
+      - "ALWAYS generate Application DTO (.dto.ts) file in application/dtos/"
+      - "ALWAYS generate Response DTO (.response.ts) file in presentation/responses/"
+      - "Handler execute() method signature MUST be: execute(dto: <DTO>): Promise<<Response>>"
+      - "If any DTO or Response file is missing, handler will have compilation errors"
+
 process:
+  generation_flow_notes:
+    description: "IMPORTANT: Step numbers indicate logical grouping, NOT strict execution order"
+    critical_dependencies:
+      - "Response DTOs (step_6.1) MUST be generated BEFORE Handlers (step_4.3)"
+      - "Application DTOs (step_4.1) MUST be generated BEFORE Handlers (step_4.3)"
+      - "Repository Interfaces (step_4.2) MUST be generated BEFORE Handlers (step_4.3)"
+      - "Recommended execution order: step_1 → step_2 → step_3 → step_4.1 → step_4.2 → step_6.1 → step_4.3 → step_5 → step_6.2 → step_6.3 → step_7 → step_8"
+
   step_1_analysis:
     description: "Analyze RED tests to extract implementation requirements"
     prompt: |
@@ -95,26 +124,36 @@ process:
       3. Apply implementation_knowledge.code_templates.domain_entity_template for code generation
 
   step_4_generate_application:
-    description: "Generate Application layer components"
+    description: "Generate Application layer components IN STRICT ORDER"
     prompt: |
-      1. Generate repository interfaces (Ports):
+      CRITICAL: Follow this exact order to avoid compilation errors:
+
+      1. FIRST: Generate application DTOs (.dto.ts):
+         - MANDATORY: Create file in application/dtos/ directory
+         - Extract DTO structure from handler tests
+         - Define constructor parameters matching test inputs
+         - Use immutable properties (readonly)
+         - Use implementation_knowledge.code_templates.application_dto_template
+         - File location: src/components/<bc>/application/dtos/<component-name>.dto.ts
+         - VALIDATION: Ensure file exists before proceeding to step 3
+
+      2. SECOND: Generate repository interfaces (Ports):
          - Extract method signatures from handler tests
          - Define return types from test assertions
          - Use implementation_knowledge.naming_conventions.application_layer
          - Use implementation_knowledge.code_templates.repository_interface_template
 
-      2. Generate application DTOs:
-         - Extract DTO structure from handler tests
-         - Define constructor parameters
-         - Use immutable properties (readonly)
-         - Use implementation_knowledge.code_templates.application_dto_template
-         
-      3. Generate Query/Command handlers:
+      3. THIRD: Generate Query/Command handlers:
+         - CRITICAL: Only generate AFTER application DTO and repository interface exist
+         - CRITICAL: Handler MUST import application DTO: import { <Name>DTO } from '../dtos/<name>.dto'
+         - CRITICAL: Handler MUST import response DTO: import { <Name>ResponseDTO } from '../../presentation/responses/<name>.response'
+         - CRITICAL: Handler execute() signature: execute(dto: <Name>DTO): Promise<<Name>ResponseDTO>
          - Inject repository interfaces via constructor
          - Implement execute() method to pass tests
          - Apply standard_knowledge.cqrs_principles
          - Handle exceptions as expected by tests
          - Use implementation_knowledge.code_templates.query_handler_template | implementation_knowledge.code_templates.command_handler_template
+         - VALIDATION: Ensure imports resolve correctly before proceeding
 
   step_5_generate_infrastructure:
     description: "Generate Infrastructure layer components"
@@ -137,9 +176,20 @@ process:
          - Apply transformations as needed
 
   step_6_generate_presentation:
-    description: "Generate Presentation layer components"
+    description: "Generate Presentation layer components IN STRICT ORDER"
     prompt: |
-      1. Generate Request DTOs:
+      CRITICAL: Response DTOs MUST be generated BEFORE handlers reference them
+
+      1. FIRST: Generate Response DTOs (.response.ts):
+         - MANDATORY: Create file in presentation/responses/ directory BEFORE step_4 handlers
+         - Extract structure from E2E test assertions
+         - Define properties based on expected response structure
+         - File location: src/components/<bc>/presentation/responses/<component-name>.response.ts
+         - CRITICAL: This file MUST exist before handler generation in step_4
+         - Use implementation_knowledge.code_templates.response_dto_template
+         - VALIDATION: Ensure file exists and exports <Name>ResponseDTO class
+
+      2. SECOND: Generate Request DTOs:
          - CRITICAL: ALL Request DTOs MUST extend BaseRequestDTO for validation error transformation
          - CRITICAL: Import BaseRequestDTO from '../../../../shared/application/dtos/base-request.dto'
          - CRITICAL: Import custom validators from '../../../../shared/application/validators/custom-validators'
@@ -153,12 +203,7 @@ process:
          - Apply implementation_knowledge.request_dto_generation_from_testplan for systematic DTO generation
          - Use implementation_knowledge.code_templates.request_dto_template
 
-      2. Generate Response DTOs:
-         - Extract structure from E2E test assertions
-         - Define properties based on expected response structure
-         - Use implementation_knowledge.code_templates.response_dto_template
-
-      3. Generate Controllers:
+      3. THIRD: Generate Controllers:
          - Extract HTTP method from E2E test (GET/POST/PUT/DELETE)
          - Extract endpoint URL from E2E test request
          - Inject QueryBus/CommandBus
@@ -184,7 +229,35 @@ process:
 
   step_8_validation:
     description: "Validate implementation against RED tests"
-    checklist:
+
+    file_existence_checklist:
+      application_layer:
+        - "CRITICAL: Application DTO file exists: src/components/<bc>/application/dtos/<component-name>.dto.ts"
+        - "CRITICAL: Application DTO exports class: export class <ComponentName>DTO"
+        - "CRITICAL: Repository interface file exists: src/components/<bc>/application/repositories/<domain>-query.repository.ts (for queries)"
+        - "CRITICAL: Handler file exists: src/components/<bc>/application/queries/<component-name>.query-handler.ts"
+
+      presentation_layer:
+        - "CRITICAL: Response DTO file exists: src/components/<bc>/presentation/responses/<component-name>.response.ts"
+        - "CRITICAL: Response DTO exports classes: export class <Domain>ResponseDTO and export class <ComponentName>ResponseDTO"
+        - "CRITICAL: Request DTO file exists: src/components/<bc>/presentation/requests/<component-name>.request.ts"
+        - "CRITICAL: Controller file exists: src/components/<bc>/presentation/controllers/<domain>.controller.ts"
+
+      infrastructure_layer:
+        - "TypeORM entity model exists: src/components/<bc>/infrastructure/entities/<domain>.model.ts"
+        - "Repository implementation exists: src/components/<bc>/infrastructure/repositories/<domain>-query.repository.ts"
+
+      module:
+        - "Module file exists: src/components/<bc>/<bc>.module.ts"
+
+    handler_signature_checklist:
+      - "CRITICAL: Handler imports application DTO: import { <Name>DTO } from '../dtos/<name>.dto'"
+      - "CRITICAL: Handler imports response DTO: import { <Name>ResponseDTO } from '../../presentation/responses/<name>.response'"
+      - "CRITICAL: Handler implements interface: implements IQueryHandler<<Name>DTO, <Name>ResponseDTO>"
+      - "CRITICAL: Handler execute signature: async execute(dto: <Name>DTO): Promise<<Name>ResponseDTO>"
+      - "CRITICAL: Handler returns correct response type matching signature"
+
+    general_checklist:
       - "All class names match test imports"
       - "All method signatures match test calls"
       - "All DTO properties match test assertions"
