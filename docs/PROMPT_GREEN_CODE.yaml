@@ -97,28 +97,68 @@ process:
          - Identify dependencies between components
 
   step_2_design:
-    description: "Design implementation structure based on test requirements"
+    description: "Design implementation structure based on RED test requirements"
     prompt: |
       1. Define component structure from test analysis:
-         - Extract class names from test imports
-         - Extract method signatures from test calls
-         - Extract DTO properties from test assertions
-         - Extract repository interface methods from handler tests
+        - Extract class names from all test imports
+        - Extract method signatures from test call patterns
+        - Extract DTO properties from all test assertions
+        - Extract repository interface methods from handler tests
+        - Extract entity fields from db_schema when repository returns domain models
 
-      2. Plan file structure:
-         - Use implementation_knowledge.techstack_mappings.component_type_mappings for file paths and naming
-         - Extract directory_full and file_naming_pattern from component_type_mappings
-         - Calculate import paths as relative paths
+      2. Determine Application DTO fields:
+        - Extract input properties from:
+            • handler test inputs
+            • query/command instantiation in tests
+            • request-to-application mapping rules
+        - Identify all fields that handler expects to receive
+        - Include pagination fields (page, size) if used or asserted in tests
+        - Apply required/optional rules based on test expectations
+        - Apply correct TypeScript types based on:
+            • test assertion types
+            • request DTO types
+            • business_requirements
+        - Ensure Application DTO is minimal but complete per test requirements
 
-      3. Plan dependency injection:
-         - Identify repository interfaces needed by handlers
-         - Identify services needed by components
-         - Plan module provider configuration
+      3. Determine Response DTO fields:
+        - Extract output fields asserted in tests:
+            • expected response properties
+            • nested object structures
+            • array element shapes
+        - Extract fields that handler returns from repository
+        - Extract required fields from business_requirements
+        - Ensure Response DTO exactly matches the response shape validated in tests
+        - Ensure naming, required/optional fields match test assertions
+        - Ensure transformation rules (e.g., mapping entity → DTO) are defined
 
-      4. Plan validation rules:
-         - Extract validation expectations from Request DTO tests
-         - Map test assertions to class-validator decorators
-         - Identify transformation requirements
+      4. Plan file structure:
+        - Use implementation_knowledge.techstack_mappings.component_type_mappings for file paths and naming
+        - Extract directory_full and file_naming_pattern from component_type_mappings
+        - Calculate import paths as relative paths for:
+            • DTOs
+            • handlers
+            • repositories
+            • entities
+            • controllers
+        - Ensure each file path matches mandatory_sequence generation order
+
+      5. Plan dependency injection:
+        - Identify repository interfaces required by each handler
+        - Identify any additional services required by logic
+        - Determine all providers and controllers required for the module
+        - Ensure module wiring respects mandatory_sequence and query_flow
+
+      6. Plan validation rules for Request DTO:
+        - Extract validation expectations from request DTO tests
+        - Map each test assertion to correct class-validator decorators
+        - Identify transformation requirements (e.g., @Type(() => Number))
+        - Ensure Request DTO → Application DTO mapping preserves types
+
+      7. Plan mapping flow:
+        - Ensure mapping aligns 100% with query_flow:
+            Request DTO → Application DTO → Handler → Repository → Entity → Response DTO
+        - Confirm that every required mapping step can be implemented based on extracted fields
+
 
   step_3_generate_application_dto:
     description: "Generate application DTO for QueryHandler/CommandHandler"
