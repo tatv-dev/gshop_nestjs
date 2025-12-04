@@ -81,6 +81,7 @@ process:
     - "[ ] 7. Request DTO"
     - "[ ] 8. Controller"
     - "[ ] 9. Module"
+    
   step_1_analysis:
     description: "Analyze RED tests to extract implementation requirements"
     prompt: |
