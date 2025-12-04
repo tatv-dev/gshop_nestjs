@@ -170,10 +170,11 @@ process:
     description: "Generate test method body using Arrange-Act-Assert pattern"
     prompt: |
       1. Generate test functions:
-         - For Request DTO UT: MANDATORY use INDIVIDUAL test functions (NOT it.each())
-         - Test function pattern: it('AC_UT_0X: <exact title from test_plan>', async () => { ... })
-         - CRITICAL: Each test case MUST be a separate it() function
-         - For other test types: May use it.each() if all test cases have identical assertion logic
+         - For Request DTO UT: MANDATORY use INDIVIDUAL test functions (NOT data-driven loops)
+         - CRITICAL: Each test case MUST be a separate test function
+         - For other test types: May use data-driven approach if all test cases have identical assertion logic
+         - Apply implementation_knowledge.test_structure_syntax for test function patterns
+         - Use AC ID from test_plan in test titles for traceability
 
       2. Generate Arrange phase:
          - For Request DTO UT: Declare input with values from test_plan, preserve exact data types
@@ -215,68 +216,68 @@ process:
     request_dto_ut_specific:
       description: "Request DTO Unit Test validation"
       checklist:
-        - "Each test case is individual it() function (NOT it.each)"
+        - "Each test case is individual test function (NOT data-driven loop)"
         - "Test title matches EXACTLY test_plan.testcase[i].title"
-        - "Test function pattern: it('AC_UT_0X: <title>', async () => { ... })"
-        - "Input declared as: const input: any = { ... }"
-        - "Include console.log for raw validation errors"
-        - "Include console.log for transformed errors with AC ID"
-        - "Use (RequestClass as any).transformValidationErrors() - static method"
-        - "Define findError helper function before assertions"
-        - "Use .toBe() for primitives, .toEqual() for arrays/objects"
-        - "Imports: validate from 'class-validator', plainToClass from 'class-transformer'"
+        - "Follow test function pattern from implementation_knowledge.test_structure_syntax"
+        - "Input declared with values from test_plan"
+        - "Include debug logging for raw validation errors"
+        - "Include debug logging for transformed errors with AC ID"
+        - "Use static transformValidationErrors method from base class"
+        - "Define helper function to find errors by field name"
+        - "Use appropriate equality assertions for primitives vs collections"
+        - "Follow import patterns from implementation_knowledge.import_syntax"
 
     e2e_test_specific:
       description: "E2E Test validation"
       checklist:
-        - "Array query params use JSON.stringify([...]) when non-empty"
-        - "Empty arrays passed as [] directly (no JSON.stringify)"
-        - "Login TWO users in beforeAll (with/without permission)"
-        - "Login requests send all 3 fields: username, password, softwareId"
-        - "Store both access tokens: accessTokenWithPermission, accessTokenWithoutPermission"
-        - "Use correct token for each test case"
-        - "Assert on response.body.items (NOT response.body.data)"
-        - "Assert pagination fields: total, page, size"
-        - "beforeAll: Seed core data with seedTestData(dataSource)"
-        - "beforeEach: Create queryRunner, connect, optionally start transaction"
-        - "afterEach: Rollback if needed, release queryRunner"
-        - "afterAll: Optional cleanup(dataSource), close app"
+        - "Apply implementation_knowledge.http_client_syntax.array_parameter_handling for query params"
+        - "Login TWO users in setup phase (with/without permission)"
+        - "Login requests include all required authentication fields"
+        - "Store separate access tokens for authorized and unauthorized tests"
+        - "Use correct token for each test case scenario"
+        - "Assert on correct response collection field (refer to standard_knowledge.assertion_principles)"
+        - "Assert pagination fields match expected response structure"
+        - "Setup phase: Seed core authorization data"
+        - "Before each test: Setup test isolation (transaction/connection management)"
+        - "After each test: Cleanup test isolation"
+        - "Teardown phase: Optional full cleanup and close application"
 
     seed_helper_specific:
       description: "seed-data.helper.ts validation"
       checklist:
-        - "All ID constants exported at top (TEST_* prefix, >= 100000)"
-        - "TWO credential constants with EXACTLY 3 fields each"
-        - "seedTestData() function wraps all seeds in transaction"
-        - "Seed softwares FIRST with INSERT IGNORE"
-        - "Other tables use ON DUPLICATE KEY UPDATE"
-        - "role_permissions does NOT use ON DUPLICATE KEY UPDATE"
-        - "Seed TWO users with same bcrypt hash '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y'"
+        - "All ID constants exported at top with test prefix (>= 100000)"
+        - "TWO credential constants with all required authentication fields"
+        - "Main seed function wraps all seeds in transaction"
+        - "Follow implementation_knowledge.seed_syntax.sql_patterns for idempotency"
+        - "Seed softwares FIRST using INSERT IGNORE pattern"
+        - "Most tables use upsert pattern (ON DUPLICATE KEY UPDATE)"
+        - "role_permissions uses INSERT only (no upsert to detect duplicates)"
+        - "Seed TWO users with same password hash (refer to implementation_knowledge.seed_syntax.password_hashing)"
         - "Seed TWO roles (with/without permission)"
-        - "role_permissions only links TEST_ROLE_WITH_PERMISSION_ID"
+        - "role_permissions only links role WITH permission"
         - "role_workspaces links BOTH roles to their workspaces"
         - "cleanup() uses TRUNCATE with FK checks disabled"
-        - "REQUIRED_PERMISSION_NAME constant matches derived permission"
-        - "seedTestData() commits transaction on success, rollbacks on error"
+        - "Permission name constant matches derived permission from component name"
+        - "Main seed function commits on success, rollbacks on error"
 
     handler_it_specific:
       description: "Handler Integration Test validation"
       checklist:
-        - "Use dynamic import: await import('...')"
-        - "Get handler: moduleRef.get<any>(HandlerClass)"
-        - "Execute with currentUser object: { tenantId, ... }"
-        - "Seed data in beforeEach with transaction"
-        - "Rollback in afterEach"
-        - "Assert result.toBeDefined()"
+        - "Use dynamic import to load handler class"
+        - "Retrieve handler from dependency injection container"
+        - "Execute handler with user context object"
+        - "Seed test data in setup phase with transaction"
+        - "Rollback transaction in cleanup phase"
+        - "Assert result is defined and matches expected structure"
 
     repository_it_specific:
       description: "Repository Integration Test validation"
       checklist:
-        - "Import repository interface and implementation"
-        - "Call repository method directly"
-        - "Seed data in beforeEach with transaction"
-        - "Rollback in afterEach"
-        - "Assert on returned models structure"
+        - "Import repository interface and implementation classes"
+        - "Call repository methods directly (not through handler)"
+        - "Seed test data in setup phase with transaction"
+        - "Rollback transaction in cleanup phase"
+        - "Assert on returned data structure and types"
 
 standard_knowledge:
   architecture_principles:
