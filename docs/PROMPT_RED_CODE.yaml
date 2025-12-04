@@ -34,7 +34,7 @@ process:
       3. Derive component information from test_plan.component_under_test + naming_conventions:
          - Generate class names using implementation_knowledge.naming_conventions
          - Calculate file paths using implementation_knowledge.file_structure
-         - Generate endpoint URL from component_under_test (e.g., GetListProductCategory → /product-categories)
+         - Generate endpoint URL from component_under_test (e.g., <Action><Domain> → /<resources>)
          - Identify JWT-decoded fields from test_plan.input (fields NOT in input are typically from JWT)
          - Generate permission name from component_under_test using standard_knowledge.seed_data_principles.permission_naming_convention
 
@@ -154,9 +154,9 @@ process:
          - Example E2E GET input:
            ```typescript
            {
-             productCategoryName: 'search term',  // string → direct
-             activeStatuses: JSON.stringify([1, 0]),  // non-empty array → JSON.stringify
-             productCategoryAncestors: [],  // empty array → direct
+             searchField: 'search term',  // string → direct
+             statusArray: JSON.stringify([1, 0]),  // non-empty array → JSON.stringify
+             filterArray: [],  // empty array → direct
              page: 1,  // number → direct
              size: 20  // number → direct
            }
@@ -896,10 +896,10 @@ implementation_knowledge:
       controller: "[domain].controller.ts"
       note: "MANDATORY: All source files use kebab-case"
       examples:
-        - "GetListProductCategoryRequest → get-list-product-category.request.ts"
-        - "GetListProductCategoryQueryHandler → get-list-product-category.query-handler.ts"
-        - "IProductCategoryQueryRepository → i-product-category-query.repository.ts"
-        - "ProductCategoryQueryRepository → product-category-query.repository.ts"
+        - "<Action><Domain>Request → <action-domain>.request.ts"
+        - "<Action><Domain>QueryHandler → <action-domain>.query-handler.ts"
+        - "I<Domain>QueryRepository → i-<domain>-query.repository.ts"
+        - "<Domain>QueryRepository → <domain>-query.repository.ts"
 
     test_suite_naming:
       description: "Test suite (describe block) naming"
@@ -914,19 +914,19 @@ implementation_knowledge:
     class_name_derivation:
       from_component_under_test: "test_plan.component_under_test already contains the class name"
       examples:
-        - "component_under_test: 'GetListProductCategoryRequest' → class name: 'GetListProductCategoryRequest'"
-        - "component_under_test: 'GetListProductCategoryQueryHandler' → class name: 'GetListProductCategoryQueryHandler'"
+        - "component_under_test: '<Action><Domain>Request' → class name: '<Action><Domain>Request'"
+        - "component_under_test: '<Action><Domain>QueryHandler' → class name: '<Action><Domain>QueryHandler'"
 
     endpoint_url_derivation:
       description: "Derive REST endpoint from component name"
       pattern: "/api/v1/[bounded-context]/[resource-plural]"
       algorithm: |
         1. Extract Action and Domain from component_under_test
-           - GetListProductCategory → Action: GetList, Domain: ProductCategory
+           - <Action><Domain> → Action: <Action>, Domain: <Domain>
         2. Convert Domain to kebab-case plural
-           - ProductCategory → product-categories
+           - <Domain> → <resources>
         3. Combine with bounded-context
-           - /api/v1/product-catalog/product-categories
+           - /api/v1/<bounded-context>/<resources>
       http_method_mapping:
         GetList: "GET"
         Get: "GET"
@@ -939,14 +939,13 @@ implementation_knowledge:
       pattern: "<ACTION>_<DOMAIN>"
       algorithm: |
         1. Extract Action and Domain from component_under_test
-           - Example: "GetListProductCategory" → Action: "GetList", Domain: "ProductCategory"
+           - Example: "<Action><Domain>" → Action: "<Action>", Domain: "<Domain>"
         2. Convert Action to UPPER_SNAKE_CASE
-           - "GetList" → "GET_LIST"
-           - "Create" → "CREATE"
+           - "<Action>" → "<ACTION>"
         3. Convert Domain to UPPER_SNAKE_CASE
-           - "ProductCategory" → "PRODUCT_CATEGORY"
+           - "<Domain>" → "<DOMAIN>"
         4. Concatenate with underscore
-           - "GET_LIST" + "_" + "PRODUCT_CATEGORY" = "GET_LIST_PRODUCT_CATEGORY"
+           - "<ACTION>" + "_" + "<DOMAIN>" = "<ACTION>_<DOMAIN>"
 
       critical_note: "Permission name MUST match EXACTLY the permission required by the endpoint being tested"
 
@@ -964,11 +963,11 @@ implementation_knowledge:
         export const REQUIRED_PERMISSION_NAME = '<DERIVED_PERMISSION_NAME>';
 
       examples:
-        - "GetListProductCategory → GET_LIST_PRODUCT_CATEGORY"
-        - "CreateProductCategory → CREATE_PRODUCT_CATEGORY"
-        - "GetProductCategory → GET_PRODUCT_CATEGORY"
-        - "UpdateProductCategory → UPDATE_PRODUCT_CATEGORY"
-        - "DeleteProductCategory → DELETE_PRODUCT_CATEGORY"
+        - "GetList<Domain> → GET_LIST_<DOMAIN>"
+        - "Create<Domain> → CREATE_<DOMAIN>"
+        - "Get<Domain> → GET_<DOMAIN>"
+        - "Update<Domain> → UPDATE_<DOMAIN>"
+        - "Delete<Domain> → DELETE_<DOMAIN>"
 
     jwt_fields_identification:
       description: "Identify which fields come from JWT vs request parameters"
@@ -988,7 +987,7 @@ implementation_knowledge:
 
     test_file_location:
       pattern: "src/tests/components/[bounded-context]/[feature]/"
-      example: "src/tests/components/product-catalog/get-list-product-category/"
+      example: "src/tests/components/<bounded-context>/<action-domain>/"
       note: "All segments must use kebab-case"
 
     source_file_locations:
@@ -1492,15 +1491,15 @@ implementation_knowledge:
         const findError = (field: string) => errors.find(e => e.field === field);
 
         // Assert each field error
-        const nameError = findError('productCategoryName');
-        expect(nameError).toBeDefined();
-        expect(nameError?.value).toBe(123);
-        expect(nameError?.messageKey).toBe('validation_error.wrong_type_string');
+        const field1Error = findError('field1');
+        expect(field1Error).toBeDefined();
+        expect(field1Error?.value).toBe(invalidValue);
+        expect(field1Error?.messageKey).toBe('validation_error.wrong_type_string');
 
-        const statusError = findError('activeStatuses');
-        expect(statusError).toBeDefined();
-        expect(statusError?.value).toBe("abc");
-        expect(statusError?.messageKey).toBe('validation_error.wrong_type_array');
+        const field2Error = findError('field2');
+        expect(field2Error).toBeDefined();
+        expect(field2Error?.value).toBe(invalidValue);
+        expect(field2Error?.messageKey).toBe('validation_error.wrong_type_array');
 
     critical_notes:
       - "ALWAYS use RequestClass.transformValidationErrors(validationErrors) - NOT manual error parsing"
@@ -1533,27 +1532,27 @@ implementation_knowledge:
       forbidden_403: "User lacks required permission (messageKey: 'insufficient_permissions')"
 
   code_templates:
-    description: "Complete code templates based on actual get-list-product-category implementation"
-    note: "These templates are 100% based on real working code - use as reference for generating new tests"
+    description: "Complete code templates with placeholders for generating tests"
+    note: "These templates use placeholders that should be replaced with actual values based on your domain and business requirements"
 
     usage_guidelines:
       description: "How to use these templates effectively"
       placeholders:
-        - "<ComponentName>: PascalCase class name (e.g., GetListProductCategory)"
-        - "<component-name>: kebab-case file name (e.g., get-list-product-category)"
-        - "<bounded-context>: kebab-case BC name (e.g., product-catalog)"
-        - "<Domain>: Domain entity name (e.g., ProductCategory)"
-        - "<domain>: lowercase domain name (e.g., product-category)"
-        - "<DomainName>: Domain without spaces (e.g., ProductCategory)"
-        - "<domain-name>: kebab-case domain (e.g., product-category)"
-        - "<DOMAIN_CONSTANT>: UPPER_SNAKE_CASE (e.g., PARENT_CATEGORY)"
-        - "<DERIVED_PERMISSION_NAME>: Generated permission (e.g., GET_LIST_PRODUCT_CATEGORY)"
-        - "<DomainSpecific>: Domain-specific function prefix (e.g., ProductCategories)"
-        - "<resources>: Plural resource name (e.g., product-categories)"
+        - "<ComponentName>: PascalCase class name (e.g., GetList<Domain>, Create<Domain>)"
+        - "<component-name>: kebab-case file name (e.g., get-list-<domain>, create-<domain>)"
+        - "<bounded-context>: kebab-case BC name (e.g., inventory, sales, customer-service)"
+        - "<Domain>: Domain entity name (e.g., Product, Order, Customer)"
+        - "<domain>: lowercase domain name (e.g., product, order, customer)"
+        - "<DomainName>: Domain without spaces (e.g., Product, Order, Customer)"
+        - "<domain-name>: kebab-case domain (e.g., product, order, customer)"
+        - "<DOMAIN_CONSTANT>: UPPER_SNAKE_CASE (e.g., PARENT_ITEM, MAIN_ENTITY)"
+        - "<DERIVED_PERMISSION_NAME>: Generated permission (e.g., GET_LIST_<DOMAIN>, CREATE_<DOMAIN>)"
+        - "<DomainSpecific>: Domain-specific function prefix (e.g., Products, Orders, Customers)"
+        - "<resources>: Plural resource name (e.g., products, orders, customers)"
         - "<HTTP_METHOD>: GET, POST, PUT, DELETE"
-        - "<FeatureName>: Feature name (e.g., GetListProductCategory)"
+        - "<FeatureName>: Feature name (e.g., GetList<Domain>, Create<Domain>)"
         - "<parameter1>, <parameter2>: Parameter names for pairwise testing"
-        - "<table_name>: Database table name (e.g., product_categories)"
+        - "<table_name>: Database table name (e.g., products, orders, customers)"
 
       critical_notes:
         arrays_in_e2e_get:
@@ -2212,5 +2211,5 @@ implementation_knowledge:
 
 config:
   api_version: "v1"
-  bounded_context: "product-catalog"
+  bounded_context: "<bounded-context>"
   auth_endpoint: "/api/v1/auth/login"
