@@ -19,13 +19,26 @@ core_principles:
       - "business_requirements: Business logic, rules, and requirements"
       - "db_schema: Database schema definition (tables, columns, FKs, constraints)"
 
+
   generation_order:
-    description: "CRITICAL: Components must be generated in dependency order to avoid compilation errors"
-    note: "See implementation_knowledge.techstack_mappings.generation_order_implementation for tech-specific details"
-    
+    description: "CRITICAL: Components must be generated in strict dependency order to avoid compilation errors."
+    note: "Use implementation_knowledge.techstack_mappings.generation_order_implementation for file naming and folder structure."
+
     query_flow:
-      Request → Controller → Application DTO → QueryBus → Handler → Repository → Database
-      Database → Repository → Models → Handler → Response DTO → Controller → Client
+      - "Request → Controller → Request DTO → Application DTO → QueryBus"
+      - "QueryBus → Handler → Repository Interface → Repository Implementation → Database"
+      - "Database → Repository → Domain Models → Handler → Response DTO → Controller → Client"
+
+    mapping_to_query_flow:
+      1: "Application DTOs ← Input for Handler in query_flow"
+      2: "Response DTOs ← Output returned by Handler"
+      3: "Repository Interfaces ← Required by Handler before Repository Impl"
+      4: "Handlers ← Execute business logic; must wait for DTOs + Repo Interface"
+      5: "Entity Models ← Required by Repository Implementations"
+      6: "Repository Implementations ← Implement Repository Interfaces, call DB/ORM"
+      7: "Request DTOs ← Controller-level input validation"
+      8: "Controllers ← Orchestrate Request DTO → Application DTO → Handler → Response DTO"
+      9: "Module Configuration ← Final step wiring all components together"
 
     mandatory_sequence:
       1: "Application DTOs - Required by handlers as input parameters"
@@ -39,12 +52,16 @@ core_principles:
       9: "Module Configuration - Wire everything together"
 
     critical_rules:
-      - "NEVER generate handler before its DTO and Response DTO exist"
-      - "ALWAYS generate Application DTO file in designated application layer directory"
-      - "ALWAYS generate Response DTO file in designated presentation layer directory"
-      - "Handler execute method signature MUST accept DTO input and return Response output"
-      - "If any DTO or Response file is missing, handler will have compilation errors"
-      - "Apply implementation_knowledge.techstack_mappings for specific file extensions and locations"
+      - "MUST generate ALL files in mandatory_sequence before proceeding to next steps."
+      - "NEVER generate a handler before its Application DTO and Response DTO exist."
+      - "ALWAYS generate Application DTO in application layer directory."
+      - "ALWAYS generate Response DTO in presentation layer directory."
+      - "Handler.execute(dto) MUST accept Application DTO and MUST return Response DTO."
+      - "If any DTO or Response file is missing → handler compilation WILL fail."
+      - "Repository Implementation MUST NOT be generated before Entity Models exist."
+      - "Controllers MUST NOT be generated before Request DTOs exist."
+      - "Follow implementation_knowledge.techstack_mappings for file extensions and directory structure."
+
 
 process:
   step_1_analysis:
