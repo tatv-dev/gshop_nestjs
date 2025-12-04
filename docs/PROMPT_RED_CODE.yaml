@@ -2211,5 +2211,5 @@ implementation_knowledge:
 
 config:
   api_version: "v1"
-  bounded_context: "<bounded-context>"
+  bounded_context: "product-catalog"
   auth_endpoint: "/api/v1/auth/login"
