@@ -30,10 +30,14 @@ core_principles:
     query_flow:
       - "STEP 1: Application DTO (Input Definition) [BLOCKER]"
       - "STEP 2: Response DTO (Output Definition) [BLOCKER]"
-      - "STEP 3: Repository Interface"
-      - "STEP 4: QueryBus/Handler (Depends on 1, 2, 3)"
-      - "STEP 5: Request DTO (Validation)"
-      - "STEP 6: Controller (Depends on 5, 1, 2)"
+      - "STEP 3: Repository Interface [BLOCKER]"
+      - "STEP 4: QueryBus/Handler (Depends on 1, 2, 3) [BLOCKER]"
+      - "STEP 5: Entity Models [BLOCKER]"
+      - "STEP 6: Repository Implementations (Depends on 3, 5) [BLOCKER]"
+      - "STEP 7: Request DTO (Validation) [BLOCKER]"
+      - "STEP 8: Controller (Depends on 7, 1, 2, 4) [BLOCKER]"
+      - "STEP 9: Module Configuration (Final wiring) [BLOCKER]"
+
 
     mapping_to_query_flow:
       1: "Application DTOs ← Input for Handler"
@@ -59,6 +63,24 @@ core_principles:
 
 
 process:
+  CRITICAL_INSTRUCTION:
+    description: "MANDATORY - You MUST generate ALL files in the exact order specified"
+    enforcement: |
+      - DO NOT STOP until all 9 files are generated
+      - DO NOT SKIP any file in the sequence
+      - Each file is MANDATORY and BLOCKING the next step
+      - If you stop before generating all files, the implementation will be INCOMPLETE and FAIL
+      
+  mandatory_file_checklist:
+    - "[ ] 1. Application DTO"
+    - "[ ] 2. Response DTO"
+    - "[ ] 3. Repository Interface"
+    - "[ ] 4. Query Handler/Command Handler"
+    - "[ ] 5. Entity Model"
+    - "[ ] 6. Repository Implementation"
+    - "[ ] 7. Request DTO"
+    - "[ ] 8. Controller"
+    - "[ ] 9. Module"
   step_1_analysis:
     description: "Analyze RED tests to extract implementation requirements"
     prompt: |
@@ -245,33 +267,37 @@ process:
          - Apply transformations as needed
 
   step_8_generate_presentation:
-    description: "Generate Presentation layer components"
-    prompt: |
-      1. FIRST: Generate Request DTOs:
-         - Use implementation_knowledge.techstack_mappings.component_type_mappings.request_dto
-         - CRITICAL: Request DTOs MUST extend base class defined in techstack mappings
-         - CRITICAL: Import required dependencies from techstack_mappings.component_type_mappings.request_dto.required_imports
-         - Extract field names from UT test cases (input sections from test_plan)
-         - Extract validation rules from UT test cases (expected.errors messageKey patterns)
-         - Map messageKey patterns to validation decorators (see implementation_knowledge.validation_decorator_mapping)
-         - CRITICAL: Use transform helpers as specified in techstack mappings
-         - Add validation decorators based on test assertions
-         - Apply implementation_knowledge.validation_patterns
-         - Apply implementation_knowledge.request_dto_generation_from_testplan for systematic DTO generation
-         - Use implementation_knowledge.code_templates.request_dto_template
+    description: "Generate Presentation layer components - BOTH Request DTO AND Controller"
+    critical_note: "This step generates 2 MANDATORY files. You MUST generate BOTH."
+    substep_8a_generate_request_dto:
+      description: "Generate Request DTO file"
+      prompt: |
+        - Use implementation_knowledge.techstack_mappings.component_type_mappings.request_dto
+        - CRITICAL: Request DTOs MUST extend base class defined in techstack mappings
+        - CRITICAL: Import required dependencies from techstack_mappings.component_type_mappings.request_dto.required_imports
+        - Extract field names from UT test cases (input sections from test_plan)
+        - Extract validation rules from UT test cases (expected.errors messageKey patterns)
+        - Map messageKey patterns to validation decorators (see implementation_knowledge.validation_decorator_mapping)
+        - CRITICAL: Use transform helpers as specified in techstack mappings
+        - Add validation decorators based on test assertions
+        - Apply implementation_knowledge.validation_patterns
+        - Apply implementation_knowledge.request_dto_generation_from_testplan for systematic DTO generation
+        - Use implementation_knowledge.code_templates.request_dto_template
 
-      2. SECOND: Generate Controllers:
-         - Use implementation_knowledge.techstack_mappings.component_type_mappings.controller
-         - Extract HTTP method from E2E test (GET/POST/PUT/DELETE)
-         - Extract endpoint URL from E2E test request
-         - Inject message bus components as per framework
-         - CRITICAL: Extract JWT fields from authentication context - NEVER accept these from request parameters
-         - Create Query/Command from Request DTO (merge with authentication fields)
-         - Execute via message bus
-         - Apply guards and decorators as defined in techstack_mappings.component_type_mappings.controller
-         - Apply permission decorators derived from component name
-         - Use implementation_knowledge.jwt_extraction_syntax
-         - Use implementation_knowledge.code_templates.controller_template
+    substep_8b_generate_controller:
+      description: "Generate Controller file - MANDATORY, do not skip"
+      prompt: |
+        - Use implementation_knowledge.techstack_mappings.component_type_mappings.controller
+        - Extract HTTP method from E2E test (GET/POST/PUT/DELETE)
+        - Extract endpoint URL from E2E test request
+        - Inject message bus components as per framework
+        - CRITICAL: Extract JWT fields from authentication context - NEVER accept these from request parameters
+        - Create Query/Command from Request DTO (merge with authentication fields)
+        - Execute via message bus
+        - Apply guards and decorators as defined in techstack_mappings.component_type_mappings.controller
+        - Apply permission decorators derived from component name
+        - Use implementation_knowledge.jwt_extraction_syntax
+        - Use implementation_knowledge.code_templates.controller_template
 
   step_9_generate_module:
     description: "Generate module configuration"
