@@ -1,0 +1,595 @@
+db_schema:
+  bounded_context: "ProductCatalog"
+  description: "Database schema cho Product Category management"
+  
+  ddl_statements: |
+    -- Bảng tenants (root table)
+    CREATE TABLE IF NOT EXISTS `tenants` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(50) NOT NULL,
+      `status` int(11) NOT NULL DEFAULT 1,
+      `remaining_account_quota` int(11) NOT NULL DEFAULT 0 COMMENT 'số lượng tài khoản có thể tạo thêm trong công ty',
+      `total_account_quota` int(11) NOT NULL DEFAULT 0 COMMENT 'số lượng tài khoản tối đa trong công ty, -1 là không giới hạn',
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `name` (`name`)
+    );
+
+    -- Bảng users (cho workspace)
+    CREATE TABLE IF NOT EXISTS `users` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `user_name` varchar(50) NOT NULL,
+      `password` varchar(200) NOT NULL,
+      `phone_number` varchar(50) DEFAULT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      `lock_counter` tinyint(4) DEFAULT NULL COMMENT 'Số lần đăng nhập sai liên tiếp',
+      `auto_lock_time` int(11) DEFAULT NULL COMMENT 'Thời gian khóa sau khi đăng nhập sai liên tiếp quá nhiều',
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `user_name` (`user_name`)
+    );
+
+    -- Bảng workspaces (liên kết user-tenant)
+    CREATE TABLE IF NOT EXISTS `workspaces` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `status` int(11) NOT NULL DEFAULT 1 COMMENT '0: tạm ngừng, 1: hoạt động',
+      `user_id` bigint(20) unsigned NOT NULL,
+      `tenant_id` bigint(20) unsigned NOT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_users_TO_workspaces` (`user_id`),
+      KEY `FK_tenants_TO_workspaces` (`tenant_id`),
+      CONSTRAINT `FK_tenants_TO_workspaces` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+      CONSTRAINT `FK_users_TO_workspaces` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+    );
+
+    -- Bảng branches (chi nhánh)
+    CREATE TABLE IF NOT EXISTS `branches` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(100) NOT NULL,
+      `tenant_id` bigint(20) unsigned NOT NULL DEFAULT 0,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      `primary_phone` varchar(20) NOT NULL,
+      `secondary_phone` varchar(20) DEFAULT NULL,
+      `note` varchar(250) DEFAULT NULL,
+      `address` varchar(200) DEFAULT NULL,
+      `code` varchar(100) DEFAULT NULL,
+      `status` int(11) NOT NULL DEFAULT 1 COMMENT '0: tạm ngừng, 1: hoạt động',
+      `creator_id` bigint(20) unsigned DEFAULT NULL,
+      PRIMARY KEY (`id`),
+      KEY `FK_tenants_TO_branches` (`tenant_id`),
+      KEY `idx_branches_created_at` (`created_at`),
+      KEY `FK_branch_employees_TO_creators` (`creator_id`),
+      FULLTEXT KEY `idx_branches_name_ft` (`name`),
+      CONSTRAINT `FK_branch_employees_TO_creators` FOREIGN KEY (`creator_id`) REFERENCES `employees` (`id`),
+      CONSTRAINT `FK_tenants_TO_branches` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
+    );
+
+    -- Bảng resellers (nhà phân phối)
+    CREATE TABLE IF NOT EXISTS `resellers` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(150) NOT NULL,
+      `tenant_id` bigint(20) unsigned NOT NULL,
+      `code` varchar(100) DEFAULT NULL,
+      `address` varchar(250) DEFAULT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      `phone` varchar(20) DEFAULT NULL,
+      `status` int(11) NOT NULL DEFAULT 1 COMMENT '0: tạm ngừng, 1: hoạt động',
+      `note` text DEFAULT NULL,
+      `creator_id` bigint(20) unsigned DEFAULT NULL,
+      PRIMARY KEY (`id`),
+      KEY `FK_tenants_TO_resellers` (`tenant_id`),
+      KEY `idx_resellers_created_at` (`created_at`),
+      FULLTEXT KEY `idx_resellers_name_ft` (`name`),
+      FULLTEXT KEY `idx_resellers_code_ft` (`code`),
+      CONSTRAINT `FK_tenants_TO_resellers` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
+    );
+
+    -- Bảng employees (nhân viên - có circular dependency với branches)
+    CREATE TABLE IF NOT EXISTS `employees` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(150) NOT NULL,
+      `workspace_id` bigint(20) unsigned NOT NULL,
+      `reseller_id` bigint(20) unsigned DEFAULT NULL,
+      `branch_id` bigint(20) unsigned DEFAULT NULL,
+      `status` int(11) NOT NULL DEFAULT 1 COMMENT '0: tạm ngừng, 1: hoạt động',
+      `dob` date DEFAULT NULL COMMENT 'ngày sinh',
+      `email` varchar(200) DEFAULT NULL COMMENT 'email',
+      `gender` int(11) DEFAULT 1 COMMENT '0: khác, 1: nam, 2: nữ',
+      `address` varchar(250) DEFAULT NULL,
+      `note` varchar(250) DEFAULT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `creator_id` bigint(20) unsigned DEFAULT NULL COMMENT 'người tạo',
+      `type` int(11) NOT NULL DEFAULT 1 COMMENT '0: tài khoản ẩn, 1: tài khoản bình thường',
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_workspaces_TO_employees` (`workspace_id`),
+      KEY `FK_resellers_TO_employees` (`reseller_id`),
+      KEY `FK_branches_TO_employees` (`branch_id`),
+      KEY `FK_employees_TO_employees` (`creator_id`),
+      KEY `idx_employees_created_at` (`created_at`),
+      FULLTEXT KEY `idx_employees_name_ft` (`name`),
+      CONSTRAINT `FK_branches_TO_employees` FOREIGN KEY (`branch_id`) REFERENCES `branches` (`id`),
+      CONSTRAINT `FK_employees_TO_employees` FOREIGN KEY (`creator_id`) REFERENCES `employees` (`id`),
+      CONSTRAINT `FK_resellers_TO_employees` FOREIGN KEY (`reseller_id`) REFERENCES `resellers` (`id`),
+      CONSTRAINT `FK_workspaces_TO_employees` FOREIGN KEY (`workspace_id`) REFERENCES `workspaces` (`id`)
+    );
+
+    -- Bảng permissions (quyền)
+    CREATE TABLE IF NOT EXISTS `permissions` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(50) NOT NULL,
+      `software_id` bigint(20) unsigned NOT NULL,
+      `permission_parent_id` bigint(20) unsigned DEFAULT NULL,
+      `type` int(11) NOT NULL DEFAULT 1 COMMENT '0: admin, 1 dành cho người dùng không phải admin',
+      `display_name` varchar(100) DEFAULT NULL COMMENT 'Tên của quyền để hiển thị lên UI',
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_softwares_TO_permissions` (`software_id`),
+      KEY `FK_permissions_TO_permissions` (`permission_parent_id`),
+      CONSTRAINT `FK_permissions_TO_permissions` FOREIGN KEY (`permission_parent_id`) REFERENCES `permissions` (`id`),
+      CONSTRAINT `FK_softwares_TO_permissions` FOREIGN KEY (`software_id`) REFERENCES `softwares` (`id`)
+    );
+
+    -- Bảng roles (vai trò)
+    CREATE TABLE IF NOT EXISTS `roles` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(50) NOT NULL,
+      `note` varchar(255) DEFAULT NULL,
+      `creator_id` bigint(20) unsigned DEFAULT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `tenant_id` bigint(20) unsigned NOT NULL,
+      `type` int(11) NOT NULL DEFAULT 0 COMMENT '-1 vai trò admin system do hệ thống tạo,0: vai trò admin company do hệ thống tạo, 1 vai trò admin do người dùng tạo,2 vai trò thường',
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_tenant_TO_roles` (`tenant_id`),
+      KEY `FK_employees_TO_roles` (`creator_id`),
+      CONSTRAINT `FK_employees_TO_roles` FOREIGN KEY (`creator_id`) REFERENCES `employees` (`id`),
+      CONSTRAINT `FK_tenant_TO_roles` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
+    );
+
+    -- Bảng role_permissions (liên kết vai trò và quyền)
+    CREATE TABLE IF NOT EXISTS `role_permissions` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `role_id` bigint(20) unsigned NOT NULL,
+      `permission_id` bigint(20) unsigned NOT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_roles_TO_role_permissions` (`role_id`),
+      KEY `FK_permissions_TO_role_permissions` (`permission_id`),
+      CONSTRAINT `FK_permissions_TO_role_permissions` FOREIGN KEY (`permission_id`) REFERENCES `permissions` (`id`),
+      CONSTRAINT `FK_roles_TO_role_permissions` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`)
+    );
+
+    -- Bảng role_workspaces (liên kết vai trò và workspace)
+    CREATE TABLE IF NOT EXISTS `role_workspaces` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `workspace_id` bigint(20) unsigned NOT NULL,
+      `role_id` bigint(20) unsigned NOT NULL,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`),
+      KEY `FK_workspaces_TO_role_workspaces` (`workspace_id`),
+      KEY `FK_roles_TO_role_workspaces` (`role_id`),
+      CONSTRAINT `FK_roles_TO_role_workspaces` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`),
+      CONSTRAINT `FK_workspaces_TO_role_workspaces` FOREIGN KEY (`workspace_id`) REFERENCES `workspaces` (`id`)
+    );
+
+    -- Bảng product_categories (danh mục sản phẩm - cây phân cấp)
+    CREATE TABLE IF NOT EXISTS `product_categories` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(100) NOT NULL,
+      `tenant_id` bigint(20) unsigned NOT NULL,
+      `product_category_parent_id` bigint(20) unsigned DEFAULT NULL,
+      `level` int(11) NOT NULL DEFAULT 1,
+      `created_at` datetime DEFAULT current_timestamp(),
+      `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      `parent_level1_id` bigint(11) unsigned DEFAULT NULL,
+      `parent_level2_id` bigint(11) unsigned DEFAULT NULL,
+      `active_status` bigint(11) unsigned DEFAULT NULL,
+      `creator_id` bigint(20) unsigned DEFAULT NULL,
+      PRIMARY KEY (`id`),
+      KEY `FK_tenants_TO_product_categories` (`tenant_id`),
+      KEY `FK_product_categories_TO_product_categories` (`product_category_parent_id`),
+      KEY `FK_employees_TO_product_categories` (`creator_id`),
+      KEY `fk_parent_level1` (`parent_level1_id`),
+      KEY `fk_parent_level2` (`parent_level2_id`),
+      KEY `idx_product_categories_created_at` (`created_at`),
+      FULLTEXT KEY `idx_product_categories_name_ft` (`name`),
+      CONSTRAINT `FK_product_categories_TO_product_categories` FOREIGN KEY (`product_category_parent_id`) REFERENCES `product_categories` (`id`),
+      CONSTRAINT `FK_empployees_TO_product_categories` FOREIGN KEY (`creator_id`) REFERENCES `employees` (`id`),
+      CONSTRAINT `FK_tenants_TO_product_categories` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+      CONSTRAINT `fk_parent_level1` FOREIGN KEY (`parent_level1_id`) REFERENCES `product_categories` (`id`) ON DELETE SET NULL,
+      CONSTRAINT `fk_parent_level2` FOREIGN KEY (`parent_level2_id`) REFERENCES `product_categories` (`id`) ON DELETE SET NULL
+    );
+
+
+test_cases:
+
+  # Unit Tests
+
+  - id: AC_UT_01
+
+    title: "return error message when: <productCategoryName> is provided as non-string, <activeStatuses> is provided as non-array, <productCategoryAncestors> is provided as non-array, <page> is provided as non-integer, <size> is provided as non-integer"
+
+    input:
+
+      productCategoryName: 123
+
+      activeStatuses: "abc"
+
+      productCategoryAncestors: 
+
+        - 2
+
+      tenantId: 11
+
+      page: "abc"
+
+      size: "abc"
+
+    expected:
+
+      errors:
+
+        - field: productCategoryName
+
+          value: 123
+
+          messageKey: validation_error.wrong_type_string
+
+        - field: activeStatuses
+
+          value: "abc"
+
+          messageKey: validation_error.wrong_type_array
+
+        - field: productCategoryAncestors
+
+          value: 2
+
+          messageKey: validation_error.wrong_type_array
+
+        - field: page
+
+          value: "abc"
+
+          messageKey: validation_error.wrong_type_integer
+
+        - field: size
+
+          value: "abc"
+
+          messageKey: validation_error.wrong_type_integer
+
+
+
+  - id: AC_UT_02
+
+    title: "return error message when: <activeStatuses> array contains duplicate elements"
+
+    input:
+
+      productCategoryName: "123v"
+
+      activeStatuses: [1, 1]
+
+      productCategoryAncestors: [1]
+
+      tenantId: 11
+
+      page: 1
+
+      size: 20
+
+    expected:
+
+      error:
+
+        - field: activeStatuses
+
+          value: [1, 1]
+
+          messageKey: validation_error.array_duplicate_items
+
+
+
+  - id: AC_UT_03
+
+    title: "return successful message when valid data is provided"
+
+    input:
+
+      productCategoryName: "Điện thoại 123"
+
+      productCategoryAncestors: [1, 2]
+
+      tenantId: 11
+
+      page: 1
+
+      size: 20
+
+    expected:
+
+      - messageKey: success.query
+
+
+  # Integration Tests
+
+  - id: AC_IT_01
+
+    title: "return successful message when: <productCategoryName> is <valid value> and <activeStatuses> is <default_value>"
+
+    input:
+
+      productCategoryName: "Điện thoại 123"
+
+      productCategoryAncestors: [1]
+
+      tenantId: 11
+
+      page: 1
+
+      size: 20
+
+    expected:
+
+      - messageKey: success.query
+
+
+
+  - id: AC_IT_02
+
+    title: "return successful message when: <productCategoryAncestors> is <valid value> and <activeStatuses> is <valid value>"
+
+    input:
+
+      productCategoryName: "123"
+
+      activeStatuses: [0]
+
+      productCategoryAncestors: [1]
+
+      tenantId: 11
+
+      page: 1
+
+      size: 20
+
+    expected:
+
+      - messageKey: success.query
+
+
+  # End-to-End Tests
+
+  - id: AC_E2E_01
+
+    title: "return successful response when user inputs valid data"
+
+    input:
+
+      auth:
+
+        access_token: "{{token_valid}}"
+
+      productCategoryName: "Điện thoại 123"
+
+      activeStatuses: [1, 0]
+
+      productCategoryAncestors: [1]
+
+      tenantId: 11
+
+      page: 1
+
+      size: 20
+
+    expected:
+
+      message: "List productCategory is searched successfully"
+
+      timestamp: "YYYY-MM-DDThh:mm:ss+TZ"
+
+      data:
+
+        total: 2
+
+        page: 1
+
+        size: 20
+
+        items:
+
+          - productCategories:
+
+              - productCategoryId: 1
+
+                productCategoryName: "Điện thoại 123"
+
+                productCategoryParentId: null
+
+                productCategoryGrandParentId: null
+
+                productCategoryGrandParentName: null
+
+                creatorName: "TaTV"
+
+                createdAt: "2025-11-21T15:16:33+07:00"
+
+                activeStatus: 1
+
+              - productCategoryId: 2
+
+                productCategoryName: "Điện thoại 12311111"
+
+                productCategoryParentId: 1
+
+                productCategoryGrandParentId: null
+
+                productCategoryGrandParentName: null
+
+                creatorName: "NhanNT"
+
+                createdAt: "2025-11-21T15:16:33+07:00"
+
+                activeStatus: 0
+
+
+
+  - id: AC_E2E_02
+
+    title: "return successful response when user inputs valid data but no data is matched"
+
+    input:
+
+      auth:
+
+        access_token: "{{token_valid}}"
+
+      productCategoryName: "Tên danh mục không tồn tại XYZ"
+
+      activeStatuses: []
+
+      productCategoryAncestors: []
+
+      tenantId: 11
+
+      page: 1
+
+      size: 20
+
+    expected:
+
+      message: "List productCategory is searched successfully"
+
+      timestamp: "2025-11-21T15:16:33+07:00"
+
+      data:
+
+        total: 0
+
+        page: 1
+
+        size: 20
+
+        items:
+
+          - productCategories: []
+
+
+
+  - id: AC_E2E_03
+
+    title: "return error response when user inputs invalid data"
+
+    input:
+
+      auth:
+
+        access_token: "{{token_valid}}"
+
+      productCategoryName: "123"
+
+      activeStatuses: "1"
+
+      productCategoryAncestors: [1]
+
+      tenantId: 11
+
+      page: 1
+
+      size: 20
+
+    expected:
+
+      title: "Lỗi xác thực dữ liệu"
+
+      detail: "Dữ liệu đầu vào không hợp lệ. Vui lòng kiểm tra lại các trường thông tin."
+
+      status: 422
+
+      messageKey: validation_error.general
+
+      errors:
+
+        - field: productCategoryName
+
+          value: 123
+
+          message: "productCategoryName must be string."
+
+
+
+  - id: AC_E2E_04
+
+    title: "return error response when Token is expired"
+
+    input:
+
+      auth:
+
+        access_token: null
+
+      productCategoryName: "Điện thoại 123"
+
+      activeStatuses: [1]
+
+      productCategoryAncestors: [1]
+
+      tenantId: 11
+
+      page: 1
+
+      size: 20
+
+    expected:
+
+      title: "Token is expired"
+
+      detail: "Phiên đăng nhập đã kết thúc vào lúc :expiredAt. Vui lòng đăng nhập lại."
+
+      status: 401
+
+      messageKey: auth_error.auth_token_expired
+
+
+
+  - id: AC_E2E_05
+
+    title: "return error response when Permission is denied"
+
+    input:
+
+      auth:
+
+        access_token: "{{token_no_scope}}"
+
+      productCategoryName: "Điện thoại 123"
+
+      activeStatuses: [1]
+
+      productCategoryAncestors: [1]
+
+      tenantId: 11
+
+      page: 1
+
+      size: 20
+
+    expected:
+
+      title: "Permission is denied"
+
+      detail: "Bạn không có quyền :permission cần thiết để thực hiện hành động này."
+
+      status: 403
+
+      messageKey: auth_error.forbidden
