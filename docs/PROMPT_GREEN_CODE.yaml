@@ -97,8 +97,8 @@ process:
          - Extract repository interface methods from handler tests
 
       2. Plan file structure:
-         - Use implementation_knowledge.file_structure to determine file paths
-         - Use implementation_knowledge.naming_conventions for file names
+         - Use implementation_knowledge.techstack_mappings.component_type_mappings for file paths and naming
+         - Extract directory_full and file_naming_pattern from component_type_mappings
          - Calculate import paths as relative paths
 
       3. Plan dependency injection:
@@ -142,7 +142,7 @@ process:
          - Use implementation_knowledge.techstack_mappings.component_type_mappings.repository_interface
          - Extract method signatures from handler tests
          - Define return types from test assertions
-         - Use implementation_knowledge.naming_conventions.application_layer
+         - Apply class_naming_pattern and file_naming_pattern from component_type_mappings.repository_interface
          - Use implementation_knowledge.code_templates.repository_interface_template
 
       3. THIRD: Generate Query/Command handlers:
@@ -580,26 +580,38 @@ implementation_knowledge:
     testing: "Jest"
 
   techstack_mappings:
-    description: "Maps generic architectural concepts to specific technology implementations"
-    note: "These mappings bridge the gap between tech-agnostic principles and concrete implementations"
+    description: "Consolidated mappings of generic architectural concepts to specific technology implementations"
+    note: "This section consolidates naming_conventions, file_structure, and tech-specific details to eliminate duplication"
 
     component_type_mappings:
       application_dto:
+        class_naming_pattern: "[Action][Domain]DTO"
+        file_naming_pattern: "[action-domain].dto.ts"
         file_extension: ".dto.ts"
-        directory: "application/dtos/"
+        directory_relative: "application/dtos/"
+        directory_full: "src/components/[bc]/application/dtos/"
+        full_path_pattern: "src/components/<bounded-context>/application/dtos/<action-domain>.dto.ts"
         base_class: "Plain TypeScript class with readonly properties"
         example_import: "import { <Name>DTO } from '../dtos/<name>.dto'"
 
       response_dto:
+        class_naming_pattern: "[Action][Domain]Response"
+        file_naming_pattern: "[action-domain].response.ts"
         file_extension: ".response.ts"
-        directory: "presentation/responses/"
+        directory_relative: "presentation/responses/"
+        directory_full: "src/components/[bc]/presentation/responses/"
+        full_path_pattern: "src/components/<bounded-context>/presentation/responses/<action-domain>.response.ts"
         base_class: "Plain TypeScript class with @ApiProperty decorators"
         framework_decorators: ["@ApiProperty()"]
         example_import: "import { <Name>ResponseDTO } from '../../presentation/responses/<name>.response'"
 
       request_dto:
+        class_naming_pattern: "[Action][Domain]Request"
+        file_naming_pattern: "[action-domain].request.ts"
         file_extension: ".request.ts"
-        directory: "presentation/requests/"
+        directory_relative: "presentation/requests/"
+        directory_full: "src/components/[bc]/presentation/requests/"
+        full_path_pattern: "src/components/<bounded-context>/presentation/requests/<action-domain>.request.ts"
         base_class: "BaseRequestDTO"
         validation_library: "class-validator"
         transformation_library: "class-transformer"
@@ -608,59 +620,88 @@ implementation_knowledge:
           - "import { transformToIntArray, transformToInt } from '../../../../shared/application/validators/custom-validators'"
 
       repository_interface:
+        class_naming_pattern: "I[Domain]QueryRepository | I[Domain]CommandRepository"
+        file_naming_pattern: "i-[domain]-query.repository.ts | i-[domain]-command.repository.ts"
         file_extension: ".repository.ts"
-        directory: "application/repositories/"
-        naming_pattern: "I<Domain>QueryRepository | I<Domain>CommandRepository"
+        directory_relative: "application/repositories/"
+        directory_full: "src/components/[bc]/application/repositories/"
+        full_path_pattern: "src/components/<bounded-context>/application/repositories/<domain>-query.repository.ts"
         definition: "TypeScript interface"
 
       repository_implementation:
+        class_naming_pattern: "[Domain]QueryRepository | [Domain]CommandRepository"
+        file_naming_pattern: "[domain]-query.repository.ts | [domain]-command.repository.ts"
         file_extension: ".repository.ts"
-        directory: "infrastructure/repositories/"
-        naming_pattern: "<Domain>QueryRepository | <Domain>CommandRepository"
+        directory_relative: "infrastructure/repositories/"
+        directory_full: "src/components/[bc]/infrastructure/repositories/"
+        full_path_pattern: "src/components/<bounded-context>/infrastructure/repositories/<domain>-query.repository.ts"
         framework_decorators: ["@Injectable()"]
         orm_integration: "Uses TypeORM Repository and QueryBuilder"
 
       entity_model:
+        class_naming_pattern: "[Domain]Model"
+        file_naming_pattern: "[domain].model.ts"
         file_extension: ".model.ts"
-        directory: "infrastructure/entities/"
-        naming_pattern: "<Domain>Model"
+        directory_relative: "infrastructure/entities/"
+        directory_full: "src/components/[bc]/infrastructure/entities/"
+        full_path_pattern: "src/components/<bounded-context>/infrastructure/entities/<domain>.model.ts"
         orm: "TypeORM"
         framework_decorators: ["@Entity()", "@Column()", "@PrimaryGeneratedColumn()"]
 
       query_handler:
+        class_naming_pattern: "[Action][Domain]QueryHandler"
+        file_naming_pattern: "[action-domain].query-handler.ts"
         file_extension: ".query-handler.ts"
-        directory: "application/queries/"
-        naming_pattern: "<Action><Domain>QueryHandler"
+        directory_relative: "application/queries/"
+        directory_full: "src/components/[bc]/application/queries/"
+        full_path_pattern: "src/components/<bounded-context>/application/queries/<action-domain>.query-handler.ts"
         framework: "NestJS CQRS"
         framework_decorators: ["@QueryHandler(<DTO>)"]
         interface: "implements IQueryHandler<<DTO>, <Response>>"
         method_signature: "async execute(dto: <DTO>): Promise<<Response>>"
 
       command_handler:
+        class_naming_pattern: "[Action][Domain]CommandHandler"
+        file_naming_pattern: "[action-domain].command-handler.ts"
         file_extension: ".command-handler.ts"
-        directory: "application/commands/"
-        naming_pattern: "<Action><Domain>CommandHandler"
+        directory_relative: "application/commands/"
+        directory_full: "src/components/[bc]/application/commands/"
+        full_path_pattern: "src/components/<bounded-context>/application/commands/<action-domain>.command-handler.ts"
         framework: "NestJS CQRS"
         framework_decorators: ["@CommandHandler(<Command>)"]
         interface: "implements ICommandHandler<<Command>, <Response>>"
         method_signature: "async execute(command: <Command>): Promise<<Response>>"
 
       controller:
+        class_naming_pattern: "[Domain]Controller"
+        file_naming_pattern: "[domain].controller.ts"
         file_extension: ".controller.ts"
-        directory: "presentation/controllers/"
-        naming_pattern: "<Domain>Controller"
+        directory_relative: "presentation/controllers/"
+        directory_full: "src/components/[bc]/presentation/controllers/"
+        full_path_pattern: "src/components/<bounded-context>/presentation/controllers/<domain>.controller.ts"
         framework: "NestJS"
         framework_decorators: ["@Controller()", "@Get()", "@Post()", "@Put()", "@Delete()"]
         guards: ["@UseGuards(JwtAuthGuard, PermissionGuard)"]
         auth_decorators: ["@CurrentUser()", "@RequirePermissions()"]
 
       module:
+        class_naming_pattern: "[BoundedContext]Module"
+        file_naming_pattern: "[bounded-context].module.ts"
         file_extension: ".module.ts"
-        directory: "root of bounded context"
-        naming_pattern: "<BoundedContext>Module"
+        directory_relative: "root of bounded context"
+        directory_full: "src/components/[bc]/"
+        full_path_pattern: "src/components/<bounded-context>/<bounded-context>.module.ts"
         framework: "NestJS"
         framework_decorators: ["@Module()"]
         imports: ["CqrsModule", "TypeOrmModule.forFeature([])"]
+
+      domain_entity:
+        class_naming_pattern: "[Domain]"
+        file_naming_pattern: "[domain].entity.ts"
+        file_extension: ".entity.ts"
+        directory_relative: "domain/entities/"
+        directory_full: "src/components/[bc]/domain/entities/"
+        full_path_pattern: "src/components/<bounded-context>/domain/entities/<domain>.entity.ts"
 
     generation_order_implementation:
       description: "Tech-specific implementation of generation order"
@@ -715,74 +756,6 @@ implementation_knowledge:
   query_flow:
     Request → Controller → DTO → QueryBus → Handler → Repository → Database
     Database → Repository → Models → Handler → Response DTO → Controller → Client
-
-  naming_conventions:
-    presentation_layer:
-      controller_class: "[Domain]Controller"
-      controller_file: "[domain].controller.ts"
-      request_dto_class: "[Action][Domain]Request"
-      request_dto_file: "[action-domain].request.ts"
-      response_dto_class: "[Action][Domain]Response"
-      response_dto_file: "[action-domain].response.ts"
-
-    application_layer:
-      query_class: "[Action][Domain]Query"
-      query_file: "[action-domain].query.ts"
-      command_class: "[Action][Domain]Command"
-      command_file: "[action-domain].command.ts"
-      handler_class: "[Action][Domain]QueryHandler | [Action][Domain]CommandHandler"
-      handler_file: "[action-domain].query.ts | [action-domain].command.ts"
-      dto_class: "[Action][Domain]DTO"
-      dto_file: "[action-domain].dto.ts"
-      repository_interface_class: "I[Domain]QueryRepository | I[Domain]CommandRepository"
-      repository_interface_file: "i-[domain]-query.repository.ts | i-[domain]-command.repository.ts"
-
-    infrastructure_layer:
-      repository_class: "[Domain]QueryRepository | [Domain]CommandRepository"
-      repository_file: "[domain]-query.repository.ts | [domain]-command.repository.ts"
-      typeorm_model_class: "[Domain]Model"
-      typeorm_model_file: "[domain].model.ts"
-
-    domain_layer:
-      entity_class: "[Domain]"
-      entity_file: "[domain].entity.ts"
-      value_object_class: "[Domain]VO"
-      exception_class: "[Domain]Exception"
-
-  file_structure:
-    presentation:
-      controllers: "src/components/[bc]/presentation/controllers/"
-      requests: "src/components/[bc]/presentation/requests/"
-      responses: "src/components/[bc]/presentation/responses/"
-
-    application:
-      queries: "src/components/[bc]/application/queries/"
-      commands: "src/components/[bc]/application/commands/"
-      dtos: "src/components/[bc]/application/dtos/"
-      repositories: "src/components/[bc]/application/repositories/"
-
-    infrastructure:
-      repositories: "src/components/[bc]/infrastructure/repositories/"
-      entities: "src/components/[bc]/infrastructure/entities/"
-
-    domain:
-      entities: "src/components/[bc]/domain/entities/"
-      exceptions: "src/components/[bc]/domain/exceptions/"
-
-    module: "src/components/[bc]/[bc].module.ts"
-
-  general_patterns:
-      note: "Use these patterns for ANY bounded context and domain. Replace placeholders with actual names."
-      controller: "src/components/<bounded-context>/presentation/controllers/<domain>.controller.ts"
-      request_dto: "src/components/<bounded-context>/presentation/requests/<action-domain>.request.ts"
-      response_dto: "src/components/<bounded-context>/presentation/responses/<action-domain>.response.ts"
-      application_dto: "src/components/<bounded-context>/application/dtos/<action-domain>.dto.ts"
-      query_handler: "src/components/<bounded-context>/application/queries/<action-domain>.query-handler.ts"
-      command_handler: "src/components/<bounded-context>/application/commands/<action-domain>.command-handler.ts"
-      repository_interface: "src/components/<bounded-context>/application/repositories/<domain>-query.repository.ts"
-      repository_impl: "src/components/<bounded-context>/infrastructure/repositories/<domain>-query.repository.ts"
-      entity_model: "src/components/<bounded-context>/infrastructure/entities/<domain>.model.ts"
-      module: "src/components/<bounded-context>/<bounded-context>.module.ts"
 
   controller_structure_guidelines:
     description: "CRITICAL: Controller structure rules for maintainability and scalability"
