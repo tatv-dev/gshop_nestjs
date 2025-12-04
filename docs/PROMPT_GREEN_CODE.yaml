@@ -20,13 +20,14 @@ core_principles:
 
   generation_order:
     description: "CRITICAL: Components must be generated in dependency order to avoid compilation errors"
+    note: "See implementation_knowledge.techstack_mappings.generation_order_implementation for tech-specific details"
 
     mandatory_sequence:
       1: "Application DTOs - Required by handlers as input parameters"
       2: "Response DTOs - Required by handlers as return types"
       3: "Repository Interfaces - Required by handlers for dependency injection"
       4: "Query/Command Handlers - Depend on DTOs, Response DTOs, and Repository Interfaces"
-      5: "TypeORM Entity Models - Required by repository implementations"
+      5: "Entity Models - Required by repository implementations"
       6: "Repository Implementations - Implement interfaces, use entity models"
       7: "Request DTOs - For API layer validation"
       8: "Controllers - Orchestrate all components"
@@ -34,10 +35,11 @@ core_principles:
 
     critical_rules:
       - "NEVER generate handler before its DTO and Response DTO exist"
-      - "ALWAYS generate Application DTO (.dto.ts) file in application/dtos/"
-      - "ALWAYS generate Response DTO (.response.ts) file in presentation/responses/"
-      - "Handler execute() method signature MUST be: execute(dto: <DTO>): Promise<<Response>>"
+      - "ALWAYS generate Application DTO file in designated application layer directory"
+      - "ALWAYS generate Response DTO file in designated presentation layer directory"
+      - "Handler execute method signature MUST accept DTO input and return Response output"
       - "If any DTO or Response file is missing, handler will have compilation errors"
+      - "Apply implementation_knowledge.techstack_mappings for specific file extensions and locations"
 
 process:
   generation_flow_notes:
@@ -128,16 +130,16 @@ process:
     prompt: |
       CRITICAL: Follow this exact order to avoid compilation errors:
 
-      1. FIRST: Generate application DTOs (.dto.ts):
-         - MANDATORY: Create file in application/dtos/ directory
+      1. FIRST: Generate application DTOs:
+         - MANDATORY: Create file using implementation_knowledge.techstack_mappings.component_type_mappings.application_dto
          - Extract DTO structure from handler tests
          - Define constructor parameters matching test inputs
-         - Use immutable properties (readonly)
+         - Use immutable properties as defined in techstack mappings
          - Use implementation_knowledge.code_templates.application_dto_template
-         - File location: src/components/<bc>/application/dtos/<component-name>.dto.ts
          - VALIDATION: Ensure file exists before proceeding to step 3
 
       2. SECOND: Generate repository interfaces (Ports):
+         - Use implementation_knowledge.techstack_mappings.component_type_mappings.repository_interface
          - Extract method signatures from handler tests
          - Define return types from test assertions
          - Use implementation_knowledge.naming_conventions.application_layer
@@ -145,27 +147,30 @@ process:
 
       3. THIRD: Generate Query/Command handlers:
          - CRITICAL: Only generate AFTER application DTO and repository interface exist
-         - CRITICAL: Handler MUST import application DTO: import { <Name>DTO } from '../dtos/<name>.dto'
-         - CRITICAL: Handler MUST import response DTO: import { <Name>ResponseDTO } from '../../presentation/responses/<name>.response'
-         - CRITICAL: Handler execute() signature: execute(dto: <Name>DTO): Promise<<Name>ResponseDTO>
+         - Use implementation_knowledge.techstack_mappings.component_type_mappings.query_handler | command_handler
+         - CRITICAL: Handler MUST import application DTO using path from techstack_mappings
+         - CRITICAL: Handler MUST import response DTO using path from techstack_mappings
+         - CRITICAL: Handler method signature MUST match techstack_mappings.component_type_mappings.query_handler.method_signature
          - Inject repository interfaces via constructor
          - Implement execute() method to pass tests
          - Apply standard_knowledge.cqrs_principles
          - Handle exceptions as expected by tests
-         - Use implementation_knowledge.code_templates.query_handler_template | implementation_knowledge.code_templates.command_handler_template
+         - Use implementation_knowledge.code_templates.query_handler_template | command_handler_template
          - VALIDATION: Ensure imports resolve correctly before proceeding
 
   step_5_generate_infrastructure:
     description: "Generate Infrastructure layer components"
     prompt: |
-      1. Generate TypeORM entity models:
+      1. Generate entity models:
+         - Use implementation_knowledge.techstack_mappings.component_type_mappings.entity_model
          - Map from db_schema tables
-         - Use @Entity, @Column decorators
+         - Apply ORM decorators as defined in techstack mappings
          - Use implementation_knowledge.code_templates.typeorm_entity_template
 
       2. Generate repository implementations (Adapters):
+         - Use implementation_knowledge.techstack_mappings.component_type_mappings.repository_implementation
          - Implement repository interfaces from application layer
-         - Use TypeORM repository and QueryBuilder
+         - Use ORM tools as specified in techstack mappings
          - Build queries based on DTO parameters
          - Handle pagination if expected by tests
          - Map entities to response DTOs
@@ -180,81 +185,84 @@ process:
     prompt: |
       CRITICAL: Response DTOs MUST be generated BEFORE handlers reference them
 
-      1. FIRST: Generate Response DTOs (.response.ts):
-         - MANDATORY: Create file in presentation/responses/ directory BEFORE step_4 handlers
+      1. FIRST: Generate Response DTOs:
+         - MANDATORY: Use implementation_knowledge.techstack_mappings.component_type_mappings.response_dto
+         - MANDATORY: Create file BEFORE step_4 handlers
          - Extract structure from E2E test assertions
          - Define properties based on expected response structure
-         - File location: src/components/<bc>/presentation/responses/<component-name>.response.ts
          - CRITICAL: This file MUST exist before handler generation in step_4
+         - Apply framework decorators as defined in techstack mappings
          - Use implementation_knowledge.code_templates.response_dto_template
-         - VALIDATION: Ensure file exists and exports <Name>ResponseDTO class
+         - VALIDATION: Ensure file exists and exports response class
 
       2. SECOND: Generate Request DTOs:
-         - CRITICAL: ALL Request DTOs MUST extend BaseRequestDTO for validation error transformation
-         - CRITICAL: Import BaseRequestDTO from '../../../../shared/application/dtos/base-request.dto'
-         - CRITICAL: Import custom validators from '../../../../shared/application/validators/custom-validators'
-         - CRITICAL: Import transform helpers (transformToIntArray, transformToInt) from custom-validators
+         - Use implementation_knowledge.techstack_mappings.component_type_mappings.request_dto
+         - CRITICAL: Request DTOs MUST extend base class defined in techstack mappings
+         - CRITICAL: Import required dependencies from techstack_mappings.component_type_mappings.request_dto.required_imports
          - Extract field names from UT test cases (input sections from test_plan)
          - Extract validation rules from UT test cases (expected.errors messageKey patterns)
          - Map messageKey patterns to validation decorators (see implementation_knowledge.validation_decorator_mapping)
-         - CRITICAL: Use custom transform helpers (transformToIntArray, transformToInt) instead of @Type() to preserve invalid values
-         - Add class-validator decorators based on validation test assertions
+         - CRITICAL: Use transform helpers as specified in techstack mappings
+         - Add validation decorators based on test assertions
          - Apply implementation_knowledge.validation_patterns
          - Apply implementation_knowledge.request_dto_generation_from_testplan for systematic DTO generation
          - Use implementation_knowledge.code_templates.request_dto_template
 
       3. THIRD: Generate Controllers:
+         - Use implementation_knowledge.techstack_mappings.component_type_mappings.controller
          - Extract HTTP method from E2E test (GET/POST/PUT/DELETE)
          - Extract endpoint URL from E2E test request
-         - Inject QueryBus/CommandBus
-         - CRITICAL: Extract JWT fields (tenantId, userId, workspaceId, employeeId, permissions) using @CurrentUser() decorator - NEVER accept these from request parameters
-         - Create Query/Command from Request DTO (merge with JWT-extracted fields)
-         - Execute via bus
-         - Apply guards: @UseGuards(JwtAuthGuard, PermissionGuard)
-         - Apply permission: @RequirePermissions('PERMISSION_NAME') derived from component name
+         - Inject message bus components as per framework
+         - CRITICAL: Extract JWT fields from authentication context - NEVER accept these from request parameters
+         - Create Query/Command from Request DTO (merge with authentication fields)
+         - Execute via message bus
+         - Apply guards and decorators as defined in techstack_mappings.component_type_mappings.controller
+         - Apply permission decorators derived from component name
          - Use implementation_knowledge.jwt_extraction_syntax
          - Use implementation_knowledge.code_templates.controller_template
 
   step_7_generate_module:
-    description: "Generate NestJS module configuration"
+    description: "Generate module configuration"
     prompt: |
       1. Generate module file:
-         - Import CqrsModule
-         - Import TypeOrmModule.forFeature([EntityModels])
+         - Use implementation_knowledge.techstack_mappings.component_type_mappings.module
+         - Import framework modules as defined in techstack mappings
+         - Import ORM feature modules with entity models
          - Register controllers
-         - Register QueryHandlers and CommandHandlers
-         - Register repository providers with useClass
+         - Register message handlers (Query/Command handlers)
+         - Register repository providers with dependency injection
          - Export repository interfaces if needed
-         - Use implementation_knowledge.code_templates.typeorm_entity_template
+         - Use implementation_knowledge.code_templates for module configuration
 
   step_8_validation:
     description: "Validate implementation against RED tests"
+    note: "Use implementation_knowledge.techstack_mappings.component_type_mappings for specific file paths and extensions"
 
     file_existence_checklist:
       application_layer:
-        - "CRITICAL: Application DTO file exists: src/components/<bc>/application/dtos/<component-name>.dto.ts"
-        - "CRITICAL: Application DTO exports class: export class <ComponentName>DTO"
-        - "CRITICAL: Repository interface file exists: src/components/<bc>/application/repositories/<domain>-query.repository.ts (for queries)"
-        - "CRITICAL: Handler file exists: src/components/<bc>/application/queries/<component-name>.query-handler.ts"
+        - "CRITICAL: Application DTO file exists at location defined in techstack_mappings.component_type_mappings.application_dto"
+        - "CRITICAL: Application DTO exports class with correct naming pattern"
+        - "CRITICAL: Repository interface file exists at location defined in techstack_mappings.component_type_mappings.repository_interface"
+        - "CRITICAL: Handler file exists at location defined in techstack_mappings.component_type_mappings.query_handler | command_handler"
 
       presentation_layer:
-        - "CRITICAL: Response DTO file exists: src/components/<bc>/presentation/responses/<component-name>.response.ts"
-        - "CRITICAL: Response DTO exports classes: export class <Domain>ResponseDTO and export class <ComponentName>ResponseDTO"
-        - "CRITICAL: Request DTO file exists: src/components/<bc>/presentation/requests/<component-name>.request.ts"
-        - "CRITICAL: Controller file exists: src/components/<bc>/presentation/controllers/<domain>.controller.ts"
+        - "CRITICAL: Response DTO file exists at location defined in techstack_mappings.component_type_mappings.response_dto"
+        - "CRITICAL: Response DTO exports classes with correct structure"
+        - "CRITICAL: Request DTO file exists at location defined in techstack_mappings.component_type_mappings.request_dto"
+        - "CRITICAL: Controller file exists at location defined in techstack_mappings.component_type_mappings.controller"
 
       infrastructure_layer:
-        - "TypeORM entity model exists: src/components/<bc>/infrastructure/entities/<domain>.model.ts"
-        - "Repository implementation exists: src/components/<bc>/infrastructure/repositories/<domain>-query.repository.ts"
+        - "Entity model exists at location defined in techstack_mappings.component_type_mappings.entity_model"
+        - "Repository implementation exists at location defined in techstack_mappings.component_type_mappings.repository_implementation"
 
       module:
-        - "Module file exists: src/components/<bc>/<bc>.module.ts"
+        - "Module file exists at location defined in techstack_mappings.component_type_mappings.module"
 
     handler_signature_checklist:
-      - "CRITICAL: Handler imports application DTO: import { <Name>DTO } from '../dtos/<name>.dto'"
-      - "CRITICAL: Handler imports response DTO: import { <Name>ResponseDTO } from '../../presentation/responses/<name>.response'"
-      - "CRITICAL: Handler implements interface: implements IQueryHandler<<Name>DTO, <Name>ResponseDTO>"
-      - "CRITICAL: Handler execute signature: async execute(dto: <Name>DTO): Promise<<Name>ResponseDTO>"
+      - "CRITICAL: Handler imports application DTO using example_import from techstack_mappings.component_type_mappings.application_dto"
+      - "CRITICAL: Handler imports response DTO using example_import from techstack_mappings.component_type_mappings.response_dto"
+      - "CRITICAL: Handler implements interface as defined in techstack_mappings.component_type_mappings.query_handler.interface"
+      - "CRITICAL: Handler method signature matches techstack_mappings.component_type_mappings.query_handler.method_signature"
       - "CRITICAL: Handler returns correct response type matching signature"
 
     general_checklist:
@@ -570,7 +578,140 @@ implementation_knowledge:
     validation: "class-validator"
     transformation: "class-transformer"
     testing: "Jest"
-  
+
+  techstack_mappings:
+    description: "Maps generic architectural concepts to specific technology implementations"
+    note: "These mappings bridge the gap between tech-agnostic principles and concrete implementations"
+
+    component_type_mappings:
+      application_dto:
+        file_extension: ".dto.ts"
+        directory: "application/dtos/"
+        base_class: "Plain TypeScript class with readonly properties"
+        example_import: "import { <Name>DTO } from '../dtos/<name>.dto'"
+
+      response_dto:
+        file_extension: ".response.ts"
+        directory: "presentation/responses/"
+        base_class: "Plain TypeScript class with @ApiProperty decorators"
+        framework_decorators: ["@ApiProperty()"]
+        example_import: "import { <Name>ResponseDTO } from '../../presentation/responses/<name>.response'"
+
+      request_dto:
+        file_extension: ".request.ts"
+        directory: "presentation/requests/"
+        base_class: "BaseRequestDTO"
+        validation_library: "class-validator"
+        transformation_library: "class-transformer"
+        required_imports:
+          - "import { BaseRequestDTO } from '../../../../shared/application/dtos/base-request.dto'"
+          - "import { transformToIntArray, transformToInt } from '../../../../shared/application/validators/custom-validators'"
+
+      repository_interface:
+        file_extension: ".repository.ts"
+        directory: "application/repositories/"
+        naming_pattern: "I<Domain>QueryRepository | I<Domain>CommandRepository"
+        definition: "TypeScript interface"
+
+      repository_implementation:
+        file_extension: ".repository.ts"
+        directory: "infrastructure/repositories/"
+        naming_pattern: "<Domain>QueryRepository | <Domain>CommandRepository"
+        framework_decorators: ["@Injectable()"]
+        orm_integration: "Uses TypeORM Repository and QueryBuilder"
+
+      entity_model:
+        file_extension: ".model.ts"
+        directory: "infrastructure/entities/"
+        naming_pattern: "<Domain>Model"
+        orm: "TypeORM"
+        framework_decorators: ["@Entity()", "@Column()", "@PrimaryGeneratedColumn()"]
+
+      query_handler:
+        file_extension: ".query-handler.ts"
+        directory: "application/queries/"
+        naming_pattern: "<Action><Domain>QueryHandler"
+        framework: "NestJS CQRS"
+        framework_decorators: ["@QueryHandler(<DTO>)"]
+        interface: "implements IQueryHandler<<DTO>, <Response>>"
+        method_signature: "async execute(dto: <DTO>): Promise<<Response>>"
+
+      command_handler:
+        file_extension: ".command-handler.ts"
+        directory: "application/commands/"
+        naming_pattern: "<Action><Domain>CommandHandler"
+        framework: "NestJS CQRS"
+        framework_decorators: ["@CommandHandler(<Command>)"]
+        interface: "implements ICommandHandler<<Command>, <Response>>"
+        method_signature: "async execute(command: <Command>): Promise<<Response>>"
+
+      controller:
+        file_extension: ".controller.ts"
+        directory: "presentation/controllers/"
+        naming_pattern: "<Domain>Controller"
+        framework: "NestJS"
+        framework_decorators: ["@Controller()", "@Get()", "@Post()", "@Put()", "@Delete()"]
+        guards: ["@UseGuards(JwtAuthGuard, PermissionGuard)"]
+        auth_decorators: ["@CurrentUser()", "@RequirePermissions()"]
+
+      module:
+        file_extension: ".module.ts"
+        directory: "root of bounded context"
+        naming_pattern: "<BoundedContext>Module"
+        framework: "NestJS"
+        framework_decorators: ["@Module()"]
+        imports: ["CqrsModule", "TypeOrmModule.forFeature([])"]
+
+    generation_order_implementation:
+      description: "Tech-specific implementation of generation order"
+      sequence:
+        1:
+          component: "Application DTOs"
+          tech_impl: "Plain TypeScript class files (.dto.ts) with readonly properties"
+          location: "src/components/<bc>/application/dtos/"
+
+        2:
+          component: "Response DTOs"
+          tech_impl: "TypeScript class files (.response.ts) with @ApiProperty decorators"
+          location: "src/components/<bc>/presentation/responses/"
+
+        3:
+          component: "Repository Interfaces"
+          tech_impl: "TypeScript interface files in application layer"
+          location: "src/components/<bc>/application/repositories/"
+
+        4:
+          component: "Query/Command Handlers"
+          tech_impl: "NestJS CQRS handlers with @QueryHandler/@CommandHandler decorators"
+          location: "src/components/<bc>/application/queries/ or commands/"
+          dependencies: ["Application DTOs", "Response DTOs", "Repository Interfaces"]
+
+        5:
+          component: "Entity Models"
+          tech_impl: "TypeORM entity models with @Entity, @Column decorators"
+          location: "src/components/<bc>/infrastructure/entities/"
+
+        6:
+          component: "Repository Implementations"
+          tech_impl: "TypeORM-based repository classes with @Injectable()"
+          location: "src/components/<bc>/infrastructure/repositories/"
+          dependencies: ["Repository Interfaces", "Entity Models"]
+
+        7:
+          component: "Request DTOs"
+          tech_impl: "class-validator DTOs extending BaseRequestDTO"
+          location: "src/components/<bc>/presentation/requests/"
+
+        8:
+          component: "Controllers"
+          tech_impl: "NestJS controllers with @Controller, REST decorators, guards"
+          location: "src/components/<bc>/presentation/controllers/"
+
+        9:
+          component: "Module Configuration"
+          tech_impl: "NestJS @Module() with imports, controllers, providers"
+          location: "src/components/<bc>/<bc>.module.ts"
+
   query_flow:
     Request → Controller → DTO → QueryBus → Handler → Repository → Database
     Database → Repository → Models → Handler → Response DTO → Controller → Client
