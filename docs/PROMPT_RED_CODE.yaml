@@ -107,31 +107,7 @@ process:
              b) Apply ValidationPipe with transform: false
              c) Seed core authorization data: `await seedTestData(dataSource);`
              d) Login user WITH permission:
-                ```typescript
-                const loginRes = await request(app.getHttpServer())
-                  .post('/api/v1/auth/login')
-                  .send({
-                    username: TEST_USER_CREDENTIALS.username,
-                    password: TEST_USER_CREDENTIALS.password,
-                    softwareId: TEST_USER_CREDENTIALS.softwareId,
-                  });
-                expect(loginRes.status).toBeLessThan(400);
-                accessTokenWithPermission = loginRes.body?.data?.accessToken || loginRes.body?.accessToken;
-                expect(accessTokenWithPermission).toBeDefined();
-                ```
-             e) Login user WITHOUT permission (same pattern):
-                ```typescript
-                const loginResNoScope = await request(app.getHttpServer())
-                  .post('/api/v1/auth/login')
-                  .send({
-                    username: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.username,
-                    password: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.password,
-                    softwareId: TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.softwareId,
-                  });
-                expect(loginResNoScope.status).toBeLessThan(400);
-                accessTokenWithoutPermission = loginResNoScope.body?.data?.accessToken || loginResNoScope.body?.accessToken;
-                expect(accessTokenWithoutPermission).toBeDefined();
-                ```
+                See implementation_knowledge.code_templates.e2e_test_template for detailed E2E lifecycle hooks structure
              f) Declare variables at top of describe block:
                 - `let accessTokenWithPermission: string;`
                 - `let accessTokenWithoutPermission: string;`
@@ -178,16 +154,7 @@ process:
          - IF parameter is array AND has values: `arrayParam: JSON.stringify([value1, value2])`
          - IF parameter is array AND is empty: `arrayParam: []` (do NOT JSON.stringify empty arrays)
          - IF parameter is primitive: use value directly
-         - Example E2E GET input:
-           ```typescript
-           {
-             searchField: 'search term',  // string → direct
-             statusArray: JSON.stringify([1, 0]),  // non-empty array → JSON.stringify
-             filterArray: [],  // empty array → direct
-             page: 1,  // number → direct
-             size: 20  // number → direct
-           }
-           ```
+         - Example E2E GET input: See implementation_knowledge.http_client_syntax.array_parameter_handling for examples
 
       5. For UT tests (Request DTO validation):
          - Pass ALL values exactly as specified in test_plan.testcase[i].input
@@ -219,93 +186,13 @@ process:
       4. Generate seed file structure:
          - File name: seed-data.helper.ts (in same directory as test file)
 
-         - MANDATORY: Export ALL ID constants at top of file (use >= 100000 to avoid conflicts):
-           ```typescript
-           export const TEST_SOFTWARE_ID = 1;
-           export const TEST_TENANT_ID = 100000;
-           export const TEST_USER_ID = 100001;
-           export const TEST_USER_WITHOUT_PERMISSION_ID = 100002;
-           export const TEST_WORKSPACE_ID = 100001;
-           export const TEST_WORKSPACE_WITHOUT_PERMISSION_ID = 100002;
-           export const TEST_EMPLOYEE_ID = 100001;
-           export const TEST_EMPLOYEE_ID_2 = 100002;
-           export const TEST_PERMISSION_ID = 100000;
-           export const TEST_ROLE_WITH_PERMISSION_ID = 100001;
-           export const TEST_ROLE_WITHOUT_PERMISSION_ID = 100002;
-           export const REQUIRED_PERMISSION_NAME = '<DERIVED_PERMISSION_NAME>';
-           // Add domain-specific IDs as needed (e.g., TEST_PARENT_CATEGORY_ID, TEST_CHILD_CATEGORY_ID)
-           ```
+         - MANDATORY: Export ALL ID constants at top of file (use >= 100000 to avoid conflicts): See implementation_knowledge.seed_syntax.id_constants_pattern for structure
 
-         - MANDATORY: Export TWO credential constants with EXACTLY 3 fields each:
-           ```typescript
-           export const TEST_USER_CREDENTIALS = {
-             username: 'user.with.permission',
-             password: 'Test@123456',
-             softwareId: TEST_SOFTWARE_ID,
-           };
+         - MANDATORY: Export TWO credential constants with EXACTLY 3 fields each: See implementation_knowledge.login_credentials_format.credentials_constant_structure
 
-           export const TEST_USER_WITHOUT_PERMISSION_CREDENTIALS = {
-             username: 'user.without.permission',
-             password: 'Test@123456',
-             softwareId: TEST_SOFTWARE_ID,
-           };
-           ```
+         - Generate main seedTestData() function that wraps in transaction: See implementation_knowledge.code_templates.seed_data_helper_template
 
-         - Generate main seedTestData() function that wraps in transaction:
-           ```typescript
-           export async function seedTestData(dataSource: DataSource) {
-             const queryRunner = dataSource.createQueryRunner();
-             await queryRunner.connect();
-             await queryRunner.startTransaction();
-             try {
-               await seedSoftwares(queryRunner);
-               await seedTenants(queryRunner);
-               await seedUsers(queryRunner);
-               await seedWorkspaces(queryRunner);
-               await seedEmployees(queryRunner);
-               await seedPermissions(queryRunner);
-               await seedRoles(queryRunner);
-               await seedRolePermissions(queryRunner);
-               await seedRoleWorkspaces(queryRunner);
-               // Add domain-specific seed functions as needed
-
-               await queryRunner.commitTransaction();
-             } catch (error) {
-               await queryRunner.rollbackTransaction();
-               throw error;
-             } finally {
-               await queryRunner.release();
-             }
-           }
-           ```
-
-         - Generate cleanup() function using TRUNCATE with FK checks disabled:
-           ```typescript
-           export async function cleanup(dataSource: DataSource) {
-             const dbName = process.env.DB_DATABASE;
-             if (!dbName) throw new Error("Missing DB_DATABASE in environment");
-
-             const queryRunner = dataSource.createQueryRunner();
-             await queryRunner.connect();
-
-             try {
-               await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
-
-               const tables: Array<{ table_name: string }> = await queryRunner.query(
-                 `SELECT table_name FROM information_schema.tables WHERE table_schema = ?`,
-                 [dbName],
-               );
-
-               for (const { table_name } of tables) {
-                 await queryRunner.query(`TRUNCATE TABLE \`${table_name}\``);
-               }
-
-               await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
-             } finally {
-               await queryRunner.release();
-             }
-           }
-           ```
+         - Generate cleanup() function using TRUNCATE with FK checks disabled: See implementation_knowledge.code_templates.seed_data_helper_template
 
          - CRITICAL: Individual seed function patterns:
            * Softwares (FIRST, use INSERT IGNORE):
@@ -417,17 +304,7 @@ process:
          - For Request DTO UT:
            * Transform: `const dto = plainToClass(RequestClass, input);`
            * Validate: `const validationErrors = await validate(dto);`
-           * MANDATORY: Add debug logging for RAW errors:
-             ```typescript
-             console.log('Raw validation errors:', validationErrors.map((e) => ({
-               property: e.property,
-               value: (e as any).value,
-               constraints: e.constraints
-             })));
-             ```
-           * Transform errors: `const errors = (RequestClass as any).transformValidationErrors(validationErrors);`
-           * MANDATORY: Add debug logging for TRANSFORMED errors:
-             ```typescript
+           * Use implementation_knowledge.request_dto_ut_assertion_pattern for validation and assertion structuretypescript
              console.log('AC_UT_XX Transformed Errors:', JSON.stringify(errors, null, 2));
              ```
            * Note: transformValidationErrors is a STATIC method accessed via class, NOT instance
@@ -889,142 +766,91 @@ implementation_knowledge:
     validation: "class-validator"
     transformation: "class-transformer"
 
-  naming_conventions:
-    description: "Naming patterns for classes and files"
 
-    class_naming:
-      request_dto: "[Action][Domain]Request"
-      query_handler: "[Action][Domain]QueryHandler"
-      command_handler: "[Action][Domain]CommandHandler"
-      repository_interface: "I[Domain]QueryRepository"
-      repository_implementation: "[Domain]QueryRepository"
-      controller: "[Domain]Controller"
-      entity: "[Domain]"
+  techstack_mappings:
+    description: "Consolidated mappings of test components to technology implementations"
+    note: "This section consolidates naming_conventions, file_structure, and test-specific patterns"
 
-    test_file_naming:
-      description: "Test file naming based on test type"
-      request_dto_ut: "[action-domain].request.ut.spec.ts"
-      query_handler_ut: "[action-domain].query-handler.ut.spec.ts"
-      command_handler_ut: "[action-domain].command-handler.ut.spec.ts"
-      query_handler_it: "[action-domain].query-handler.it.spec.ts"
-      command_handler_it: "[action-domain].command-handler.it.spec.ts"
-      repository_it: "[domain].repository.it.spec.ts"
-      e2e: "[action-domain].e2e.spec.ts"
-      seed_helper: "seed-data.helper.ts"
-      note: "MANDATORY: Use lowercase with hyphens (kebab-case) - NO uppercase letters"
+    test_component_type_mappings:
+      request_dto_ut:
+        class_naming_pattern: "[Action][Domain]Request"
+        file_naming_pattern: "[action-domain].request.ut.spec.ts"
+        test_suite_naming: "[ComponentName] Validation"
+        test_file_location: "src/tests/components/[bounded-context]/[feature]/"
+        source_file_location: "src/components/[bc]/presentation/requests/"
+        source_file_naming: "[action-domain].request.ts"
+        test_framework: "Jest"
+        note: "MANDATORY: Use kebab-case for all file names"
 
-    source_file_naming:
-      description: "Source code file naming patterns (for import paths)"
-      request_dto: "[action-domain].request.ts"
-      query_handler: "[action-domain].query-handler.ts"
-      command_handler: "[action-domain].command-handler.ts"
-      repository_interface: "i-[domain]-query.repository.ts"
-      repository_implementation: "[domain]-query.repository.ts"
-      controller: "[domain].controller.ts"
-      note: "MANDATORY: All source files use kebab-case"
-      examples:
-        - "<Action><Domain>Request → <action-domain>.request.ts"
-        - "<Action><Domain>QueryHandler → <action-domain>.query-handler.ts"
-        - "I<Domain>QueryRepository → i-<domain>-query.repository.ts"
-        - "<Domain>QueryRepository → <domain>-query.repository.ts"
+      query_handler_it:
+        class_naming_pattern: "[Action][Domain]QueryHandler"
+        file_naming_pattern: "[action-domain].query-handler.it.spec.ts"
+        test_suite_naming: "[ComponentName] Integration Tests"
+        test_file_location: "src/tests/components/[bounded-context]/[feature]/"
+        source_file_location: "src/components/[bc]/application/queries/"
+        source_file_naming: "[action-domain].query-handler.ts"
+        test_framework: "Jest"
 
-    test_suite_naming:
-      description: "Test suite (describe block) naming"
-      request_dto: "[ComponentName] Validation"
-      handler: "[ComponentName]"
-      repository: "[ComponentName] Integration Tests"
-      e2e: "[HTTP_METHOD] [endpoint] E2E"
+      command_handler_it:
+        class_naming_pattern: "[Action][Domain]CommandHandler"
+        file_naming_pattern: "[action-domain].command-handler.it.spec.ts"
+        test_suite_naming: "[ComponentName] Integration Tests"
+        test_file_location: "src/tests/components/[bounded-context]/[feature]/"
+        source_file_location: "src/components/[bc]/application/commands/"
+        source_file_naming: "[action-domain].command-handler.ts"
+        test_framework: "Jest"
 
-  derivation_rules:
-    description: "How to derive information from test_plan.component_under_test (for RED phase without implementation)"
+      repository_it:
+        class_naming_pattern: "[Domain]QueryRepository"
+        interface_naming: "I[Domain]QueryRepository"
+        file_naming_pattern: "[domain]-query.repository.it.spec.ts"
+        test_suite_naming: "[Domain]QueryRepository - Integration Tests"
+        test_file_location: "src/tests/components/[bounded-context]/[feature]/"
+        source_interface_location: "src/components/[bc]/application/repositories/"
+        source_impl_location: "src/components/[bc]/infrastructure/repositories/"
+        interface_file_naming: "i-[domain]-query.repository.ts"
+        impl_file_naming: "[domain]-query.repository.ts"
+        test_framework: "Jest"
 
-    class_name_derivation:
-      from_component_under_test: "test_plan.component_under_test already contains the class name"
-      examples:
-        - "component_under_test: '<Action><Domain>Request' → class name: '<Action><Domain>Request'"
-        - "component_under_test: '<Action><Domain>QueryHandler' → class name: '<Action><Domain>QueryHandler'"
+      e2e_test:
+        file_naming_pattern: "[action-domain].e2e.spec.ts"
+        test_suite_naming: "[HTTP_METHOD] /api/[version]/[bounded-context]/[resources] E2E"
+        test_file_location: "src/tests/components/[bounded-context]/[feature]/"
+        test_framework: "Jest"
+        http_client: "supertest"
 
-    endpoint_url_derivation:
-      description: "Derive REST endpoint from component name"
-      pattern: "/api/v1/[bounded-context]/[resource-plural]"
-      algorithm: |
-        1. Extract Action and Domain from component_under_test
-           - <Action><Domain> → Action: <Action>, Domain: <Domain>
-        2. Convert Domain to kebab-case plural
-           - <Domain> → <resources>
-        3. Combine with bounded-context
-           - /api/v1/<bounded-context>/<resources>
-      http_method_mapping:
-        GetList: "GET"
-        Get: "GET"
-        Create: "POST"
-        Update: "PUT"
-        Delete: "DELETE"
+      seed_data_helper:
+        file_naming_pattern: "seed-data.helper.ts"
+        location: "Same directory as test files"
+        note: "MANDATORY for all IT and E2E tests"
 
-    permission_name_derivation:
-      description: "Derive permission name from component_under_test"
-      pattern: "<ACTION>_<DOMAIN>"
-      algorithm: |
-        1. Extract Action and Domain from component_under_test
-           - Example: "<Action><Domain>" → Action: "<Action>", Domain: "<Domain>"
-        2. Convert Action to UPPER_SNAKE_CASE
-           - "<Action>" → "<ACTION>"
-        3. Convert Domain to UPPER_SNAKE_CASE
-           - "<Domain>" → "<DOMAIN>"
-        4. Concatenate with underscore
-           - "<ACTION>" + "_" + "<DOMAIN>" = "<ACTION>_<DOMAIN>"
+    derivation_patterns:
+      component_class_name:
+        rule: "test_plan.component_under_test already contains the class name"
+        examples:
+          - "GetListProductCategoryRequest → GetListProductCategoryRequest"
+          - "GetListProductCategoryQueryHandler → GetListProductCategoryQueryHandler"
 
-      critical_note: "Permission name MUST match EXACTLY the permission required by the endpoint being tested"
+      endpoint_url:
+        pattern: "/api/[version]/[bounded-context]/[resources]"
+        algorithm: "Extract Action + Domain from component_under_test, convert Domain to kebab-case plural"
+        http_method_mapping:
+          GetList: "GET"
+          Get: "GET"
+          Create: "POST"
+          Update: "PUT"
+          Delete: "DELETE"
 
-      common_patterns:
-        GetList: "GET_LIST_<DOMAIN>"
-        Get: "GET_<DOMAIN>"
-        Create: "CREATE_<DOMAIN>"
-        Update: "UPDATE_<DOMAIN>"
-        Delete: "DELETE_<DOMAIN>"
-        Approve: "APPROVE_<DOMAIN>"
-        Reject: "REJECT_<DOMAIN>"
+      permission_name:
+        pattern: "[ACTION]_[DOMAIN]"
+        algorithm: "Convert component name to UPPER_SNAKE_CASE"
+        examples:
+          - "GetListProductCategory → GET_LIST_PRODUCT_CATEGORY"
+          - "CreateProduct → CREATE_PRODUCT"
 
-      export_constant_pattern: |
-        // In seed-data.helper.ts
-        export const REQUIRED_PERMISSION_NAME = '<DERIVED_PERMISSION_NAME>';
-
-      examples:
-        - "GetList<Domain> → GET_LIST_<DOMAIN>"
-        - "Create<Domain> → CREATE_<DOMAIN>"
-        - "Get<Domain> → GET_<DOMAIN>"
-        - "Update<Domain> → UPDATE_<DOMAIN>"
-        - "Delete<Domain> → DELETE_<DOMAIN>"
-
-    jwt_fields_identification:
-      description: "Identify which fields come from JWT vs request parameters"
-      principle: "Fields that appear in ALL test cases but NOT in test_plan input are JWT fields"
-      common_jwt_fields:
-        - "tenantId: Extracted from JWT by @CurrentUser() decorator"
-        - "userId: Extracted from JWT by @CurrentUser() decorator"
-        - "workspaceId: Extracted from JWT by @CurrentUser() decorator"
-        - "permissions: Extracted from JWT by @CurrentUser() decorator"
-      identification_logic: |
-        1. Review test_plan.testcase[].input across all test cases
-        2. If a field is NEVER present in input but logically needed → It's a JWT field
-        3. Example: Product categories always need tenantId, but it's not in query params → JWT field
-
-  file_structure:
-    description: "File organization patterns"
-
-    test_file_location:
-      pattern: "src/tests/components/[bounded-context]/[feature]/"
-      example: "src/tests/components/<bounded-context>/<action-domain>/"
-      note: "All segments must use kebab-case"
-
-    source_file_locations:
-      request_dto: "src/components/[bc]/presentation/requests/"
-      controller: "src/components/[bc]/presentation/"
-      query_handler: "src/components/[bc]/application/queries/"
-      command_handler: "src/components/[bc]/application/commands/"
-      repository_interface: "src/components/[bc]/application/repositories/"
-      repository_implementation: "src/components/[bc]/infrastructure/repositories/"
-      domain_entity: "src/components/[bc]/domain/entities/"
+      jwt_fields:
+        principle: "Fields present in ALL test cases but NOT in test_plan.input are JWT fields"
+        common_fields: ["tenantId", "userId", "workspaceId", "permissions"]
 
     path_calculation:
       rule: "Calculate relative path from test file location to source file location"
