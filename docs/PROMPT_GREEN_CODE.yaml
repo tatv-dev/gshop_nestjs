@@ -218,32 +218,45 @@ process:
       3. Apply implementation_knowledge.code_templates.domain_entity_template for code generation
 
   step_6_generate_application:
-    description: "Generate Application layer components"
-    prompt: |
-      CRITICAL: DEPENDENCY CHECK
-        1. Check: Did you output Application DTO in step_3?
-        2. Check: Did you output Response DTO in step_4?
-        3. If YES:
-          - FIRST: Generate Repository Interface:
-            - Use implementation_knowledge.techstack_mappings.component_type_mappings.repository_interface
-            - Extract method signatures from handler tests
-            - Define return types from test assertions
-            - Apply class_naming_pattern and file_naming_pattern from component_type_mappings.repository_interface
-            - Use implementation_knowledge.code_templates.repository_interface_template
-          - SECOND: Generate Query/Command handlers.
-            - CRITICAL: Only generate AFTER application DTO, response DTO and repository interface exist
-            - CRITICAL: Use implementation_knowledge.techstack_mappings.component_type_mappings.query_handler | command_handler
-            - CRITICAL: Use implementation_knowledge.code_templates.query_handler_template | command_handler_template
-            - CRITICAL: Handler MUST import application DTO using path from techstack_mappings
-            - CRITICAL: Handler MUST import response DTO using path from techstack_mappings
-            - CRITICAL: Handler method signature MUST match techstack_mappings.component_type_mappings.query_handler.method_signature
-            - Inject repository interfaces via constructor
-            - Implement execute() method to pass tests
-            - Apply standard_knowledge.cqrs_principles
-            - Handle exceptions as expected by tests
-            - VALIDATION: Ensure imports resolve correctly before proceeding
-        4. If NO:
-          - GO BACK and generate DTOs first.
+    description: "Generate Application layer components - Repository Interface AND Handler"
+    critical_note: "This step generates 2 MANDATORY components. You MUST generate BOTH in correct order."
+
+    substep_6a_generate_repository_interface:
+      description: "Generate Repository Interface file"
+      prompt: |
+        - Use implementation_knowledge.techstack_mappings.component_type_mappings.repository_interface
+        - CRITICAL: MUST generate repository interface BEFORE generating handler
+        - Extract required repository methods from handler tests (mock expectations, .returns(), .resolve(), .rejects())
+        - Extract method return types from test assertions and business rules
+        - Extract parameter types from handler logic tests
+        - Apply naming rules from component_type_mappings.repository_interface.class_naming_pattern
+        - Apply file naming pattern from component_type_mappings.repository_interface.file_naming_pattern
+        - Use implementation_knowledge.code_templates.repository_interface_template
+        - Ensure interface is minimal and strictly matches test expectations (YAGNI)
+        - CRITICAL: All types MUST be imported using correct relative paths from techstack mappings
+
+    substep_6b_generate_handler:
+      description: "Generate Query/Command Handler file - MUST run AFTER DTO + Repository Interface exist"
+      prompt: |
+        - Use implementation_knowledge.techstack_mappings.component_type_mappings.query_handler OR command_handler
+        - Use implementation_knowledge.code_templates.query_handler_template OR command_handler_template
+        - CRITICAL: Application DTO MUST already exist (from step_3)
+        - CRITICAL: Response DTO MUST already exist (from step_4)
+        - CRITICAL: Repository Interface MUST already exist (from substep_6a)
+        - Import Application DTO using path defined in component_type_mappings.application_dto.example_import
+        - Import Response DTO using path defined in component_type_mappings.response_dto.example_import
+        - Import Repository Interface using mapped path
+        - Extract handler method signature from tests:
+            • Expected execute() parameters
+            • Expected execute() return type
+            • Expected exception paths
+        - Apply method_signature from techstack_mappings.component_type_mappings.query_handler.method_signature
+        - Inject repository via constructor following dependency injection pattern in techstack_mappings
+        - Implement minimal execute() logic required to pass tests (YAGNI principle)
+        - Apply standard_knowledge.cqrs_principles
+        - Apply error handling required by tests (use business rules or throw domain errors as needed)
+        - Ensure all imports resolve correctly before outputting file
+        - Validate TypeScript compilation correctness (no missing references)
 
   step_7_generate_infrastructure:
     description: "Generate Infrastructure layer components"

@@ -1780,13 +1780,6 @@ implementation_knowledge:
       });
 
     repository_it_template: |
-      /**
-       * Integration Tests for <DomainName>QueryRepository
-       * Test Suite: <FeatureName>
-       * Layer: Infrastructure (outboundDB)
-       * Type: ITQueryRepository
-       */
-
       import { Test, TestingModule } from '@nestjs/testing';
       import { DataSource, QueryRunner } from 'typeorm';
       import { <DomainName>QueryRepository } from '../../../../components/<bounded-context>/infrastructure/repositories/<domain-name>-query.repository';
