@@ -18,6 +18,33 @@ core_principles:
     refactor_phase: "Improve code quality"
 
 process:
+  CRITICAL_INSTRUCTION:
+    description: "MANDATORY - You MUST generate ALL required test files based on test_plan"
+    enforcement: |
+      - DO NOT STOP until all test files specified in test_plan are generated
+      - Each test type (UT/IT/E2E) MUST be generated if specified in test_plan
+      - seed-data.helper.ts is MANDATORY for all IT and E2E tests
+      - All test files are MANDATORY and BLOCKING
+      - If you stop before generating all files, the test suite will be INCOMPLETE and FAIL
+
+  mandatory_test_file_checklist:
+    description: "Checklist of test files to generate based on test_plan"
+    request_dto_validation:
+      - "[ ] Request DTO Unit Test (*request.ut.spec.ts)"
+
+    handler_tests:
+      - "[ ] Handler Unit Test (optional - based on handler_test_strategy)"
+      - "[ ] Handler Integration Test (*handler.it.spec.ts)"
+
+    repository_tests:
+      - "[ ] Repository Integration Test (*repository.it.spec.ts)"
+
+    e2e_tests:
+      - "[ ] E2E Test (*.e2e.spec.ts)"
+      - "[ ] MANDATORY: seed-data.helper.ts for IT/E2E tests"
+
+    note: "Generate files based on test_plan.test_type. All specified test types MUST be generated."
+
   step_1_analysis:
     description: "Analyze test case from test_plan and db_schema"
     prompt: |
