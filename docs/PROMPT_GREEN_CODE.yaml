@@ -6,6 +6,7 @@ role: |
 core_principles:
   immutable_rules:
     - "MUST NOT modify RED CODE tests"
+    - "MUST NOT modify source code in shared, shared_kernel"
     - "MUST follow 100% standard_knowledge and architecture patterns"
     - "Generate MINIMAL implementation to make tests pass (YAGNI principle)"
     - "Code must be production-ready with proper error handling"
@@ -21,6 +22,10 @@ core_principles:
   generation_order:
     description: "CRITICAL: Components must be generated in dependency order to avoid compilation errors"
     note: "See implementation_knowledge.techstack_mappings.generation_order_implementation for tech-specific details"
+    
+    query_flow:
+      Request → Controller → Application DTO → QueryBus → Handler → Repository → Database
+      Database → Repository → Models → Handler → Response DTO → Controller → Client
 
     mandatory_sequence:
       1: "Application DTOs - Required by handlers as input parameters"
@@ -42,14 +47,6 @@ core_principles:
       - "Apply implementation_knowledge.techstack_mappings for specific file extensions and locations"
 
 process:
-  generation_flow_notes:
-    description: "IMPORTANT: Step numbers indicate logical grouping, NOT strict execution order"
-    critical_dependencies:
-      - "Response DTOs (step_6.1) MUST be generated BEFORE Handlers (step_4.3)"
-      - "Application DTOs (step_4.1) MUST be generated BEFORE Handlers (step_4.3)"
-      - "Repository Interfaces (step_4.2) MUST be generated BEFORE Handlers (step_4.3)"
-      - "Recommended execution order: step_1 → step_2 → step_3 → step_4.1 → step_4.2 → step_6.1 → step_4.3 → step_5 → step_6.2 → step_6.3 → step_7 → step_8"
-
   step_1_analysis:
     description: "Analyze RED tests to extract implementation requirements"
     prompt: |
@@ -111,7 +108,27 @@ process:
          - Map test assertions to class-validator decorators
          - Identify transformation requirements
 
-  step_3_generate_domain:
+  step_3_generate_application_dto:
+    description: "Generate application DTO for QueryHandler/CommandHandler"
+    prompt: |
+      - MANDATORY: Create file using implementation_knowledge.techstack_mappings.component_type_mappings.application_dto
+      - Extract DTO structure from handler tests
+      - Define constructor parameters matching test inputs
+      - Use immutable properties as defined in techstack mappings
+      - Use implementation_knowledge.code_templates.application_dto_template
+
+  step_4_generate_response_dto:
+    description: "Generate response DTO for QueryHandler/CommandHandler"
+    prompt: |
+      - MANDATORY: Use implementation_knowledge.techstack_mappings.component_type_mappings.response_dto
+      - MANDATORY: Create file BEFORE step_4 handlers
+      - Extract structure from E2E test assertions
+      - Define properties based on expected response structure
+      - Apply framework decorators as defined in techstack mappings
+      - Use implementation_knowledge.code_templates.response_dto_template
+      - VALIDATION: Ensure file exists and exports response class
+
+  step_5_generate_domain:
     description: "Generate Domain layer (If command flow)"
     prompt: |
       1. Determine if domain layer is tested:
@@ -125,19 +142,13 @@ process:
 
       3. Apply implementation_knowledge.code_templates.domain_entity_template for code generation
 
-  step_4_generate_application:
-    description: "Generate Application layer components IN STRICT ORDER"
+
+  step_6_generate_application:
+    description: "Generate Application layer components"
     prompt: |
       CRITICAL: Follow this exact order to avoid compilation errors:
-
-      1. FIRST: Generate application DTOs:
-         - MANDATORY: Create file using implementation_knowledge.techstack_mappings.component_type_mappings.application_dto
-         - Extract DTO structure from handler tests
-         - Define constructor parameters matching test inputs
-         - Use immutable properties as defined in techstack mappings
-         - Use implementation_knowledge.code_templates.application_dto_template
-         - VALIDATION: Ensure file exists before proceeding to step 3
-
+      1. FIRST Generate Application DTO:
+        - Execute in step_3
       2. SECOND: Generate repository interfaces (Ports):
          - Use implementation_knowledge.techstack_mappings.component_type_mappings.repository_interface
          - Extract method signatures from handler tests
@@ -158,7 +169,7 @@ process:
          - Use implementation_knowledge.code_templates.query_handler_template | command_handler_template
          - VALIDATION: Ensure imports resolve correctly before proceeding
 
-  step_5_generate_infrastructure:
+  step_7_generate_infrastructure:
     description: "Generate Infrastructure layer components"
     prompt: |
       1. Generate entity models:
@@ -180,21 +191,11 @@ process:
          - Convert between domain/application models and ORM entities
          - Apply transformations as needed
 
-  step_6_generate_presentation:
-    description: "Generate Presentation layer components IN STRICT ORDER"
+  step_8_generate_presentation:
+    description: "Generate Presentation layer components"
     prompt: |
-      CRITICAL: Response DTOs MUST be generated BEFORE handlers reference them
-
-      1. FIRST: Generate Response DTOs:
-         - MANDATORY: Use implementation_knowledge.techstack_mappings.component_type_mappings.response_dto
-         - MANDATORY: Create file BEFORE step_4 handlers
-         - Extract structure from E2E test assertions
-         - Define properties based on expected response structure
-         - CRITICAL: This file MUST exist before handler generation in step_4
-         - Apply framework decorators as defined in techstack mappings
-         - Use implementation_knowledge.code_templates.response_dto_template
-         - VALIDATION: Ensure file exists and exports response class
-
+      1. FIRST Generate Response DTO:
+        - Execute in step_4
       2. SECOND: Generate Request DTOs:
          - Use implementation_knowledge.techstack_mappings.component_type_mappings.request_dto
          - CRITICAL: Request DTOs MUST extend base class defined in techstack mappings
@@ -221,7 +222,7 @@ process:
          - Use implementation_knowledge.jwt_extraction_syntax
          - Use implementation_knowledge.code_templates.controller_template
 
-  step_7_generate_module:
+  step_9_generate_module:
     description: "Generate module configuration"
     prompt: |
       1. Generate module file:
@@ -234,7 +235,7 @@ process:
          - Export repository interfaces if needed
          - Use implementation_knowledge.code_templates for module configuration
 
-  step_8_validation:
+  step_10_validation:
     description: "Validate implementation against RED tests"
     note: "Use implementation_knowledge.techstack_mappings.component_type_mappings for specific file paths and extensions"
 
@@ -607,8 +608,8 @@ implementation_knowledge:
         full_path_pattern: "src/components/<bounded-context>/application/queries/<action-domain>.query-handler.ts"
         framework: "NestJS CQRS"
         framework_decorators: ["@QueryHandler(<DTO>)"]
-        interface: "implements IQueryHandler<<DTO>, <Response>>"
-        method_signature: "async execute(dto: <DTO>): Promise<<Response>>"
+        interface: "implements IQueryHandler<<DTO>, <ResponseDTO>>"
+        method_signature: "async execute(dto: <DTO>): Promise<<ResponseDTO>>"
 
       command_handler:
         class_naming_pattern: "[Action][Domain]CommandHandler"
@@ -619,8 +620,8 @@ implementation_knowledge:
         full_path_pattern: "src/components/<bounded-context>/application/commands/<action-domain>.command-handler.ts"
         framework: "NestJS CQRS"
         framework_decorators: ["@CommandHandler(<Command>)"]
-        interface: "implements ICommandHandler<<Command>, <Response>>"
-        method_signature: "async execute(command: <Command>): Promise<<Response>>"
+        interface: "implements ICommandHandler<<Command>, <ResponseDTO>>"
+        method_signature: "async execute(command: <Command>): Promise<<ResponseDTO>>"
 
       controller:
         class_naming_pattern: "[Domain]Controller"
@@ -702,10 +703,6 @@ implementation_knowledge:
           component: "Module Configuration"
           tech_impl: "NestJS @Module() with imports, controllers, providers"
           location: "src/components/<bc>/<bc>.module.ts"
-
-  query_flow:
-    Request → Controller → DTO → QueryBus → Handler → Repository → Database
-    Database → Repository → Models → Handler → Response DTO → Controller → Client
 
   controller_structure_guidelines:
     description: "CRITICAL: Controller structure rules for maintainability and scalability"
