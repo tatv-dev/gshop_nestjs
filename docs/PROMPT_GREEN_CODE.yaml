@@ -353,128 +353,77 @@ standard_knowledge:
       conditional_validation: "Apply validation only when field is present"
 
   error_handling_principles:
-    description: "Exception handling principles"
+    description: "Exception handling principles (tech-agnostic)"
 
-    exception_types:
-      description: "Use predefined exception classes from src/shared"
+    exception_categories:
+      description: "Generic exception categories by layer"
 
-      application_layer_http_exceptions:
-        ApplicationErrorException:
-          usage: "General application errors (400 Bad Request)"
-          constructor: "new ApplicationErrorException({ messageKey, params?, instance? })"
-          messageKey_prefix: "application_error."
-          import: "src/shared/application/exceptions/application-error.exception"
-          example: |
-            throw new ApplicationErrorException({
-              messageKey: 'invalid_operation',
-              params: { field: 'status' }
-            });
+      application_layer_errors:
+        purpose: "Application-level errors with HTTP status mapping"
+        types:
+          general_error: "General application errors (typically 400 Bad Request)"
+          business_error: "Business rule violations with dynamic status"
+          auth_error: "Authentication and authorization errors"
+          system_error: "System-level errors (infrastructure, network)"
 
-        BusinessErrorException:
-          usage: "Business rule violations with dynamic HTTP status"
-          constructor: "new BusinessErrorException({ messageKey, params?, instance? })"
-          messageKey_prefix: "business_error."
-          import: "src/shared/application/exceptions/business-error.exception"
-          status_mapping:
-            resource_not_found: "404 Not Found"
-            resource_conflict: "409 Conflict"
-            state_conflict: "409 Conflict"
-            resource_gone: "410 Gone"
-            default: "400 Bad Request"
+      domain_layer_errors:
+        purpose: "Domain invariant violations (pure domain logic)"
+        note: "Framework-agnostic errors, converted to HTTP by application layer"
 
-        AuthErrorException:
-          usage: "Authentication and authorization errors"
-          constructor: "new AuthErrorException({ messageKey, params?, instance? })"
-          messageKey_prefix: "auth_error."
-          import: "src/shared/application/exceptions/auth-error.exception"
-          status_mapping:
-            authentication_required: "401 Unauthorized"
-            auth_token_expired: "401 Unauthorized"
-            auth_invalid_credentials: "401 Unauthorized"
-            forbidden: "403 Forbidden"
-            account_locked: "403 Forbidden"
-            default: "401 Unauthorized"
-          example: |
-            throw new AuthErrorException({
-              messageKey: 'forbidden',
-              params: { action: 'delete' }
-            });
+      infrastructure_layer_errors:
+        purpose: "Technical failures (database, external APIs, file system)"
+        note: "Include error chaining for debugging"
 
-        SystemErrorException:
-          usage: "System-level errors (infrastructure, network, etc.)"
-          constructor: "new SystemErrorException(messageKey, params?, instance?)"
-          messageKey_prefix: "system_error."
-          import: "src/shared/application/exceptions/system-error.exception"
-          status_mapping:
-            bad_request: "400 Bad Request"
-            endpoint_not_found: "404 Not Found"
-            method_not_allowed: "405 Method Not Allowed"
-            rate_limit_exceeded: "429 Too Many Requests"
-            internal_error: "500 Internal Server Error"
-            database_connection_error: "503 Service Unavailable"
-            service_unavailable: "503 Service Unavailable"
-            third_party_error: "502 Bad Gateway"
-          example: |
-            throw new SystemErrorException('internal_error', {
-              operation: 'database_query'
-            });
+    error_status_mapping:
+      description: "Common HTTP status code mappings"
+      business_errors:
+        resource_not_found: "404 Not Found"
+        resource_conflict: "409 Conflict"
+        state_conflict: "409 Conflict"
+        resource_gone: "410 Gone"
+        default: "400 Bad Request"
+      auth_errors:
+        authentication_required: "401 Unauthorized"
+        token_expired: "401 Unauthorized"
+        invalid_credentials: "401 Unauthorized"
+        forbidden: "403 Forbidden"
+        account_locked: "403 Forbidden"
+      system_errors:
+        internal_error: "500 Internal Server Error"
+        database_error: "503 Service Unavailable"
+        service_unavailable: "503 Service Unavailable"
+        third_party_error: "502 Bad Gateway"
+        rate_limit: "429 Too Many Requests"
 
-      domain_layer_exception:
-        DomainException:
-          usage: "Domain invariant violations (pure domain logic)"
-          constructor: "new DomainException({ messageKey, params?, instance? })"
-          messageKey_format: "Custom format (no automatic prefix)"
-          import: "src/shared/domain/exceptions/domain.exception"
-          note: "This is Error (not HttpException), handler/filter will convert to HTTP response"
-          example: |
-            throw new DomainException({
-              messageKey: 'invalid_product_category_hierarchy',
-              params: { parentId, childId }
-            });
+    implementation_details:
+      note: "See implementation_knowledge.exception_handling for tech-specific exception classes, constructors, and usage examples"
 
-      infrastructure_layer_exception:
-        InfrastructureException:
-          usage: "Technical failures (database, external APIs, file system)"
-          constructor: "new InfrastructureException({ messageKey, params?, instance?, cause? })"
-          messageKey_format: "Custom format (no automatic prefix)"
-          import: "src/shared/infrastructure/exceptions/infrastructure.exception"
-          note: "This is Error (not HttpException), includes cause for error chaining"
-          example: |
-            try {
-              await externalApi.call();
-            } catch (error) {
-              throw new InfrastructureException({
-                messageKey: 'external_api_failure',
-                params: { service: 'payment' },
-                cause: error
-              });
-            }
-
-    throw_correct_exception_by_layer:
-      description: "Guidelines for throwing appropriate exception types"
+    throw_by_layer_principles:
+      description: "Guidelines for throwing appropriate exception types by layer"
+      note: "Use implementation_knowledge.exception_handling for specific exception class names and syntax"
 
       presentation_layer:
-        validation_errors: "Let ValidationPipe handle automatically (400 Bad Request)"
-        authorization_errors: "Let guards handle (401 Unauthorized, 403 Forbidden)"
+        validation_errors: "Let framework validation handle automatically"
+        authorization_errors: "Let framework guards handle"
         custom_errors: "Rarely throw directly, let lower layers handle"
 
       application_layer:
-        business_rule_violation: "throw new BusinessErrorException({ messageKey: 'state_conflict' })"
-        resource_not_found: "throw new BusinessErrorException({ messageKey: 'resource_not_found' })"
-        invalid_operation: "throw new ApplicationErrorException({ messageKey: 'invalid_operation' })"
-        permission_denied: "throw new AuthErrorException({ messageKey: 'forbidden' })"
+        business_rule_violation: "Throw business error with appropriate messageKey (e.g., 'state_conflict')"
+        resource_not_found: "Throw business error with 'resource_not_found' messageKey"
+        invalid_operation: "Throw application error for invalid operations"
+        permission_denied: "Throw auth error for permission denied"
 
       domain_layer:
-        invariant_violation: "throw new DomainException({ messageKey: 'custom_invariant_key' })"
-        invalid_value_object: "throw new DomainException({ messageKey: 'invalid_value' })"
+        invariant_violation: "Throw domain exception with custom messageKey"
+        invalid_value_object: "Throw domain exception for invalid values"
 
       infrastructure_layer:
-        database_error: "throw new InfrastructureException({ messageKey: 'database_error', cause })"
-        external_api_error: "throw new InfrastructureException({ messageKey: 'api_error', cause })"
+        database_error: "Throw infrastructure exception with error cause chaining"
+        external_api_error: "Throw infrastructure exception with service context"
 
     error_propagation:
       - "Throw exceptions at violation point"
-      - "Framework HttpExceptionFilter will handle HTTP status mapping"
+      - "Framework exception filter handles HTTP status mapping"
       - "Use messageKey for i18n lookup"
       - "Include params for dynamic error messages"
 
@@ -522,26 +471,21 @@ standard_knowledge:
     sql_injection_prevention:
       description: "CRITICAL: Prevent SQL injection in LIKE queries"
 
-      principle: "ALWAYS escape special characters in user input before using in LIKE queries"
-
-      dangerous_pattern: |
-        //DANGEROUS - vulnerable to SQL injection
-        queryBuilder.andWhere('name LIKE :term', { term: `%${userInput}%` })
-
-      safe_pattern: |
-        //SAFE - escape quotes and special chars
-        const safeTerm = `%${userInput.replace(/["']/g, '')}%`;
-        queryBuilder.andWhere('name LIKE :safeTerm', { safeTerm });
+      principle: "ALWAYS escape special characters in user input before using in LIKE/pattern queries"
 
       escape_rules:
         - "Remove or escape single quotes (') and double quotes (\")"
         - "Consider escaping LIKE wildcards (%, _) if needed for literal search"
-        - "Use parameterized queries (TypeORM handles SQL injection for params)"
+        - "Use parameterized queries (ORM handles injection for bound parameters)"
+        - "Never concatenate user input directly into queries"
 
       apply_to:
-        - "All LIKE queries with user input"
+        - "All LIKE/pattern queries with user input"
         - "String search filters"
         - "Pattern matching operations"
+
+      implementation_details:
+        note: "See implementation_knowledge.data_access_patterns for ORM-specific examples and code patterns"
 
     query_building:
       principle: "Build queries dynamically based on input parameters"
@@ -558,7 +502,13 @@ standard_knowledge:
         - "Calculate skip/offset from page number"
         - "Return items, page, size, and total count"
         - "Default values if not provided (page=1, size=10)"
-      response_structure: "{ items: T[], page: number, size: number, total: number }"
+      response_structure:
+        fields:
+          - "items: Array of result items"
+          - "page: Current page number"
+          - "size: Items per page"
+          - "total: Total count of items"
+        note: "See implementation_knowledge.response_patterns for tech-specific structure syntax"
 
     filtering:
       principle: "Support flexible filtering"
@@ -847,6 +797,110 @@ implementation_knowledge:
       - "All imports use relative paths, NOT absolute paths"
       - "Import paths correctly calculated from source to target file"
 
+  exception_handling:
+    description: "Tech-specific exception classes and usage"
+    note: "Implements standard_knowledge.error_handling_principles with NestJS/TypeScript"
+
+    exception_classes:
+      ApplicationErrorException:
+        usage: "General application errors (400 Bad Request)"
+        constructor: "new ApplicationErrorException({ messageKey, params?, instance? })"
+        messageKey_prefix: "application_error."
+        import: "src/shared/application/exceptions/application-error.exception"
+        layer: "Application"
+
+      BusinessErrorException:
+        usage: "Business rule violations with dynamic HTTP status"
+        constructor: "new BusinessErrorException({ messageKey, params?, instance? })"
+        messageKey_prefix: "business_error."
+        import: "src/shared/application/exceptions/business-error.exception"
+        layer: "Application"
+        status_examples:
+          - "messageKey: 'resource_not_found' → 404"
+          - "messageKey: 'resource_conflict' → 409"
+          - "messageKey: 'state_conflict' → 409"
+
+      AuthErrorException:
+        usage: "Authentication and authorization errors"
+        constructor: "new AuthErrorException({ messageKey, params?, instance? })"
+        messageKey_prefix: "auth_error."
+        import: "src/shared/application/exceptions/auth-error.exception"
+        layer: "Application"
+
+      SystemErrorException:
+        usage: "System-level errors (infrastructure, network)"
+        constructor: "new SystemErrorException(messageKey, params?, instance?)"
+        messageKey_prefix: "system_error."
+        import: "src/shared/application/exceptions/system-error.exception"
+        layer: "Application"
+
+      DomainException:
+        usage: "Domain invariant violations"
+        constructor: "new DomainException({ messageKey, params?, instance? })"
+        messageKey_format: "Custom format"
+        import: "src/shared/domain/exceptions/domain.exception"
+        layer: "Domain"
+        note: "Pure Error (not HttpException), converted by filter"
+
+      InfrastructureException:
+        usage: "Technical failures (database, external APIs)"
+        constructor: "new InfrastructureException({ messageKey, params?, instance?, cause? })"
+        messageKey_format: "Custom format"
+        import: "src/shared/infrastructure/exceptions/infrastructure.exception"
+        layer: "Infrastructure"
+        note: "Supports error chaining with cause parameter"
+
+  data_access_patterns:
+    description: "Tech-specific data access patterns"
+    note: "Implements standard_knowledge.data_access_principles with TypeORM"
+
+    sql_injection_prevention_examples:
+      dangerous: |
+        // DANGEROUS - vulnerable to SQL injection
+        queryBuilder.andWhere('name LIKE :term', { term: `%${userInput}%` })
+
+      safe: |
+        // SAFE - escape quotes and special chars
+        const safeTerm = `%${userInput.replace(/["']/g, '')}%`;
+        queryBuilder.andWhere('name LIKE :safeTerm', { safeTerm });
+
+    query_building_pattern: |
+      // TypeORM QueryBuilder pattern
+      let query = repository.createQueryBuilder('entity')
+        .where('entity.tenant_id = :tenantId', { tenantId });
+
+      if (searchTerm) {
+        const safeTerm = `%${searchTerm.replace(/["']/g, '')}%`;
+        query = query.andWhere('entity.name LIKE :term', { term: safeTerm });
+      }
+
+      if (statusArray?.length) {
+        query = query.andWhere('entity.status IN (:...statuses)', { statuses: statusArray });
+      }
+
+      return query.skip((page - 1) * size).take(size).getMany();
+
+  response_patterns:
+    description: "Tech-specific response structure patterns"
+    note: "Implements standard_knowledge.data_access_principles.pagination with TypeScript"
+
+    pagination_response_type: |
+      // TypeScript type definition
+      interface PaginatedResponse<T> {
+        items: T[];
+        page: number;
+        size: number;
+        total: number;
+      }
+
+    list_response_example: |
+      return {
+        items: results,
+        page: dto.page || 1,
+        size: dto.size || 10,
+        total: totalCount
+      };
+
   validation_patterns:
     description: "Validation decorator patterns for common scenarios"
 
@@ -864,6 +918,76 @@ implementation_knowledge:
       page: "@ValidateIf((o) => o.page !== undefined), @IsNotIn([null]), @Transform(transformToInt), @IsInt(), @Min(1), @Max(1000)"
       size: "@ValidateIf((o) => o.size !== undefined), @IsNotIn([null]), @Transform(transformToInt), @IsInt(), @Min(1), @Max(500)"
       note: "CRITICAL: Use transformToInt instead of @Type(() => Number)"
+
+  validation_decorator_mapping:
+    description: "Mapping from test messageKey patterns to class-validator decorators"
+    note: "Use this mapping when generating Request DTOs from test_plan error cases"
+
+    type_validators:
+      wrong_type_string: "@IsString()"
+      wrong_type_integer: "@IsInt()"
+      wrong_type_array: "@IsArray()"
+      wrong_type_boolean: "@IsBoolean()"
+      wrong_type_object: "@IsObject()"
+
+    presence_validators:
+      required: "Field is required - do NOT add @ValidateIf or @IsOptional"
+      optional: "Field is optional - add @ValidateIf((o) => o.field !== undefined) and @IsNotIn([null])"
+
+    string_validators:
+      max_length: "@MaxLength(value)"
+      min_length: "@MinLength(value)"
+      pattern: "@Matches(regex)"
+      email: "@IsEmail()"
+      url: "@IsUrl()"
+
+    numeric_validators:
+      max_value: "@Max(value)"
+      min_value: "@Min(value)"
+      positive: "@IsPositive()"
+      negative: "@IsNegative()"
+
+    array_validators:
+      array_not_empty: "@ArrayNotEmpty()"
+      array_min_size: "@ArrayMinSize(value)"
+      array_max_size: "@ArrayMaxSize(value)"
+      array_unique: "@ArrayNoDuplicates()"
+      array_contains: "@ArrayContains(values)"
+
+    value_validators:
+      enum_values: "@IsIn([values])"
+      not_in: "@IsNotIn([values])"
+
+    transformation:
+      transform_int: "@Transform(transformToInt)"
+      transform_int_array: "@Transform(transformToIntArray)"
+      transform_string_array: "@Transform(transformToStringArray)"
+
+    combined_patterns:
+      optional_string_field: |
+        @ValidateIf((o) => o.field !== undefined)
+        @IsNotIn([null])
+        @IsString()
+        @MaxLength(255)
+
+      optional_integer_field: |
+        @ValidateIf((o) => o.field !== undefined)
+        @IsNotIn([null])
+        @Transform(transformToInt)
+        @IsInt()
+        @Min(1)
+
+      optional_array_field: |
+        @ValidateIf((o) => o.field !== undefined)
+        @IsNotIn([null])
+        @Transform(transformToIntArray)
+        @IsArray()
+        @ArrayNotEmpty()
+
+      required_string_field: |
+        @IsString()
+        @IsNotEmpty()
+        @MaxLength(255)
 
   request_dto_generation_from_testplan:
     description: "Systematic approach to generate Request DTO from test_plan UT test cases"
@@ -1526,6 +1650,132 @@ implementation_knowledge:
 
         @UpdateDateColumn()
         updated_at: Date;
+      }
+
+    command_handler_template: |
+      // src/components/<bounded-context>/application/commands/<component-name>.command-handler.ts
+      import { ICommand, ICommandHandler, CommandHandler } from '@nestjs/cqrs';
+      import { Inject } from '@nestjs/common';
+      import { <ComponentName>Command } from '../dtos/<component-name>.command';
+      import { I<Domain>CommandRepository } from '../repositories/<domain>-command.repository';
+      import { ApplicationErrorException } from '../../../../shared/application/exceptions/application-error.exception';
+      import { BusinessErrorException } from '../../../../shared/application/exceptions/business-error.exception';
+      import { <ComponentName>ResponseDTO } from '../../presentation/responses/<component-name>.response';
+
+
+      @CommandHandler(<ComponentName>Command)
+      export class <ComponentName>CommandHandler
+        implements ICommandHandler<<ComponentName>Command, <ComponentName>ResponseDTO>
+      {
+        constructor(
+          @Inject('I<Domain>CommandRepository')
+          private readonly repository: I<Domain>CommandRepository,
+        ) {}
+
+        async execute(command: <ComponentName>Command): Promise<<ComponentName>ResponseDTO> {
+          // Validate business rules
+          // Example: Check if resource exists
+          // const existing = await this.repository.findById(command.id);
+          // if (!existing) {
+          //   throw new BusinessErrorException({
+          //     messageKey: 'resource_not_found',
+          //     params: { resource: 'Resource' }
+          //   });
+          // }
+
+          // Perform command operation
+          const result = await this.repository.save({
+            // Map command to entity
+          });
+
+          // Return response
+          return {
+            id: result.id,
+            // Map other fields
+          };
+        }
+      }
+
+    domain_entity_template: |
+      // src/components/<bounded-context>/domain/entities/<domain>.entity.ts
+      /**
+       * Domain Entity - Pure business logic, framework-agnostic
+       * No ORM decorators, no infrastructure dependencies
+       */
+      export class <Domain> {
+        private constructor(
+          public readonly id: number,
+          public readonly name: string,
+          public readonly tenantId: number,
+          public readonly activeStatus: number,
+          public readonly creatorId: number,
+        ) {
+          this.validate();
+        }
+
+        /**
+         * Factory method to create new domain entity
+         */
+        static create(
+          name: string,
+          tenantId: number,
+          creatorId: number,
+        ): <Domain> {
+          return new <Domain>(0, name, tenantId, 1, creatorId);
+        }
+
+        /**
+         * Factory method to reconstitute from persistence
+         */
+        static reconstitute(
+          id: number,
+          name: string,
+          tenantId: number,
+          activeStatus: number,
+          creatorId: number,
+        ): <Domain> {
+          return new <Domain>(id, name, tenantId, activeStatus, creatorId);
+        }
+
+        /**
+         * Domain invariants validation
+         */
+        private validate(): void {
+          if (!this.name || this.name.trim().length === 0) {
+            throw new DomainException({
+              messageKey: 'domain.invalid_name',
+              params: { domain: '<Domain>' }
+            });
+          }
+
+          if (this.tenantId <= 0) {
+            throw new DomainException({
+              messageKey: 'domain.invalid_tenant',
+              params: { domain: '<Domain>' }
+            });
+          }
+        }
+
+        /**
+         * Business logic methods
+         */
+        activate(): <Domain> {
+          return new <Domain>(this.id, this.name, this.tenantId, 1, this.creatorId);
+        }
+
+        deactivate(): <Domain> {
+          return new <Domain>(this.id, this.name, this.tenantId, 0, this.creatorId);
+        }
+
+        changeName(newName: string): <Domain> {
+          if (!newName || newName.trim().length === 0) {
+            throw new DomainException({
+              messageKey: 'domain.invalid_name',
+              params: { domain: '<Domain>' }
+            });
+          }
+          return new <Domain>(this.id, newName, this.tenantId, this.activeStatus, this.creatorId);
+        }
       }
 
 config:
