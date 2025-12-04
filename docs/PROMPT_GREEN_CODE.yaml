@@ -81,7 +81,7 @@ process:
          - Identify transformation requirements
 
   step_3_generate_domain:
-    description: "Generate Domain layer (if command flow)"
+    description: "Generate Domain layer (If command flow)"
     prompt: |
       1. Determine if domain layer is tested:
          - Check for domain entity tests
@@ -92,7 +92,7 @@ process:
          - Domain exceptions for business rule violations
          - Value objects for complex types (if tested)
 
-      3. Apply implementation_knowledge.syntax_rules.domain_layer for code generation
+      3. Apply implementation_knowledge.code_templates.domain_entity_template for code generation
 
   step_4_generate_application:
     description: "Generate Application layer components"
@@ -114,7 +114,7 @@ process:
          - Implement execute() method to pass tests
          - Apply standard_knowledge.cqrs_principles
          - Handle exceptions as expected by tests
-         - Use implementation_knowledge.syntax_rules.cqrs.handler
+         - Use implementation_knowledge.code_templates.query_handler_template | implementation_knowledge.code_templates.command_handler_template
 
   step_5_generate_infrastructure:
     description: "Generate Infrastructure layer components"
@@ -122,13 +122,11 @@ process:
       1. Generate TypeORM entity models:
          - Map from db_schema tables
          - Use @Entity, @Column decorators
-         - Follow implementation_knowledge.syntax_rules.typeorm_entity
          - Use implementation_knowledge.code_templates.typeorm_entity_template
 
       2. Generate repository implementations (Adapters):
          - Implement repository interfaces from application layer
          - Use TypeORM repository and QueryBuilder
-         - Apply implementation_knowledge.syntax_rules.repository_implementation
          - Build queries based on DTO parameters
          - Handle pagination if expected by tests
          - Map entities to response DTOs
@@ -151,7 +149,6 @@ process:
          - Map messageKey patterns to validation decorators (see implementation_knowledge.validation_decorator_mapping)
          - CRITICAL: Use custom transform helpers (transformToIntArray, transformToInt) instead of @Type() to preserve invalid values
          - Add class-validator decorators based on validation test assertions
-         - Use implementation_knowledge.syntax_rules.request_dto
          - Apply implementation_knowledge.validation_patterns
          - Apply implementation_knowledge.request_dto_generation_from_testplan for systematic DTO generation
          - Use implementation_knowledge.code_templates.request_dto_template
@@ -170,7 +167,7 @@ process:
          - Execute via bus
          - Apply guards: @UseGuards(JwtAuthGuard, PermissionGuard)
          - Apply permission: @RequirePermissions('PERMISSION_NAME') derived from component name
-         - Use implementation_knowledge.syntax_rules.controller and implementation_knowledge.jwt_extraction_syntax
+         - Use implementation_knowledge.jwt_extraction_syntax
          - Use implementation_knowledge.code_templates.controller_template
 
   step_7_generate_module:
@@ -183,7 +180,7 @@ process:
          - Register QueryHandlers and CommandHandlers
          - Register repository providers with useClass
          - Export repository interfaces if needed
-         - Use implementation_knowledge.syntax_rules.module
+         - Use implementation_knowledge.code_templates.typeorm_entity_template
 
   step_8_validation:
     description: "Validate implementation against RED tests"
