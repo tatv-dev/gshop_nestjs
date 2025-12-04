@@ -12,6 +12,9 @@ core_principles:
     - "Code must be production-ready with proper error handling"
     - "NO placeholder code, NO TODO/FIXME comments"
     - "NO over-engineering, NO unnecessary abstractions"
+    - "STRICT FILE SEPARATION: Every DTO, Entity, Interface, and Class MUST be in its own physical file."
+    - "NO INLINE CLASSES: Never define a DTO inside a Handler or Controller file."
+    - "DTO FIRST STRATEGY: You MUST generate and output DTO files BEFORE generating any Handler or Controller that uses them."
 
   input_requirements:
     required:
@@ -25,12 +28,15 @@ core_principles:
     note: "Use implementation_knowledge.techstack_mappings.generation_order_implementation for file naming and folder structure."
 
     query_flow:
-      - "Request → Controller → Request DTO → Application DTO → QueryBus"
-      - "QueryBus → Handler → Repository Interface → Repository Implementation → Database"
-      - "Database → Repository → Domain Models → Handler → Response DTO → Controller → Client"
+      - "STEP 1: Application DTO (Input Definition) [BLOCKER]"
+      - "STEP 2: Response DTO (Output Definition) [BLOCKER]"
+      - "STEP 3: Repository Interface"
+      - "STEP 4: QueryBus/Handler (Depends on 1, 2, 3)"
+      - "STEP 5: Request DTO (Validation)"
+      - "STEP 6: Controller (Depends on 5, 1, 2)"
 
     mapping_to_query_flow:
-      1: "Application DTOs ← Input for Handler in query_flow"
+      1: "Application DTOs ← Input for Handler"
       2: "Response DTOs ← Output returned by Handler"
       3: "Repository Interfaces ← Required by Handler before Repository Impl"
       4: "Handlers ← Execute business logic; must wait for DTOs + Repo Interface"
@@ -39,17 +45,6 @@ core_principles:
       7: "Request DTOs ← Controller-level input validation"
       8: "Controllers ← Orchestrate Request DTO → Application DTO → Handler → Response DTO"
       9: "Module Configuration ← Final step wiring all components together"
-
-    mandatory_sequence:
-      1: "Application DTOs - Required by handlers as input parameters"
-      2: "Response DTOs - Required by handlers as return types"
-      3: "Repository Interfaces - Required by handlers for dependency injection"
-      4: "Query/Command Handlers - Depend on DTOs, Response DTOs, and Repository Interfaces"
-      5: "Entity Models - Required by repository implementations"
-      6: "Repository Implementations - Implement interfaces, use entity models"
-      7: "Request DTOs - For API layer validation"
-      8: "Controllers - Orchestrate all components"
-      9: "Module Configuration - Wire everything together"
 
     critical_rules:
       - "MUST generate ALL files in mandatory_sequence before proceeding to next steps."
@@ -159,32 +154,33 @@ process:
 
       3. Apply implementation_knowledge.code_templates.domain_entity_template for code generation
 
-
   step_6_generate_application:
     description: "Generate Application layer components"
     prompt: |
-      CRITICAL: Follow this exact order to avoid compilation errors:
-      1. FIRST Generate Application DTO:
-        - Execute in step_3
-      2. SECOND: Generate repository interfaces (Ports):
-         - Use implementation_knowledge.techstack_mappings.component_type_mappings.repository_interface
-         - Extract method signatures from handler tests
-         - Define return types from test assertions
-         - Apply class_naming_pattern and file_naming_pattern from component_type_mappings.repository_interface
-         - Use implementation_knowledge.code_templates.repository_interface_template
-
-      3. THIRD: Generate Query/Command handlers:
-         - CRITICAL: Only generate AFTER application DTO and repository interface exist
-         - Use implementation_knowledge.techstack_mappings.component_type_mappings.query_handler | command_handler
-         - CRITICAL: Handler MUST import application DTO using path from techstack_mappings
-         - CRITICAL: Handler MUST import response DTO using path from techstack_mappings
-         - CRITICAL: Handler method signature MUST match techstack_mappings.component_type_mappings.query_handler.method_signature
-         - Inject repository interfaces via constructor
-         - Implement execute() method to pass tests
-         - Apply standard_knowledge.cqrs_principles
-         - Handle exceptions as expected by tests
-         - Use implementation_knowledge.code_templates.query_handler_template | command_handler_template
-         - VALIDATION: Ensure imports resolve correctly before proceeding
+      CRITICAL: DEPENDENCY CHECK
+        1. Check: Did you output Application DTO in step_3?
+        2. Check: Did you output Response DTO in step_4?
+        3. If YES:
+          - FIRST: Generate Repository Interface:
+            - Use implementation_knowledge.techstack_mappings.component_type_mappings.repository_interface
+            - Extract method signatures from handler tests
+            - Define return types from test assertions
+            - Apply class_naming_pattern and file_naming_pattern from component_type_mappings.repository_interface
+            - Use implementation_knowledge.code_templates.repository_interface_template
+          - SECOND: Generate Query/Command handlers.
+            - CRITICAL: Only generate AFTER application DTO, response DTO and repository interface exist
+            - CRITICAL: Use implementation_knowledge.techstack_mappings.component_type_mappings.query_handler | command_handler
+            - CRITICAL: Use implementation_knowledge.code_templates.query_handler_template | command_handler_template
+            - CRITICAL: Handler MUST import application DTO using path from techstack_mappings
+            - CRITICAL: Handler MUST import response DTO using path from techstack_mappings
+            - CRITICAL: Handler method signature MUST match techstack_mappings.component_type_mappings.query_handler.method_signature
+            - Inject repository interfaces via constructor
+            - Implement execute() method to pass tests
+            - Apply standard_knowledge.cqrs_principles
+            - Handle exceptions as expected by tests
+            - VALIDATION: Ensure imports resolve correctly before proceeding
+        4. If NO:
+          - GO BACK and generate DTOs first.
 
   step_7_generate_infrastructure:
     description: "Generate Infrastructure layer components"
@@ -211,9 +207,7 @@ process:
   step_8_generate_presentation:
     description: "Generate Presentation layer components"
     prompt: |
-      1. FIRST Generate Response DTO:
-        - Execute in step_4
-      2. SECOND: Generate Request DTOs:
+      1. FIRST: Generate Request DTOs:
          - Use implementation_knowledge.techstack_mappings.component_type_mappings.request_dto
          - CRITICAL: Request DTOs MUST extend base class defined in techstack mappings
          - CRITICAL: Import required dependencies from techstack_mappings.component_type_mappings.request_dto.required_imports
@@ -226,7 +220,7 @@ process:
          - Apply implementation_knowledge.request_dto_generation_from_testplan for systematic DTO generation
          - Use implementation_knowledge.code_templates.request_dto_template
 
-      3. THIRD: Generate Controllers:
+      2. SECOND: Generate Controllers:
          - Use implementation_knowledge.techstack_mappings.component_type_mappings.controller
          - Extract HTTP method from E2E test (GET/POST/PUT/DELETE)
          - Extract endpoint URL from E2E test request
@@ -253,46 +247,60 @@ process:
          - Use implementation_knowledge.code_templates for module configuration
 
   step_10_validation:
-    description: "Validate implementation against RED tests"
-    note: "Use implementation_knowledge.techstack_mappings.component_type_mappings for specific file paths and extensions"
+    description: "Validate implementation against RED tests and ensure ALL generated components match generation_order and mandatory_sequence"
+    note: "Uses techstack_mappings.component_type_mappings for exact paths, naming, and file extensions"
+
+    generation_order_enforcement:
+      - "CRITICAL: Every file in mandatory_sequence MUST exist before the next file type is validated"
+      - "CRITICAL: Missing ANY file in the generation order causes immediate validation failure"
+      - "CRITICAL: Handler validation must only run AFTER DTOs + Response DTOs + Repository Interface exist"
+      - "CRITICAL: Controller validation must only run AFTER Request DTO + Handler + Response DTO exist"
+      - "CRITICAL: Module validation must only run AFTER ALL other components exist"
 
     file_existence_checklist:
       application_layer:
-        - "CRITICAL: Application DTO file exists at location defined in techstack_mappings.component_type_mappings.application_dto"
-        - "CRITICAL: Application DTO exports class with correct naming pattern"
-        - "CRITICAL: Repository interface file exists at location defined in techstack_mappings.component_type_mappings.repository_interface"
-        - "CRITICAL: Handler file exists at location defined in techstack_mappings.component_type_mappings.query_handler | command_handler"
+        - "CRITICAL: Application DTO file exists at path defined in component_type_mappings.application_dto"
+        - "CRITICAL: Application DTO exports a correctly named class (matches test imports)"
+        - "CRITICAL: Repository Interface file exists at path defined in component_type_mappings.repository_interface"
+        - "CRITICAL: Handler file exists at handler path defined in component_type_mappings.query_handler | command_handler"
+        - "CRITICAL: Repository Interface MUST exist BEFORE validating handler files"
 
       presentation_layer:
-        - "CRITICAL: Response DTO file exists at location defined in techstack_mappings.component_type_mappings.response_dto"
-        - "CRITICAL: Response DTO exports classes with correct structure"
-        - "CRITICAL: Request DTO file exists at location defined in techstack_mappings.component_type_mappings.request_dto"
-        - "CRITICAL: Controller file exists at location defined in techstack_mappings.component_type_mappings.controller"
+        - "CRITICAL: Response DTO file exists at path defined in component_type_mappings.response_dto"
+        - "CRITICAL: Response DTO exports classes following required naming pattern"
+        - "CRITICAL: Request DTO file exists at path defined in component_type_mappings.request_dto"
+        - "CRITICAL: Controller file exists at location defined in component_type_mappings.controller"
+        - "CRITICAL: Request DTO MUST exist BEFORE controller validation"
+        - "CRITICAL: Response DTO MUST exist BEFORE handler/controller validation"
 
       infrastructure_layer:
-        - "Entity model exists at location defined in techstack_mappings.component_type_mappings.entity_model"
-        - "Repository implementation exists at location defined in techstack_mappings.component_type_mappings.repository_implementation"
+        - "CRITICAL: Entity model exists at path defined in component_type_mappings.entity_model"
+        - "CRITICAL: Repository Implementation exists at path defined in component_type_mappings.repository_implementation"
+        - "CRITICAL: Entity Model MUST exist BEFORE validating repository implementation"
 
       module:
-        - "Module file exists at location defined in techstack_mappings.component_type_mappings.module"
+        - "CRITICAL: Module file exists at path defined in component_type_mappings.module"
+        - "CRITICAL: Module MUST import/wire ALL components from mandatory_sequence"
+        - "CRITICAL: Module validation MUST be last step"
 
     handler_signature_checklist:
-      - "CRITICAL: Handler imports application DTO using example_import from techstack_mappings.component_type_mappings.application_dto"
-      - "CRITICAL: Handler imports response DTO using example_import from techstack_mappings.component_type_mappings.response_dto"
-      - "CRITICAL: Handler implements interface as defined in techstack_mappings.component_type_mappings.query_handler.interface"
-      - "CRITICAL: Handler method signature matches techstack_mappings.component_type_mappings.query_handler.method_signature"
-      - "CRITICAL: Handler returns correct response type matching signature"
+      - "CRITICAL: Handler MUST import Application DTO using example_import from component_type_mappings.application_dto"
+      - "CRITICAL: Handler MUST import Response DTO using example_import from component_type_mappings.response_dto"
+      - "CRITICAL: Handler MUST implement interface defined in component_type_mappings.query_handler.interface"
+      - "CRITICAL: Handler method signature MUST match component_type_mappings.query_handler.method_signature"
+      - "CRITICAL: Handler MUST return Response DTO type required by tests"
+      - "CRITICAL: Handler MUST inject Repository Interface (NOT implementation)"
 
     general_checklist:
-      - "All class names match test imports"
-      - "All method signatures match test calls"
-      - "All DTO properties match test assertions"
-      - "All validation decorators match test expectations"
-      - "All imports use correct relative paths"
-      - "Module configuration includes all providers"
-      - "No TypeScript compilation errors"
-      - "Code follows architecture principles"
-      - "YAGNI: No unnecessary code beyond test requirements"
+      - "Class names match exactly test imports"
+      - "Method signatures match exactly test calls"
+      - "DTO property types match test assertions"
+      - "Validation decorators match expected rules in tests"
+      - "All imports use correct relative paths defined in techstack_mappings"
+      - "Module includes all providers in correct providers array"
+      - "No TypeScript compilation errors allowed"
+      - "Architecture rules strictly followed (no shared/shared_kernel modifications)"
+      - "YAGNI: Only code required to satisfy tests may be generated"
 
 standard_knowledge:
   ddd_principles:
@@ -624,9 +632,9 @@ implementation_knowledge:
         directory_full: "src/components/[bc]/application/queries/"
         full_path_pattern: "src/components/<bounded-context>/application/queries/<action-domain>.query-handler.ts"
         framework: "NestJS CQRS"
-        framework_decorators: ["@QueryHandler(<DTO>)"]
-        interface: "implements IQueryHandler<<DTO>, <ResponseDTO>>"
-        method_signature: "async execute(dto: <DTO>): Promise<<ResponseDTO>>"
+        framework_decorators: ["@QueryHandler(<ApplicationDTO>)"]
+        interface: "implements IQueryHandler<<ApplicationDTO>, <ResponseDTO>>"
+        method_signature: "async execute(dto: <ApplicationDTO>): Promise<<ResponseDTO>>"
 
       command_handler:
         class_naming_pattern: "[Action][Domain]CommandHandler"
