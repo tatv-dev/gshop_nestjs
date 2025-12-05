@@ -909,7 +909,7 @@ implementation_knowledge:
         test_file_location: "src/tests/components/<bounded-context>/<action-domain>/"
         source_interface_location: "src/components/[bc]/application/repositories/"
         source_impl_location: "src/components/[bc]/infrastructure/repositories/"
-        interface_file_naming: "i-[domain]-query.repository.ts"
+        interface_file_naming: "[domain]-query.repository.ts"
         impl_file_naming: "[domain]-query.repository.ts"
         test_framework: "Jest"
 
