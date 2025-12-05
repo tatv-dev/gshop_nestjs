@@ -23,7 +23,7 @@ process:
     enforcement: |
       - DO NOT STOP until all test files specified in test_plan are generated
       - Each test type (UT/IT/E2E) MUST be generated if specified in test_plan
-      - seed-data.helper.ts is MANDATORY for all IT and E2E tests
+      - [action-domain].seed.ts is MANDATORY for all IT and E2E tests
       - All test files are MANDATORY and BLOCKING
       - If you stop before generating all files, the test suite will be INCOMPLETE and FAIL
 
@@ -41,7 +41,7 @@ process:
 
     e2e_tests:
       - "[ ] E2E Test"
-      - "[ ] MANDATORY: seed-data.helper.ts for IT/E2E tests"
+      - "[ ] MANDATORY: [action-domain].seed.ts for IT/E2E tests"
 
     note: "Generate files based on test_plan.test_type. All specified test types MUST be generated."
 
@@ -168,7 +168,7 @@ process:
          - Cleanup order: Reverse of seed order
 
       4. Generate seed file structure:
-         - File name: seed-data.helper.ts (in same directory as test file)
+         - File name: [action-domain].seed.ts (in same directory as test file)
          - Export ID constants at top (use >= 100000 to avoid conflicts)
          - Export TWO credential constants with EXACTLY 3 fields each
          - Generate main seedTestData() function that wraps in transaction
@@ -281,7 +281,7 @@ process:
         - "Teardown phase: Optional full cleanup and close application"
 
     seed_helper_specific:
-      description: "seed-data.helper.ts validation"
+      description: "[action-domain].seed.ts validation"
       checklist:
         - "All ID constants exported at top with test prefix (>= 100000)"
         - "TWO credential constants with all required authentication fields"
@@ -877,7 +877,7 @@ implementation_knowledge:
         class_naming_pattern: "[Action][Domain]Request"
         file_naming_pattern: "[action-domain].request.ut.spec.ts"
         test_suite_naming: "[ComponentName] Validation"
-        test_file_location: "src/tests/components/[bounded-context]/[feature]/"
+        test_file_location: "src/tests/components/<bounded-context>/<action-domain>/"
         source_file_location: "src/components/[bc]/presentation/requests/"
         source_file_naming: "[action-domain].request.ts"
         test_framework: "Jest"
@@ -887,7 +887,7 @@ implementation_knowledge:
         class_naming_pattern: "[Action][Domain]QueryHandler"
         file_naming_pattern: "[action-domain].query-handler.it.spec.ts"
         test_suite_naming: "[ComponentName] Integration Tests"
-        test_file_location: "src/tests/components/[bounded-context]/[feature]/"
+        test_file_location: "src/tests/components/<bounded-context>/<action-domain>/"
         source_file_location: "src/components/[bc]/application/queries/"
         source_file_naming: "[action-domain].query-handler.ts"
         test_framework: "Jest"
@@ -896,7 +896,7 @@ implementation_knowledge:
         class_naming_pattern: "[Action][Domain]CommandHandler"
         file_naming_pattern: "[action-domain].command-handler.it.spec.ts"
         test_suite_naming: "[ComponentName] Integration Tests"
-        test_file_location: "src/tests/components/[bounded-context]/[feature]/"
+        test_file_location: "src/tests/components/<bounded-context>/<action-domain>/"
         source_file_location: "src/components/[bc]/application/commands/"
         source_file_naming: "[action-domain].command-handler.ts"
         test_framework: "Jest"
@@ -906,7 +906,7 @@ implementation_knowledge:
         interface_naming: "I[Domain]QueryRepository"
         file_naming_pattern: "[domain]-query.repository.it.spec.ts"
         test_suite_naming: "[Domain]QueryRepository - Integration Tests"
-        test_file_location: "src/tests/components/[bounded-context]/[feature]/"
+        test_file_location: "src/tests/components/<bounded-context>/<action-domain>/"
         source_interface_location: "src/components/[bc]/application/repositories/"
         source_impl_location: "src/components/[bc]/infrastructure/repositories/"
         interface_file_naming: "i-[domain]-query.repository.ts"
@@ -915,13 +915,13 @@ implementation_knowledge:
 
       e2e_test:
         file_naming_pattern: "[action-domain].e2e.spec.ts"
-        test_suite_naming: "[HTTP_METHOD] /api/[version]/[bounded-context]/[resources] E2E"
-        test_file_location: "src/tests/components/[bounded-context]/[feature]/"
+        test_suite_naming: "[HTTP_METHOD] /api/[version]/<bounded-context>/[resources] E2E"
+        test_file_location: "src/tests/components/<bounded-context>/<action-domain>/"
         test_framework: "Jest"
         http_client: "supertest"
 
       seed_data_helper:
-        file_naming_pattern: "seed-data.helper.ts"
+        file_naming_pattern: "[action-domain].seed.ts"
         location: "Same directory as test files"
         note: "MANDATORY for all IT and E2E tests"
 
@@ -933,7 +933,7 @@ implementation_knowledge:
           - "GetListProductCategoryQueryHandler → GetListProductCategoryQueryHandler"
 
       endpoint_url:
-        pattern: "/api/[version]/[bounded-context]/[resources]"
+        pattern: "/api/[version]/<bounded-context>/[resources]"
         algorithm: "Extract Action + Domain from component_under_test, convert Domain to kebab-case plural"
         http_method_mapping:
           GetList: "GET"
@@ -955,7 +955,7 @@ implementation_knowledge:
 
     path_calculation:
       rule: "Calculate relative path from test file location to source file location"
-      example: "From src/tests/components/[bc]/[feature]/ to src/components/[bc]/presentation/requests/ = ../../../../components/[bc]/presentation/requests/"
+      example: "From src/tests/components/[bc]/<action-domain>/ to src/components/[bc]/presentation/requests/ = ../../../../components/[bc]/presentation/requests/"
 
   test_structure_syntax:
     description: "Jest test structure syntax"
@@ -1673,7 +1673,7 @@ implementation_knowledge:
         TEST_<DOMAIN_CONSTANT>_ID,
         TEST_USER_CREDENTIALS,
         TEST_USER_WITHOUT_PERMISSION_CREDENTIALS,
-      } from './seed-data.helper';
+      } from './[action-domain].seed';
 
       describe('<HTTP_METHOD> /api/v1/<bounded-context>/<resources> E2E', () => {
         let app: INestApplication;
@@ -1823,7 +1823,7 @@ implementation_knowledge:
         seedTestData,
         TEST_<DOMAIN_CONSTANT>_ID,
         TEST_TENANT_ID,
-      } from './seed-data.helper';
+      } from './[action-domain].seed';
 
       describe('<ComponentName>QueryHandler Integration Tests', () => {
         let moduleRef: TestingModule;
@@ -1885,7 +1885,7 @@ implementation_knowledge:
       import { DataSource, QueryRunner } from 'typeorm';
       import { <DomainName>QueryRepository } from '../../../../components/<bounded-context>/infrastructure/repositories/<domain-name>-query.repository';
       import { I<DomainName>QueryRepository } from '../../../../components/<bounded-context>/application/repositories/<domain-name>-query.repository';
-      import { seed<DomainSpecific>TestData, TEST_TENANT_ID } from './seed-data.helper';
+      import { seed<DomainSpecific>TestData, TEST_TENANT_ID } from './[action-domain].seed';
       import { TypeOrmModule } from '@nestjs/typeorm';
       import { ConfigModule } from '@nestjs/config';
       import { <DomainName>Model } from '../../../../components/<bounded-context>/infrastructure/entities/<domain-name>.model';
