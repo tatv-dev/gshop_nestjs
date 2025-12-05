@@ -37,7 +37,7 @@ process:
       - "[ ] Handler Integration Test"
 
     repository_tests:
-      - "[ ] Repository Integration Test (*repository.it.spec.ts)"
+      - "[ ] Repository Integration Test"
 
     e2e_tests:
       - "[ ] E2E Test"
@@ -93,7 +93,7 @@ process:
          - CRITICAL: For IT/E2E tests, determine which domain tables need seeding
          - Extract table names from db_schema that match component domain
          - Example: GetListProductCategory → need product_categories table
-         - Plan domain seed function name: seed<Domain>TestData (e.g., seedProductCategoriesTestData)
+         - Plan domain seed function name: seed<Domain>TestData
          - Determine test data values from expected outcomes in test_plan
 
   step_2_generate_structure:
@@ -205,7 +205,7 @@ process:
 
       6. Generate domain-specific seed data function (IT/E2E only - TIER 2):
          - CRITICAL: Create separate seed function for domain entities
-         - Function naming: seed<DomainPlural>TestData (e.g., seedProductCategoriesTestData)
+         - Function naming: seed<DomainPlural>TestData
          - Function signature: Takes queryRunner as parameter (for transaction management)
          - Export this function for use in IT/E2E test lifecycle hooks
          - SQL pattern: Use SIMPLE INSERT (NOT INSERT IGNORE, NOT ON DUPLICATE KEY UPDATE)
