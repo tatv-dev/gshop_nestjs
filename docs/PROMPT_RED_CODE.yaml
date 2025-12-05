@@ -2091,264 +2091,112 @@ implementation_knowledge:
       });
 
     seed_data_helper_template:
-      description: "Generic seed data helper template - adapt to actual db_schema"
+      description: "Structure for [action-domain].seed.ts - derive columns from db_schema"
 
       critical_instructions: |
-        CRITICAL: This template uses PLACEHOLDERS. You MUST:
-        1. Read db_schema to identify actual table names and column names
-        2. Replace <table_name> with actual table names from db_schema
-        3. Replace column lists with ACTUAL columns from db_schema
-        4. Include ONLY columns that exist in db_schema
-        5. Set appropriate values for NOT NULL columns (use NULL for nullable columns)
-        6. Respect FK constraints order (parent tables before child tables)
+        CRITICAL: Do NOT use placeholder code. Generate ACTUAL code by:
+        1. Read db_schema to get actual table names, columns, and constraints
+        2. Identify NOT NULL columns → must provide values
+        3. Identify nullable columns → can use NULL
+        4. Respect FK relationships → seed parents before children
+        5. Follow TWO-TIER seeding strategy (see lifecycle_management_principles)
 
-      column_identification_rules:
-        required_columns: "Columns with NOT NULL constraint MUST have values"
-        optional_columns: "Nullable columns can use NULL"
-        common_patterns:
-          id_column: "Primary key - use TEST_*_ID constant"
-          created_at: "Timestamp - use NOW()"
-          updated_at: "Timestamp - use NOW()"
-          tenant_id: "FK to tenants - use TEST_TENANT_ID"
-          user_id: "FK to users - use TEST_USER_ID"
-          creator_id: "FK to employees/users - use TEST_EMPLOYEE_ID"
-          workspace_id: "FK to workspaces - use TEST_WORKSPACE_ID"
-        value_strategies:
-          string_fields: "Use descriptive test values (e.g., 'Test User', 'Admin E2E')"
-          numeric_fields: "Use test constants or simple values (1, 0, 100)"
-          boolean_fields: "Use 1/0 for MySQL, true/false for PostgreSQL"
-          nullable_fields: "Use NULL for optional fields not needed in test"
+      file_structure:
+        1_constants:
+          description: "Export ID constants and credentials at top"
+          id_constants:
+            pattern: "TEST_<TABLE_SINGULAR>_ID = 100xxx"
+            software_id: "TEST_SOFTWARE_ID = 1"
+            authorization_ids: "TEST_TENANT_ID, TEST_USER_ID, TEST_WORKSPACE_ID, TEST_EMPLOYEE_ID, TEST_ROLE_*_ID, TEST_PERMISSION_ID"
+            domain_ids: "TEST_<DOMAIN_ENTITY>_ID (e.g., TEST_PARENT_CATEGORY_ID, TEST_CHILD_CATEGORY_ID)"
 
-      template_code: |
-        import { DataSource, QueryRunner } from 'typeorm';
+          permission_constant:
+            pattern: "REQUIRED_PERMISSION_NAME = '<DERIVED_FROM_COMPONENT>'"
+            derivation: "Use implementation_knowledge.techstack_mappings.derivation_patterns.permission_name"
 
-        // ============= ID CONSTANTS =============
-        // CRITICAL: Export ALL test ID constants at top
-        // Pattern: TEST_<TABLE_SINGULAR>_ID = 100xxx
-        export const TEST_SOFTWARE_ID = 1;
-        export const TEST_TENANT_ID = 100000;
-        export const TEST_USER_ID = 100001;
-        export const TEST_USER_WITHOUT_PERMISSION_ID = 100002;
-        export const TEST_WORKSPACE_ID = 100001;
-        export const TEST_WORKSPACE_WITHOUT_PERMISSION_ID = 100002;
-        export const TEST_EMPLOYEE_ID = 100001;
-        export const TEST_EMPLOYEE_ID_2 = 100002;
-        export const TEST_PERMISSION_ID = 100000;
-        export const TEST_ROLE_WITH_PERMISSION_ID = 100001;
-        export const TEST_ROLE_WITHOUT_PERMISSION_ID = 100002;
-        // Add domain-specific ID constants here:
-        // export const TEST_<DOMAIN_ENTITY>_ID = 100010;
-        // export const TEST_<DOMAIN_ENTITY>_CHILD_ID = 100011;
+          credentials:
+            pattern: |
+              TEST_USER_CREDENTIALS = { username, password, softwareId }
+              TEST_USER_WITHOUT_PERMISSION_CREDENTIALS = { username, password, softwareId }
 
-        // Permission name derived from component
-        export const REQUIRED_PERMISSION_NAME = '<DERIVED_PERMISSION_NAME>';
+        2_tier1_seedTestData:
+          description: "Main function for authorization data (beforeAll)"
+          signature: "seedTestData(dataSource: DataSource)"
+          pattern: |
+            Create queryRunner → startTransaction
+            Call seed functions in topological order:
+              seedSoftwares, seedTenants, seedUsers, seedWorkspaces,
+              seedEmployees, seedRoles, seedPermissions,
+              seedRolePermissions, seedRoleWorkspaces
+            Commit transaction (or rollback on error)
 
-        // ============= CREDENTIALS =============
-        export const TEST_USER_CREDENTIALS = {
-          username: 'user.with.permission',
-          password: 'Test@123456',
-          softwareId: TEST_SOFTWARE_ID,
-        };
+        3_tier1_authorization_seed_functions:
+          description: "Individual functions for each authorization table (called by seedTestData)"
+          signature: "seed<TableName>(queryRunner: QueryRunner)"
+          sql_pattern:
+            softwares: "INSERT IGNORE INTO softwares (...columns...) VALUES (...)"
+            other_tables: "INSERT INTO table (...) VALUES (...) ON DUPLICATE KEY UPDATE col = VALUES(col)"
+            role_permissions: "INSERT INTO role_permissions (...) - NO ON DUPLICATE KEY (intentional error on duplicate)"
 
-        export const TEST_USER_WITHOUT_PERMISSION_CREDENTIALS = {
-          username: 'user.without.permission',
-          password: 'Test@123456',
-          softwareId: TEST_SOFTWARE_ID,
-        };
+          column_derivation:
+            method: "Query db_schema.<table_name> to get actual columns"
+            common_columns:
+              - "id, created_at, updated_at (standard)"
+              - "tenant_id, user_id, workspace_id, creator_id (common FKs)"
+              - "name, status (common attributes)"
 
-        // ============= MAIN SEED FUNCTION =============
-        export async function seedTestData(dataSource: DataSource) {
-          const queryRunner = dataSource.createQueryRunner();
-          await queryRunner.connect();
-          await queryRunner.startTransaction();
-          try {
-            // CRITICAL: Call seed functions in topological order (parents before children)
-            // Use step_4 graph analysis to determine correct order
-            await seedSoftwares(queryRunner);
-            await seedTenants(queryRunner);
-            await seedUsers(queryRunner);
-            await seedWorkspaces(queryRunner);
-            await seedEmployees(queryRunner);
-            await seedRoles(queryRunner);
-            await seedPermissions(queryRunner);
-            await seedRolePermissions(queryRunner);
-            await seedRoleWorkspaces(queryRunner);
+          value_strategies:
+            id: "Use exported constants (TEST_*_ID)"
+            timestamps: "NOW()"
+            fk_columns: "Use corresponding TEST_*_ID constant"
+            name: "Descriptive test value ('Admin E2E', 'Tenant E2E')"
+            password: "Use hash from implementation_knowledge.seed_syntax.password_hashing"
+            status: "1 (active) or appropriate default"
+            nullable: "NULL if not needed for test"
 
-            await queryRunner.commitTransaction();
-          } catch (error) {
-            await queryRunner.rollbackTransaction();
-            throw error;
-          } finally {
-            await queryRunner.release();
-          }
-        }
+          special_notes:
+            softwares: "Seed FIRST with INSERT IGNORE (required by permissions.software_id FK)"
+            users: "Seed TWO users (with/without permission) using credentials username"
+            workspaces: "Seed TWO workspaces (one per user)"
+            employees: "Seed TWO employees (one per workspace)"
+            roles: "Seed TWO roles (Admin E2E with permission, Staff E2E without)"
+            role_permissions: "Link ONLY TEST_ROLE_WITH_PERMISSION_ID to TEST_PERMISSION_ID"
+            role_workspaces: "Link BOTH roles to their respective workspaces"
 
-        // ============= CLEANUP FUNCTION =============
-        export async function cleanup(dataSource: DataSource) {
-          const dbName = process.env.DB_DATABASE;
-          if (!dbName) throw new Error("Missing DB_DATABASE in environment");
+        4_tier2_domain_seed_function:
+          description: "Separate function for domain data (beforeEach)"
+          signature: "seed<DomainPlural>TestData(queryRunner: QueryRunner)"
+          sql_pattern: "Simple INSERT (no INSERT IGNORE, no ON DUPLICATE KEY)"
 
-          const queryRunner = dataSource.createQueryRunner();
-          await queryRunner.connect();
+          derivation_steps:
+            1: "Identify domain table from component name (e.g., GetListProductCategory → product_categories)"
+            2: "Query db_schema.<domain_table> to get columns"
+            3: "Extract expected data from test_plan (values, hierarchy, counts)"
+            4: "Generate INSERT with actual columns and test values"
 
-          try {
-            await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
+          common_patterns:
+            hierarchical: "Seed parent first, then children with parent_id FK"
+            multiple_records: "If expected.total = 2, create 2 records"
+            test_values: "Use exact values from test_plan.expected (names, statuses, etc.)"
+            required_fks: "Always include tenant_id, creator_id from authorization constants"
 
-            const tables: Array<{ table_name: string }> = await queryRunner.query(
-              `SELECT table_name FROM information_schema.tables WHERE table_schema = ?`,
-              [dbName],
-            );
+        5_cleanup_function:
+          description: "Final cleanup (afterAll only)"
+          signature: "cleanup(dataSource: DataSource)"
+          pattern: |
+            Get DB name from env
+            SET FOREIGN_KEY_CHECKS = 0
+            TRUNCATE all tables from information_schema
+            SET FOREIGN_KEY_CHECKS = 1
 
-            for (const { table_name } of tables) {
-              await queryRunner.query(`TRUNCATE TABLE \`${table_name}\``);
-            }
-
-            await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
-          } finally {
-            await queryRunner.release();
-          }
-        }
-
-        // ============= AUTHORIZATION SEED FUNCTIONS =============
-        // PATTERN for each table:
-        // 1. Query db_schema to get actual column names and constraints
-        // 2. Build INSERT statement with actual columns
-        // 3. Use INSERT IGNORE for parent tables (softwares)
-        // 4. Use ON DUPLICATE KEY UPDATE for idempotency (other tables)
-        // 5. Provide values for all NOT NULL columns
-        // 6. Use NULL for optional columns
-
-        export async function seedSoftwares(queryRunner: QueryRunner) {
-          // CRITICAL: Query db_schema.softwares to get actual columns
-          // Common columns: id, name, created_at, updated_at
-          // Build: INSERT IGNORE INTO softwares (<actual_columns>) VALUES (?, ?, NOW(), NOW())
-          await queryRunner.query(
-            'INSERT IGNORE INTO softwares (id, name, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
-            [TEST_SOFTWARE_ID, 'Test Software']
-          );
-        }
-
-        export async function seedTenants(queryRunner: QueryRunner) {
-          // CRITICAL: Query db_schema.tenants to get actual columns
-          // Identify required vs optional columns from NOT NULL constraints
-          // Example shows common pattern - adapt to your schema
-          await queryRunner.query(
-            'INSERT INTO tenants (id, name, <other_required_columns>, created_at, updated_at) VALUES (?, ?, <values_for_required>, NOW(), NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name)',
-            [TEST_TENANT_ID, 'Tenant E2E' /* add other required values */]
-          );
-        }
-
-        export async function seedUsers(queryRunner: QueryRunner) {
-          // CRITICAL: Query db_schema.users to get actual columns
-          // Use the EXACT password hash from implementation_knowledge
-          const passwordHash = '$2b$10$XDbn1ClPLLwR3.Os1H3NP.2xfiTELB/rz.I3oozUHYGpE37Z2WN.y';
-
-          // Seed user WITH permission
-          await queryRunner.query(
-            'INSERT INTO users (id, <username_column>, password, <other_columns>, created_at, updated_at) VALUES (?, ?, ?, <values>, NOW(), NOW()) ON DUPLICATE KEY UPDATE <username_column> = VALUES(<username_column>), password = VALUES(password)',
-            [TEST_USER_ID, TEST_USER_CREDENTIALS.username, passwordHash /* other values */]
-          );
-
-          // Seed user WITHOUT permission
-          await queryRunner.query(
-            'INSERT INTO users (id, <username_column>, password, <other_columns>, created_at, updated_at) VALUES (?, ?, ?, <values>, NOW(), NOW()) ON DUPLICATE KEY UPDATE <username_column> = VALUES(<username_column>), password = VALUES(password)',
-            [TEST_USER_WITHOUT_PERMISSION_ID, TEST_USER_WITHOUT_PERMISSION_CREDENTIALS.username, passwordHash /* other values */]
-          );
-        }
-
-        export async function seedWorkspaces(queryRunner: QueryRunner) {
-          // CRITICAL: Adapt to actual workspaces table schema
-          // Common pattern: link workspace to user and tenant
-          await queryRunner.query(
-            'INSERT INTO workspaces (id, <user_fk_column>, <tenant_fk_column>, <other_required>, created_at, updated_at) VALUES (?, ?, ?, <values>, NOW(), NOW()) ON DUPLICATE KEY UPDATE <user_fk_column> = VALUES(<user_fk_column>)',
-            [TEST_WORKSPACE_ID, TEST_USER_ID, TEST_TENANT_ID]
-          );
-          await queryRunner.query(
-            'INSERT INTO workspaces (id, <user_fk_column>, <tenant_fk_column>, <other_required>, created_at, updated_at) VALUES (?, ?, ?, <values>, NOW(), NOW()) ON DUPLICATE KEY UPDATE <user_fk_column> = VALUES(<user_fk_column>)',
-            [TEST_WORKSPACE_WITHOUT_PERMISSION_ID, TEST_USER_WITHOUT_PERMISSION_ID, TEST_TENANT_ID]
-          );
-        }
-
-        export async function seedEmployees(queryRunner: QueryRunner) {
-          // CRITICAL: This table schema varies GREATLY between systems
-          // Query db_schema.employees to get ALL columns
-          // Identify which columns are NOT NULL vs nullable
-          // Provide appropriate values or NULL
-          await queryRunner.query(
-            'INSERT INTO employees (id, name, <workspace_fk>, <other_required_columns>, created_at, updated_at) VALUES (?, ?, ?, <required_values>, NOW(), NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name)',
-            [TEST_EMPLOYEE_ID, 'Admin E2E', TEST_WORKSPACE_ID /* other required values */]
-          );
-          await queryRunner.query(
-            'INSERT INTO employees (id, name, <workspace_fk>, <other_required_columns>, created_at, updated_at) VALUES (?, ?, ?, <required_values>, NOW(), NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name)',
-            [TEST_EMPLOYEE_ID_2, 'Staff E2E', TEST_WORKSPACE_WITHOUT_PERMISSION_ID /* other required values */]
-          );
-        }
-
-        export async function seedPermissions(queryRunner: QueryRunner) {
-          // CRITICAL: Adapt to actual permissions table schema
-          await queryRunner.query(
-            'INSERT INTO permissions (id, name, <software_fk_column>, <other_columns>, created_at, updated_at) VALUES (?, ?, ?, <values>, NOW(), NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name)',
-            [TEST_PERMISSION_ID, REQUIRED_PERMISSION_NAME, TEST_SOFTWARE_ID]
-          );
-        }
-
-        export async function seedRoles(queryRunner: QueryRunner) {
-          // CRITICAL: Adapt to actual roles table schema
-          await queryRunner.query(
-            'INSERT INTO roles (id, name, <tenant_fk_column>, <other_required>, created_at, updated_at) VALUES (?, ?, ?, <values>, NOW(), NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name)',
-            [TEST_ROLE_WITH_PERMISSION_ID, 'Admin E2E', TEST_TENANT_ID]
-          );
-          await queryRunner.query(
-            'INSERT INTO roles (id, name, <tenant_fk_column>, <other_required>, created_at, updated_at) VALUES (?, ?, ?, <values>, NOW(), NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name)',
-            [TEST_ROLE_WITHOUT_PERMISSION_ID, 'Staff E2E', TEST_TENANT_ID]
-          );
-        }
-
-        export async function seedRolePermissions(queryRunner: QueryRunner) {
-          // CRITICAL: This is a junction table - typically simple
-          // NO ON DUPLICATE KEY UPDATE - intentionally fails on duplicate
-          await queryRunner.query(
-            'INSERT INTO role_permissions (role_id, permission_id, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
-            [TEST_ROLE_WITH_PERMISSION_ID, TEST_PERMISSION_ID]
-          );
-          // NOTE: Do NOT seed for TEST_ROLE_WITHOUT_PERMISSION_ID - intentional
-        }
-
-        export async function seedRoleWorkspaces(queryRunner: QueryRunner) {
-          // CRITICAL: Links roles to workspaces - adapt column names
-          await queryRunner.query(
-            'INSERT INTO role_workspaces (workspace_id, role_id, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
-            [TEST_WORKSPACE_ID, TEST_ROLE_WITH_PERMISSION_ID]
-          );
-          await queryRunner.query(
-            'INSERT INTO role_workspaces (workspace_id, role_id, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
-            [TEST_WORKSPACE_WITHOUT_PERMISSION_ID, TEST_ROLE_WITHOUT_PERMISSION_ID]
-          );
-        }
-
-        // ============= DOMAIN-SPECIFIC SEED FUNCTION =============
-        // CRITICAL: Generate this based on domain tables from db_schema
-        // Function name: seed<DomainPlural>TestData (e.g., seedProductCategoriesTestData)
-        // Extract test data values from test_plan expected outcomes
-        export async function seed<DomainPlural>TestData(queryRunner: QueryRunner) {
-          // Step 1: Identify domain table from component name
-          // Step 2: Query db_schema to get table columns
-          // Step 3: Extract expected data from test_plan
-          // Step 4: Create INSERT statements matching test expectations
-
-          // Example pattern for hierarchical data (parent-child):
-          // Parent record
-          await queryRunner.query(
-            'INSERT INTO <domain_table> (id, <columns_from_schema>, tenant_id, created_at, updated_at, creator_id) VALUES (?, <values_from_expected>, ?, NOW(), NOW(), ?)',
-            [TEST_<DOMAIN>_PARENT_ID, /* values from test_plan.expected */, TEST_TENANT_ID, TEST_EMPLOYEE_ID]
-          );
-
-          // Child record (if hierarchical)
-          await queryRunner.query(
-            'INSERT INTO <domain_table> (id, <parent_fk_column>, <columns>, tenant_id, created_at, updated_at, creator_id) VALUES (?, ?, <values>, ?, NOW(), NOW(), ?)',
-            [TEST_<DOMAIN>_CHILD_ID, TEST_<DOMAIN>_PARENT_ID, /* values */, TEST_TENANT_ID, TEST_EMPLOYEE_ID]
-          );
-        }
+      code_generation_rules:
+        - "Generate ACTUAL code, not placeholders like <table_name> or <columns>"
+        - "Derive all columns from db_schema - do NOT hardcode column names"
+        - "Follow topological order from step_4 graph analysis"
+        - "TIER 1 functions: Use idempotent SQL (INSERT IGNORE, ON DUPLICATE KEY UPDATE)"
+        - "TIER 2 function: Use simple INSERT (transaction rollback handles cleanup)"
+        - "Export ALL constants and functions"
+        - "Include proper error handling (try/catch with rollback)"
 
 config:
   api_version: "v1"
