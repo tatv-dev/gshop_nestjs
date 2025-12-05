@@ -283,6 +283,13 @@ process:
         - "Define helper function to find errors by field name"
         - "Use appropriate equality assertions for primitives vs collections"
         - "Follow import patterns from implementation_knowledge.import_syntax"
+        - "CRITICAL - Error validation for error test cases:"
+        - "  * Define expectedErrors array matching test_plan.expected.errors structure"
+        - "  * Verify total error count: expect(errors).toHaveLength(expectedErrors.length)"
+        - "  * Iterate through expectedErrors using forEach"
+        - "  * For each expected error, validate: field, value, messageKey"
+        - "  * Use toEqual() for value comparison (handles primitives and arrays)"
+        - "  * Include AC ID in assertion comments for traceability"
 
     e2e_test_specific:
       description: "E2E Test validation"
@@ -298,6 +305,14 @@ process:
         - "Before each test: Setup test isolation (transaction/connection management)"
         - "After each test: Cleanup test isolation"
         - "Teardown phase: Optional full cleanup and close application"
+        - "CRITICAL - Error response validation (non-200 status codes):"
+        - "  * ALWAYS verify messageKey from test_plan.expected.messageKey"
+        - "  * For 422 validation errors: verify res.body.messageKey === 'validation_error.general'"
+        - "  * For 401 unauthorized: verify res.body.messageKey === 'auth_error.auth_token_expired'"
+        - "  * For 403 forbidden: verify res.body.messageKey === 'auth_error.forbidden'"
+        - "  * For 422 with errors array: validate each error has field, value, message properties"
+        - "  * Use forEach to iterate through res.body.errors and validate structure"
+        - "  * Include AC ID in assertion comments for traceability"
 
     seed_helper_specific:
       description: "[action-domain].seed.ts validation - TWO-TIER seeding strategy"
@@ -737,9 +752,17 @@ standard_knowledge:
           Response body structure: { items: T[], page: number, size: number, total: number }
           Use 'items' field (NOT 'data')
         success_without_pagination: "HTTP status 2xx, response body structure correct"
-        validation_error: "HTTP status 400, error message key correct"
-        permission_denied: "HTTP status 403, insufficient_permissions message"
-        not_found: "HTTP status 404, not_found message"
+        validation_error: |
+          HTTP status 422
+          MUST verify: res.body.messageKey === 'validation_error.general'
+          If errors array exists: validate each error has field, value, message properties
+        unauthorized: |
+          HTTP status 401
+          MUST verify: res.body.messageKey === 'auth_error.auth_token_expired'
+        permission_denied: |
+          HTTP status 403
+          MUST verify: res.body.messageKey === 'auth_error.forbidden'
+        not_found: "HTTP status 404, messageKey from test_plan.expected.messageKey"
 
     assertion_quality:
       - "Include AC ID in error messages for traceability"
