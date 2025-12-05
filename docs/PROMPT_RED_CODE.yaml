@@ -147,8 +147,12 @@ process:
          - Use implementation_knowledge.code_templates for test type-specific input formatting
 
   step_4_generate_seed_data:
-    description: "Generate seed data functions for IT/E2E tests using graph theory"
+    description: "Generate seed data functions for IT/E2E tests using TWO-TIER seeding strategy"
     prompt: |
+      CRITICAL: Understand the TWO-TIER seeding strategy (see standard_knowledge.lifecycle_management_principles):
+      - TIER 1 (Authorization): seedTestData() - called in beforeAll, uses idempotent SQL, committed
+      - TIER 2 (Domain): seed<Domain>TestData() - called in beforeEach, uses simple INSERT, rolled back in afterEach
+
       MANDATORY FOR ALL IT/E2E TESTS: This step MUST generate authorization seeding code (permissions, roles, role_permissions, role_workspaces) even if test_plan does not explicitly mention permission_denied test cases. Authentication is ALWAYS required for protected endpoints.
 
       1. Analyze db_schema to build dependency graph:
@@ -171,10 +175,22 @@ process:
          - File name: [action-domain].seed.ts (in same directory as test file)
          - Export ID constants at top (use >= 100000 to avoid conflicts)
          - Export TWO credential constants with EXACTLY 3 fields each
-         - Generate main seedTestData() function that wraps in transaction
-         - Generate cleanup() function using TRUNCATE with FK checks disabled
+         - Generate main seedTestData() function (TIER 1):
+           * Takes dataSource as parameter
+           * Wraps all authorization seeds in transaction and commits
+           * Uses idempotent SQL (INSERT IGNORE, ON DUPLICATE KEY UPDATE)
+           * Called ONCE in beforeAll
+         - Generate seed<Domain>TestData() function (TIER 2):
+           * Takes queryRunner as parameter
+           * Uses simple INSERT (no idempotency)
+           * Called in beforeEach within transaction
+           * Automatically cleaned by rollback in afterEach
+         - Generate cleanup() function:
+           * Purpose: Final cleanup in afterAll ONLY (not used per-test)
+           * Uses TRUNCATE with FK checks disabled
+           * Removes ALL test data from all tables
+           * Note: Per-test cleaning is done by transaction rollback, NOT by calling cleanup()
          - Apply implementation_knowledge.code_templates.seed_data_helper_template for complete structure
-         - Apply implementation_knowledge.seed_syntax for SQL patterns (INSERT IGNORE, ON DUPLICATE KEY UPDATE)
          - Apply implementation_knowledge.authorization_seeding_guidance for authorization table seeding order
 
       5. CRITICAL & MANDATORY - Seed authorization tables for IT/E2E tests:
@@ -187,10 +203,13 @@ process:
          - See implementation_knowledge.authorization_seeding_guidance.seeding_strategy for complete guidance
          - See implementation_knowledge.code_templates.seed_data_helper_template for complete code structure
 
-      6. Generate domain-specific seed data function (IT/E2E only):
+      6. Generate domain-specific seed data function (IT/E2E only - TIER 2):
          - CRITICAL: Create separate seed function for domain entities
          - Function naming: seed<DomainPlural>TestData (e.g., seedProductCategoriesTestData)
+         - Function signature: Takes queryRunner as parameter (for transaction management)
          - Export this function for use in IT/E2E test lifecycle hooks
+         - SQL pattern: Use SIMPLE INSERT (NOT INSERT IGNORE, NOT ON DUPLICATE KEY UPDATE)
+         - Rationale: This function runs in beforeEach within a transaction that gets rolled back in afterEach
          - Seed data structure:
            * Extract test data values from test_plan expected outcomes
            * Create enough records to satisfy test assertions (e.g., if expected.data.total = 2, create 2 records)
@@ -201,8 +220,8 @@ process:
            * If expected shows parent-child hierarchy → create parent first, then child with parent_id
            * If expected shows specific field values → use those exact values
            * If expected shows activeStatus variations → create records with different statuses
-         - Apply implementation_knowledge.seed_syntax for SQL patterns
-         - This function is called in beforeEach of IT tests, NOT in main seedTestData()
+         - This function is called in beforeEach within transaction, NOT in main seedTestData()
+         - Cleaning: Automatic via transaction rollback in afterEach (no manual DELETE needed)
 
   step_5_generate_test_method:
     description: "Generate test method body using Arrange-Act-Assert pattern"
@@ -281,40 +300,57 @@ process:
         - "Teardown phase: Optional full cleanup and close application"
 
     seed_helper_specific:
-      description: "[action-domain].seed.ts validation"
+      description: "[action-domain].seed.ts validation - TWO-TIER seeding strategy"
       checklist:
         - "All ID constants exported at top with test prefix (>= 100000)"
         - "TWO credential constants with all required authentication fields"
-        - "Main seed function wraps all seeds in transaction"
-        - "Follow implementation_knowledge.seed_syntax.sql_patterns for idempotency"
-        - "Seed softwares FIRST using INSERT IGNORE pattern"
-        - "Most tables use upsert pattern (ON DUPLICATE KEY UPDATE)"
-        - "role_permissions uses INSERT only (no upsert to detect duplicates)"
-        - "Seed TWO users with same password hash (refer to implementation_knowledge.seed_syntax.password_hashing)"
-        - "Seed TWO roles (with/without permission)"
-        - "role_permissions only links role WITH permission"
-        - "role_workspaces links BOTH roles to their workspaces"
-        - "cleanup() uses TRUNCATE with FK checks disabled"
+        - "TIER 1: seedTestData(dataSource) - authorization data seeding:"
+        - "  * Wraps all authorization seeds in transaction and commits"
+        - "  * Uses INSERT IGNORE or ON DUPLICATE KEY UPDATE (idempotent)"
+        - "  * Seed softwares FIRST using INSERT IGNORE pattern"
+        - "  * Most authorization tables use upsert pattern (ON DUPLICATE KEY UPDATE)"
+        - "  * role_permissions uses INSERT only (no upsert to detect duplicates)"
+        - "  * Seed TWO users with same password hash"
+        - "  * Seed TWO roles (with/without permission)"
+        - "  * role_permissions only links role WITH permission"
+        - "  * role_workspaces links BOTH roles to their workspaces"
+        - "  * Function commits on success, rollbacks on error"
+        - "TIER 2: seed<Domain>TestData(queryRunner) - domain data seeding:"
+        - "  * Takes queryRunner parameter (for transaction)"
+        - "  * Uses SIMPLE INSERT (no INSERT IGNORE, no ON DUPLICATE KEY)"
+        - "  * Runs within beforeEach transaction"
+        - "  * Cleaned automatically by transaction rollback in afterEach"
+        - "cleanup() function:"
+        - "  * Uses TRUNCATE with FK checks disabled"
+        - "  * Called ONLY in afterAll (not in afterEach)"
+        - "  * Purpose: Final cleanup, not per-test cleanup"
         - "Permission name constant matches derived permission from component name"
-        - "Main seed function commits on success, rollbacks on error"
 
     handler_it_specific:
-      description: "Handler Integration Test validation"
+      description: "Handler Integration Test validation - TWO-TIER seeding"
       checklist:
         - "Use dynamic import to load handler class"
         - "Retrieve handler from dependency injection container"
         - "Execute handler with user context object"
-        - "Seed test data in setup phase with transaction"
-        - "Rollback transaction in cleanup phase"
+        - "beforeAll: Seed authorization data once using seedTestData(dataSource)"
+        - "beforeEach: Create queryRunner, start transaction"
+        - "beforeEach: Seed domain data using seed<Domain>TestData(queryRunner)"
+        - "afterEach: Rollback transaction (automatic domain data cleanup)"
+        - "afterEach: Release queryRunner"
+        - "afterAll: Call cleanup(dataSource) for final cleanup"
         - "Assert result is defined and matches expected structure"
 
     repository_it_specific:
-      description: "Repository Integration Test validation"
+      description: "Repository Integration Test validation - TWO-TIER seeding"
       checklist:
         - "Import repository interface and implementation classes"
         - "Call repository methods directly (not through handler)"
-        - "Seed test data in setup phase with transaction"
-        - "Rollback transaction in cleanup phase"
+        - "beforeAll: Usually no authorization seeding needed (Repository IT doesn't test auth)"
+        - "beforeEach: Create queryRunner, start transaction"
+        - "beforeEach: Seed domain data using seed<Domain>TestData(queryRunner)"
+        - "afterEach: Rollback transaction (automatic domain data cleanup)"
+        - "afterEach: Release queryRunner"
+        - "afterAll: Usually no cleanup() needed (no authorization seeded)"
         - "Assert on returned data structure and types"
 
 standard_knowledge:
@@ -415,35 +451,95 @@ standard_knowledge:
         - "Usually not needed (no external resources)"
 
     integration_test_lifecycle:
+      description: "CRITICAL: IT tests use TWO-TIER seeding strategy"
+
+      two_tier_seeding_strategy:
+        tier_1_authorization_data:
+          when: "beforeAll (seed ONCE for entire test suite)"
+          what: "Authorization tables (softwares, tenants, users, workspaces, employees, roles, permissions, role_permissions, role_workspaces)"
+          how: "Call seedTestData(dataSource) - wraps all seeds in transaction and commits"
+          sql_pattern: "INSERT IGNORE or ON DUPLICATE KEY UPDATE (idempotent - safe to call multiple times)"
+          rationale: "Authorization data is shared across all tests and expensive to setup"
+
+        tier_2_domain_data:
+          when: "beforeEach (seed FRESH for each test)"
+          what: "Domain-specific tables (e.g., product_categories for GetListProductCategory)"
+          how: "Start transaction → call seed<Domain>TestData(queryRunner) within transaction"
+          sql_pattern: "Simple INSERT (no idempotency needed because transaction will rollback)"
+          rationale: "Each test needs isolated domain data to avoid interference"
+
+        cleaning_mechanism:
+          method: "Transaction ROLLBACK (NOT explicit DELETE/TRUNCATE)"
+          when: "afterEach"
+          how: "queryRunner.rollbackTransaction() - automatically removes all data inserted in beforeEach"
+          rationale: "More efficient than DELETE, ensures perfect isolation between tests"
+
       setup:
         - "Create test module with real dependencies"
         - "Get database connection"
+        - "beforeAll: Seed authorization data ONCE using seedTestData(dataSource)"
+        - "For Repository IT: No login needed (direct repository testing)"
+        - "For Handler IT: No login needed (pass tenantId in currentUser object)"
 
       per_test:
-        - "Start database transaction for isolation"
-        - "Seed test data within transaction"
+        - "beforeEach: Create queryRunner and connect"
+        - "beforeEach: Start database transaction for isolation"
+        - "beforeEach: Seed domain data within transaction using seed<Domain>TestData(queryRunner)"
 
       teardown_per_test:
-        - "Rollback transaction to cleanup"
-        - "Release database connection"
-
-    e2e_test_lifecycle:
-      setup:
-        - "Create and initialize application"
-        - "Setup global pipes and middleware"
-        - "Seed initial data for authentication"
-        - "Perform login to obtain authentication token"
-
-      per_test:
-        - "Start database transaction for isolation"
-        - "Seed test-specific data"
-
-      teardown_per_test:
-        - "Rollback transaction"
-        - "Release connection"
+        - "afterEach: Rollback transaction (this CLEANS domain data automatically)"
+        - "afterEach: Release queryRunner"
 
       teardown:
-        - "Close application"
+        - "afterAll: Call cleanup(dataSource) to truncate ALL tables (final cleanup only)"
+        - "afterAll: Close test module"
+
+    e2e_test_lifecycle:
+      description: "CRITICAL: E2E tests use TWO-TIER seeding strategy + authentication"
+
+      two_tier_seeding_strategy:
+        tier_1_authorization_data:
+          when: "beforeAll (seed ONCE for entire test suite)"
+          what: "Authorization tables + login to get access tokens"
+          how: "Call seedTestData(dataSource) then login TWO users"
+          tokens:
+            - "accessTokenWithPermission - from user with permission (happy path tests)"
+            - "accessTokenWithoutPermission - from user without permission (403 tests)"
+          sql_pattern: "INSERT IGNORE or ON DUPLICATE KEY UPDATE (idempotent)"
+          rationale: "Authorization data and tokens are shared across all tests"
+
+        tier_2_domain_data:
+          when: "beforeEach (seed FRESH for each test)"
+          what: "Domain-specific tables (e.g., product_categories)"
+          how: "Start transaction → call seed<Domain>TestData(queryRunner) within transaction"
+          sql_pattern: "Simple INSERT (no idempotency needed because transaction will rollback)"
+          rationale: "Each test needs isolated domain data"
+
+        cleaning_mechanism:
+          method: "Transaction ROLLBACK (NOT explicit DELETE/TRUNCATE)"
+          when: "afterEach"
+          how: "queryRunner.rollbackTransaction() - automatically removes all data inserted in beforeEach"
+          rationale: "More efficient than DELETE, ensures perfect isolation between tests"
+
+      setup:
+        - "Create and initialize application"
+        - "Setup global pipes and middleware (ValidationPipe with transform: false)"
+        - "beforeAll: Seed authorization data ONCE using seedTestData(dataSource)"
+        - "beforeAll: Login user with permission to obtain accessTokenWithPermission"
+        - "beforeAll: Login user without permission to obtain accessTokenWithoutPermission"
+
+      per_test:
+        - "beforeEach: Create queryRunner and connect"
+        - "beforeEach: Start database transaction for isolation"
+        - "beforeEach: Seed domain data within transaction using seed<Domain>TestData(queryRunner)"
+
+      teardown_per_test:
+        - "afterEach: Rollback transaction (this CLEANS domain data automatically)"
+        - "afterEach: Release queryRunner"
+
+      teardown:
+        - "afterAll: Call cleanup(dataSource) to truncate ALL tables (final cleanup only)"
+        - "afterAll: Close application"
 
   seed_data_principles:
     description: "Theory-based approach to seed data generation"
@@ -496,9 +592,29 @@ standard_knowledge:
       optional_fields: "Use default values or NULL"
 
     idempotency_principle:
-      principle: "Seed operations should be repeatable"
-      shared_data: "Use INSERT IGNORE or ON DUPLICATE KEY for shared reference data"
-      test_specific_data: "Use regular INSERT with cleanup before seeding"
+      principle: "Seed operations should be repeatable - but strategy differs by data tier"
+
+      tier_1_authorization_data:
+        pattern: "INSERT IGNORE or ON DUPLICATE KEY UPDATE"
+        when: "For authorization tables seeded in beforeAll (softwares, tenants, users, workspaces, employees, roles, permissions, role_permissions, role_workspaces)"
+        rationale: "Seeded ONCE per test suite, must be safe if called multiple times"
+        example: |
+          INSERT IGNORE INTO softwares (id, name, created_at, updated_at)
+          VALUES (1, 'Test Software', NOW(), NOW())
+
+          INSERT INTO tenants (id, name, status, created_at, updated_at)
+          VALUES (?, ?, 1, NOW(), NOW())
+          ON DUPLICATE KEY UPDATE name = VALUES(name)
+
+      tier_2_domain_data:
+        pattern: "Simple INSERT (no idempotency clauses)"
+        when: "For domain tables seeded in beforeEach within transaction"
+        rationale: "Transaction rollback in afterEach automatically cleans data - no need for idempotency"
+        cleaning_method: "Transaction ROLLBACK (not DELETE/TRUNCATE)"
+        example: |
+          INSERT INTO product_categories (id, name, tenant_id, created_at, updated_at)
+          VALUES (?, ?, ?, NOW(), NOW())
+        note: "Do NOT use INSERT IGNORE or ON DUPLICATE KEY - simple INSERT is correct because transaction ensures clean state"
 
     permission_naming_convention:
       pattern: "<Action>_<Domain>"
