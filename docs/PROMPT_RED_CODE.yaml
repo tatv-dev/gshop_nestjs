@@ -48,32 +48,53 @@ process:
   step_1_analysis:
     description: "Analyze test case from test_plan and db_schema"
     prompt: |
-      1. Read test_plan to extract:
-         - Test suite: layer (Presentation/Application/Domain/Infrastructure), type (UT/IT/E2E), component_under_test
-         - For each test case: ac_id, title, type (happy_path/error_case/edge_case/boundary/permission_denied), input, expected, key_factors
+      CRITICAL: Be FLEXIBLE with input format. See standard_knowledge.input_schema.test_plan.input_format_variations
+
+      1. Read test_plan (or test_cases) to extract metadata:
+         - Identify format: standard_format vs simplified_format
+         - Extract component_under_test (MANDATORY - if missing, MUST be provided by user or derivable from context)
+         - Infer test_type from test case IDs (AC_UT_* = Unit, AC_IT_* = Integration, AC_E2E_* = E2E)
+         - Infer layer from test_type using standard_knowledge.input_schema.test_plan.input_format_variations.simplified_format.missing_metadata_inference.layer
+         - For each test case: Extract id/ac_id, title, input, expected
+         - Infer test case type (happy_path/error_case/permission_denied) using standard_knowledge.input_schema.test_plan.input_format_variations.simplified_format.missing_metadata_inference.test_case_type
 
       2. Read db_schema to understand:
          - Table structures and relationships
          - Foreign key dependencies
          - Required fields (NOT NULL, validation constraints)
          - Tables needed for authentication and authorization
+         - Domain tables (tables related to component_under_test)
 
-      3. Derive component information from test_plan.component_under_test:
+      3. Derive component information:
+         - CRITICAL: component_under_test MUST be known (GetListProductCategoryRequest, GetListProductCategoryQueryHandler, etc.)
          - Generate class names using implementation_knowledge.techstack_mappings.test_component_type_mappings
          - Calculate file paths using implementation_knowledge.techstack_mappings.test_component_type_mappings
          - Generate endpoint URL using implementation_knowledge.techstack_mappings.derivation_patterns.endpoint_url
-         - Identify JWT-decoded fields from test_plan.input (fields NOT in input are typically from JWT)
          - Generate permission name using implementation_knowledge.techstack_mappings.derivation_patterns.permission_name
+         - Example: GetListProductCategoryRequest → permission = GET_LIST_PRODUCT_CATEGORY
 
-      4. Determine test scope using standard_knowledge.test_strategy:
+      4. Identify JWT vs Request fields:
+         - JWT fields: tenantId, userId, workspaceId, employeeId (NEVER in request params)
+         - Request fields: All other fields in input (except 'auth')
+         - E2E: Extract auth.access_token separately, exclude from request
+         - See standard_knowledge.input_schema.test_plan.test_case_fields.input.special_fields
+
+      5. Determine test scope using standard_knowledge.test_strategy:
          - For Handler tests: Apply handler_test_strategy.decision_flowchart to decide UT only vs UT+IT
          - For IT/E2E tests: Identify required tables and FK dependencies from db_schema
          - For Unit tests: Identify dependencies to mock (repositories, services)
          - For E2E with authorization: Identify permission requirements and roles
 
-      5. For Request DTO with transformations:
-         - Identify fields that need transformation (e.g., string "[1,0]" → number array [1,0])
+      6. For Request DTO with transformations:
+         - Identify fields that need transformation
          - Check implementation_knowledge.transformation_syntax for transformer patterns
+
+      7. Identify domain-specific seed data requirements:
+         - CRITICAL: For IT/E2E tests, determine which domain tables need seeding
+         - Extract table names from db_schema that match component domain
+         - Example: GetListProductCategory → need product_categories table
+         - Plan domain seed function name: seed<Domain>TestData (e.g., seedProductCategoriesTestData)
+         - Determine test data values from expected outcomes in test_plan
 
   step_2_generate_structure:
     description: "Generate test file structure with imports and lifecycle hooks"
@@ -165,6 +186,23 @@ process:
          - Export TWO credential constants with 3 fields each: username, password, softwareId
          - See implementation_knowledge.authorization_seeding_guidance.seeding_strategy for complete guidance
          - See implementation_knowledge.code_templates.seed_data_helper_template for complete code structure
+
+      6. Generate domain-specific seed data function (IT/E2E only):
+         - CRITICAL: Create separate seed function for domain entities
+         - Function naming: seed<DomainPlural>TestData (e.g., seedProductCategoriesTestData)
+         - Export this function for use in IT/E2E test lifecycle hooks
+         - Seed data structure:
+           * Extract test data values from test_plan expected outcomes
+           * Create enough records to satisfy test assertions (e.g., if expected.data.total = 2, create 2 records)
+           * Use exported ID constants (TEST_PARENT_CATEGORY_ID, TEST_CHILD_CATEGORY_ID, etc.)
+           * Ensure hierarchical relationships match test expectations (parent/child, ancestors, etc.)
+           * Include all required FK fields (tenant_id, creator_id, etc.)
+         - Data derivation from test_plan:
+           * If expected shows parent-child hierarchy → create parent first, then child with parent_id
+           * If expected shows specific field values → use those exact values
+           * If expected shows activeStatus variations → create records with different statuses
+         - Apply implementation_knowledge.seed_syntax for SQL patterns
+         - This function is called in beforeEach of IT tests, NOT in main seedTestData()
 
   step_5_generate_test_method:
     description: "Generate test method body using Arrange-Act-Assert pattern"
@@ -607,22 +645,216 @@ standard_knowledge:
         - "UNIQUE constraints"
 
     test_plan:
-      description: "Test plan document - will be provided as input"
-      instruction: "Read test_plan from input to extract test suite and test cases"
-      required_fields:
-        - "test_suite: Name of test suite"
-        - "layer: DDD layer (Presentation/Application/Domain/Infrastructure)"
-        - "component_under_test: Class or component being tested"
-        - "test_type: Type of test (Unit/Integration/E2E)"
-        - "testcase: Array of test cases"
+      description: "Test plan document - IMPORTANT: Actual input may use different field names, must be flexible"
+
+      input_format_variations:
+        note: "Input may come in different formats. LLM must adapt and map correctly."
+
+        standard_format:
+          description: "Ideal format with all metadata"
+          structure: |
+            test_plan:
+              test_suite: "Name of test suite"
+              layer: "Presentation/Application/Domain/Infrastructure"
+              component_under_test: "ClassName"
+              test_type: "Unit/Integration/E2E"
+              testcase:
+                - ac_id: "AC_UT_01"
+                  title: "..."
+                  type: "happy_path/error_case/edge_case/boundary/permission_denied"
+                  input: {...}
+                  expected: {...}
+
+        simplified_format:
+          description: "Simplified format (like input_v2.yaml) - COMMON in practice"
+          structure: |
+            test_cases:
+              - id: AC_UT_01
+                title: "..."
+                input: {...}
+                expected: {...}
+
+          missing_metadata_inference:
+            description: "When metadata is missing, infer from test case IDs and structure"
+            rules:
+              component_under_test:
+                rule: "MUST be explicitly provided OR derivable from context"
+                example: "If testing get-list-product-category, component is GetListProductCategoryRequest/QueryHandler"
+
+              test_type:
+                rule: "Infer from test case ID prefix"
+                mapping:
+                  - "AC_UT_* → Unit Test"
+                  - "AC_IT_* → Integration Test"
+                  - "AC_E2E_* → E2E Test"
+
+              layer:
+                rule: "Infer from test type"
+                mapping:
+                  - "Request DTO UT → Presentation layer"
+                  - "Handler IT → Application layer"
+                  - "Repository IT → Infrastructure layer"
+                  - "E2E → Full stack (all layers)"
+
+              test_case_type:
+                rule: "Infer from expected outcome"
+                patterns:
+                  - "If expected has 'errors' field → error_case"
+                  - "If expected status is 401 → unauthorized (error_case)"
+                  - "If expected status is 403 → permission_denied"
+                  - "If expected status is 422 → validation error (error_case)"
+                  - "If expected has successful data → happy_path"
 
       test_case_fields:
-        - "ac_id: Acceptance criteria ID (e.g., AC-01, AC-02)"
-        - "title: Human-readable test case title"
-        - "type: happy_path / error_case / edge_case / boundary / permission_denied"
-        - "input: Input data for the test case"
-        - "expected: Expected outcome"
-        - "key_factors: Important factors to verify"
+        ac_id_variations:
+          description: "Accept both 'ac_id' and 'id' field names"
+          rule: "Use whichever is present in input: ac_id, id, or ID"
+
+        title:
+          description: "Human-readable test case title"
+          rule: "Use EXACTLY as provided - do NOT modify or paraphrase"
+
+        type:
+          description: "Test case type (may be missing)"
+          optional: true
+          inference: "See missing_metadata_inference.test_case_type"
+
+        input:
+          description: "Input data for the test case"
+          special_fields:
+            auth:
+              description: "Authentication context (E2E tests only)"
+              structure: "auth: { access_token: '{{token_valid}}' | '{{token_no_scope}}' | null }"
+              handling: "Extract token type, exclude auth field from request params"
+              token_mapping:
+                "{{token_valid}}": "Use accessTokenWithPermission from beforeAll"
+                "{{token_no_scope}}": "Use accessTokenWithoutPermission from beforeAll"
+                "null": "Send request without Authorization header (expect 401)"
+
+            tenantId:
+              description: "Tenant context (may appear in input for documentation)"
+              handling: "ALWAYS exclude from request - extract from JWT in actual implementation"
+              note: "This field in test input is for reference only, NOT part of request"
+
+          data_type_preservation:
+            description: "CRITICAL: Preserve exact data types from input YAML"
+            rules:
+              - "Numbers stay as numbers (123, not '123')"
+              - "Strings stay as strings ('abc', not converted)"
+              - "Arrays stay as arrays ([1, 2], not '1,2')"
+              - "Single-value YAML arrays (- 2) become single value (2) for error testing"
+              - "Empty arrays [] stay as empty arrays []"
+
+        expected:
+          description: "Expected outcome - format varies by test type"
+
+          format_variations:
+            ut_error_case:
+              structure: |
+                expected:
+                  errors:  # or 'error' (singular) - both valid
+                    - field: fieldName
+                      value: actualValue
+                      messageKey: validation_error.xxx
+              note: "Accept both 'errors' (plural) and 'error' (singular)"
+
+            ut_happy_path:
+              structure: |
+                expected:
+                  - messageKey: success.query
+              note: "May be array format - extract first element as success indicator"
+              validation: "Check if errors array is empty (length 0)"
+
+            e2e_success:
+              structure: |
+                expected:
+                  message: "Success message"
+                  timestamp: "YYYY-MM-DDThh:mm:ss+TZ"
+                  data:
+                    total: number
+                    page: number
+                    size: number
+                    items: [...]
+
+            e2e_error:
+              structure: |
+                expected:
+                  title: "Error title"
+                  detail: "Error detail"
+                  status: 4xx
+                  messageKey: error.messageKey
+                  errors: [...]  # optional, for validation errors
+
+  common_llm_mistakes_to_avoid:
+    description: "Common mistakes LLMs make when generating tests - MUST AVOID these"
+
+    mistake_input_parsing:
+      error: "Not adapting to simplified input format (test_cases vs test_plan)"
+      correct: "Check if input uses 'test_cases' or 'test_plan', adapt field names accordingly (id vs ac_id)"
+      validation: "Can extract all test cases regardless of input format"
+
+    mistake_component_derivation:
+      error: "Cannot derive component name when not explicitly provided"
+      correct: "Ask user for component_under_test OR infer from context/file paths"
+      example: "Testing get-list-product-category → component is GetListProductCategoryRequest"
+
+    mistake_field_exclusion:
+      error: "Including tenantId in UT test input or E2E query params"
+      correct: "ALWAYS exclude tenantId from request params - it comes from JWT"
+      rule: "See standard_knowledge.input_schema.test_plan.test_case_fields.input.special_fields.tenantId"
+
+    mistake_auth_handling:
+      error: "Treating auth.access_token as a request parameter"
+      correct: "Extract token type, use appropriate token variable, exclude auth from request"
+      mapping: "{{token_valid}} → accessTokenWithPermission, {{token_no_scope}} → accessTokenWithoutPermission"
+
+    mistake_data_types:
+      error: "Converting input types (123 → '123', or vice versa)"
+      correct: "Preserve EXACT data types from input YAML - see standard_knowledge.input_schema.test_plan.test_case_fields.input.data_type_preservation"
+      examples:
+        - "Input: 123 → Test code: 123 (not '123')"
+        - "Input: 'abc' → Test code: 'abc' (not abc without quotes)"
+        - "Input: [1, 1] → Test code: [1, 1] (not '1,1')"
+
+    mistake_yaml_array_parsing:
+      error: "Treating single-item YAML array (- 2) as array [2] instead of primitive 2"
+      correct: "Single-value YAML list for error testing becomes primitive value"
+      example: "productCategoryAncestors: - 2 in YAML → productCategoryAncestors: 2 in test code (NOT [2])"
+
+    mistake_expected_format:
+      error: "Not handling 'error' (singular) vs 'errors' (plural) in expected"
+      correct: "Accept both formats - normalize to 'errors' array"
+      rule: "See standard_knowledge.input_schema.test_plan.test_case_fields.expected.format_variations.ut_error_case"
+
+    mistake_permission_name:
+      error: "Not generating REQUIRED_PERMISSION_NAME constant"
+      correct: "MUST export constant with derived permission name"
+      derivation: "GetListProductCategory → GET_LIST_PRODUCT_CATEGORY"
+
+    mistake_domain_seed_missing:
+      error: "Only seeding authorization tables, forgetting domain-specific data"
+      correct: "MUST create seed<Domain>TestData function for IT/E2E tests"
+      example: "For product categories test → seedProductCategoriesTestData()"
+
+    mistake_seed_data_values:
+      error: "Using random/generic test data instead of expected values"
+      correct: "Extract test data from expected outcomes in test_plan"
+      example: "If expected shows 'Điện thoại 123' → use that exact string in seed data"
+
+    mistake_test_title:
+      error: "Modifying or paraphrasing test titles from input"
+      correct: "Use titles EXACTLY as provided in input - do NOT change"
+      rule: "See standard_knowledge.input_schema.test_plan.test_case_fields.title"
+
+    mistake_missing_credentials:
+      error: "Not exporting TEST_USER_WITHOUT_PERMISSION_CREDENTIALS"
+      correct: "MUST export BOTH credential constants (with and without permission)"
+      validation: "Both TEST_USER_CREDENTIALS and TEST_USER_WITHOUT_PERMISSION_CREDENTIALS exported"
+
+    mistake_array_stringification:
+      error: "Not using JSON.stringify for arrays in E2E GET requests"
+      correct: "E2E GET arrays MUST use JSON.stringify([...]), UT arrays do NOT"
+      rule: "See implementation_knowledge.http_client_syntax.array_parameter_handling"
 
 implementation_knowledge:
   tech_stack:
