@@ -1582,28 +1582,16 @@ implementation_knowledge:
           fix: "Always create both TEST_USER_ID and TEST_USER_WITHOUT_PERMISSION_ID"
 
         mistake_8:
-          error: "Using queryRunner.rollbackTransaction() in E2E tests"
-          symptom: "Test data disappears before assertions run"
-          fix: "E2E tests should comment out transactions: // await queryRunner.rollbackTransaction();"
-
-        mistake_9:
           error: "Forgetting dynamic import for Handler IT tests"
           symptom: "Handler import fails or gets wrong instance"
           fix: "Use: const { HandlerClass } = await import('...');"
 
-        mistake_10:
+        mistake_9:
           error: "Wrong provider token in Repository IT tests"
           symptom: "DI fails to resolve repository"
           fix: "Provider token MUST match interface name: 'I<Domain>QueryRepository'"
 
     request_dto_ut_template: |
-      /**
-       * Unit Tests for <ComponentName>Request
-       * Test Suite: Request DTO Validation
-       * Layer: Presentation
-       * Type: UT
-       */
-
       import { validate } from 'class-validator';
       import { plainToClass } from 'class-transformer';
       import { <ComponentName>Request } from '../../../../components/<bounded-context>/presentation/requests/<component-name>.request';
@@ -1732,14 +1720,14 @@ implementation_knowledge:
 
         afterEach(async () => {
           try {
-            // await queryRunner.rollbackTransaction();
+            await queryRunner.rollbackTransaction();
           } finally {
             await queryRunner.release();
           }
         });
 
         afterAll(async () => {
-          // await cleanup(dataSource);
+          await cleanup(dataSource);
           await app.close();
         });
 
