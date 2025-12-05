@@ -109,9 +109,7 @@ export abstract class BaseRequestDTO {
     if (Object.keys(constraints).length > 0) {
       // PRIORITY: Get the most important constraint (type checking first)
       const constraintType = this.getPriorityConstraint(Object.keys(constraints));
-      console.log("constraintType: ", constraintType );
       const messageKey = this.mapConstraintToMessageKey(constraintType);
-      console.log("messageKey: ", messageKey );
 
       results.push({
         field: currentPath,
