@@ -9,7 +9,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource, QueryRunner } from 'typeorm';
 import { ProductCategoryQueryRepository } from '../../../../components/product-catalog/infrastructure/repositories/product-category-query.repository';
 import { IProductCategoryQueryRepository } from '../../../../components/product-catalog/application/repositories/product-category-query.repository';
-import { seedProductCategoriesTestData, TEST_TENANT_ID } from './seed-data.helper';
+import { seedProductCategoriesTestData, TEST_TENANT_ID } from './get-list-product-category.seed';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ProductCategoryModel } from '../../../../components/product-catalog/infrastructure/entities/product-category.model';

@@ -7,7 +7,7 @@ import {
   seedTestData,
   TEST_PARENT_CATEGORY_ID,
   TEST_TENANT_ID,
-} from './seed-data.helper';
+} from './get-list-product-category.seed';
 
 describe('GetListProductCategoryQueryHandler Integration Tests', () => {
   let moduleRef: TestingModule;

@@ -10,7 +10,7 @@ import {
   TEST_PARENT_CATEGORY_ID,
   TEST_USER_CREDENTIALS,
   TEST_USER_WITHOUT_PERMISSION_CREDENTIALS,
-} from './seed-data.helper';
+} from './get-list-product-category.seed';
 
 describe('GET /api/v1/product-catalog/product-categories E2E', () => {
   let app: INestApplication;
