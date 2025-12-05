@@ -30,17 +30,17 @@ process:
   mandatory_test_file_checklist:
     description: "Checklist of test files to generate based on test_plan"
     request_dto_validation:
-      - "[ ] Request DTO Unit Test (*request.ut.spec.ts)"
+      - "[ ] Request DTO Unit Test"
 
     handler_tests:
       - "[ ] Handler Unit Test (optional - based on handler_test_strategy)"
-      - "[ ] Handler Integration Test (*handler.it.spec.ts)"
+      - "[ ] Handler Integration Test"
 
     repository_tests:
       - "[ ] Repository Integration Test (*repository.it.spec.ts)"
 
     e2e_tests:
-      - "[ ] E2E Test (*.e2e.spec.ts)"
+      - "[ ] E2E Test"
       - "[ ] MANDATORY: seed-data.helper.ts for IT/E2E tests"
 
     note: "Generate files based on test_plan.test_type. All specified test types MUST be generated."

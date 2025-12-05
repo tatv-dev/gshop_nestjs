@@ -41,7 +41,6 @@ export class GetListProductCategoryRequest extends BaseRequestDTO {
   @IsNotIn([null])
   @Transform(transformToIntArray)
   @IsArray()
-  @ArrayNotEmpty()
   @ArrayNoDuplicates()
   @IsInt({ each: true })
   @IsIn([0, 1], { each: true })
@@ -57,7 +56,6 @@ export class GetListProductCategoryRequest extends BaseRequestDTO {
   @IsNotIn([null])
   @Transform(transformToIntArray)
   @IsArray()
-  @ArrayNotEmpty()
   @IsInt({ each: true })
   @Min(1, { each: true })
   productCategoryAncestors?: number[];
