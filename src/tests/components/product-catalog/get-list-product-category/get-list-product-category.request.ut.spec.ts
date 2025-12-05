@@ -26,33 +26,28 @@ describe('GetListProductCategoryRequest Validation', () => {
     // Debug output (ALWAYS include)
     console.log('AC_UT_01 Transformed Errors:', JSON.stringify(errors, null, 2));
 
-    // Assert
+    // Assert - Expected errors from input_v2.yaml
+    const expectedErrors = [
+      { field: 'productCategoryName', value: 123, messageKey: 'validation_error.wrong_type_string' },
+      { field: 'activeStatuses', value: 'abc', messageKey: 'validation_error.wrong_type_array' },
+      { field: 'productCategoryAncestors', value: 2, messageKey: 'validation_error.wrong_type_array' },
+      { field: 'page', value: 'abc', messageKey: 'validation_error.wrong_type_integer' },
+      { field: 'size', value: 'abc', messageKey: 'validation_error.wrong_type_integer' },
+    ];
+
+    // Verify total error count matches expected
+    expect(errors).toHaveLength(expectedErrors.length); // AC_UT_01
+
+    // Verify each error item individually
     const findError = (field: string) => errors.find((e: any) => e.field === field);
 
-    const nameError = findError('productCategoryName');
-    expect(nameError).toBeDefined();
-    expect(nameError?.value).toBe(123);
-    expect(nameError?.messageKey).toBe('validation_error.wrong_type_string');
-
-    const activeStatusesError = findError('activeStatuses');
-    expect(activeStatusesError).toBeDefined();
-    expect(activeStatusesError?.value).toBe('abc');
-    expect(activeStatusesError?.messageKey).toBe('validation_error.wrong_type_array');
-
-    const ancestorsError = findError('productCategoryAncestors');
-    expect(ancestorsError).toBeDefined();
-    expect(ancestorsError?.value).toBe(2);
-    expect(ancestorsError?.messageKey).toBe('validation_error.wrong_type_array');
-
-    const pageError = findError('page');
-    expect(pageError).toBeDefined();
-    expect(pageError?.value).toBe('abc');
-    expect(pageError?.messageKey).toBe('validation_error.wrong_type_integer');
-
-    const sizeError = findError('size');
-    expect(sizeError).toBeDefined();
-    expect(sizeError?.value).toBe('abc');
-    expect(sizeError?.messageKey).toBe('validation_error.wrong_type_integer');
+    expectedErrors.forEach((expectedError) => {
+      const actualError = findError(expectedError.field);
+      expect(actualError).toBeDefined(); // AC_UT_01: error for ${expectedError.field} exists
+      expect(actualError?.field).toBe(expectedError.field); // AC_UT_01: field matches
+      expect(actualError?.value).toEqual(expectedError.value); // AC_UT_01: value matches
+      expect(actualError?.messageKey).toBe(expectedError.messageKey); // AC_UT_01: messageKey matches
+    });
   });
 
   it('AC_UT_02: return error message when: <activeStatuses> array contains duplicate elements', async () => {
@@ -77,13 +72,24 @@ describe('GetListProductCategoryRequest Validation', () => {
     // Debug output
     console.log('AC_UT_02 Transformed Errors:', JSON.stringify(errors, null, 2));
 
-    // Assert
+    // Assert - Expected errors from input_v2.yaml
+    const expectedErrors = [
+      { field: 'activeStatuses', value: [1, 1], messageKey: 'validation_error.array_duplicate_items' },
+    ];
+
+    // Verify total error count matches expected
+    expect(errors).toHaveLength(expectedErrors.length); // AC_UT_02
+
+    // Verify each error item individually
     const findError = (field: string) => errors.find((e: any) => e.field === field);
 
-    const duplicateError = findError('activeStatuses');
-    expect(duplicateError).toBeDefined();
-    expect(duplicateError?.value).toEqual([1, 1]);
-    expect(duplicateError?.messageKey).toBe('validation_error.array_duplicate_items');
+    expectedErrors.forEach((expectedError) => {
+      const actualError = findError(expectedError.field);
+      expect(actualError).toBeDefined(); // AC_UT_02: error exists
+      expect(actualError?.field).toBe(expectedError.field); // AC_UT_02: field matches
+      expect(actualError?.value).toEqual(expectedError.value); // AC_UT_02: value matches
+      expect(actualError?.messageKey).toBe(expectedError.messageKey); // AC_UT_02: messageKey matches
+    });
   });
 
   it('AC_UT_03: return successful message when valid data is provided', async () => {
