@@ -147,11 +147,20 @@ describe('GET /api/v1/product-catalog/product-categories E2E', () => {
       .set('Authorization', `Bearer ${accessTokenWithPermission}`)
       .query(query);
 
-    // Assert
-    expect(res.status).toBe(422);
-    expect(res.body).toHaveProperty('messageKey');
-    expect(res.body.messageKey).toContain('validation_error');
-    expect(Array.isArray(res.body.errors) || res.body.errors === undefined).toBe(true);
+    // Assert - Expected response from input_v2.yaml
+    expect(res.status).toBe(422); // AC_E2E_03
+    expect(res.body.messageKey).toBe('validation_error.general'); // AC_E2E_03
+
+    // Verify errors array exists and validate structure
+    expect(Array.isArray(res.body.errors)).toBe(true); // AC_E2E_03
+    if (res.body.errors && res.body.errors.length > 0) {
+      // Validate each error has required properties
+      res.body.errors.forEach((error: any) => {
+        expect(error).toHaveProperty('field'); // AC_E2E_03
+        expect(error).toHaveProperty('value'); // AC_E2E_03
+        expect(error).toHaveProperty('message'); // AC_E2E_03
+      });
+    }
   });
 
   it('AC_E2E_04: return error response when Token is expired', async () => {
@@ -169,8 +178,9 @@ describe('GET /api/v1/product-catalog/product-categories E2E', () => {
       .get('/api/v1/product-catalog/product-categories')
       .query(query);
 
-    // Assert
-    expect(res.status).toBe(401);
+    // Assert - Expected response from input_v2.yaml
+    expect(res.status).toBe(401); // AC_E2E_04
+    expect(res.body.messageKey).toBe('auth_error.auth_token_expired'); // AC_E2E_04
   });
 
   it('AC_E2E_05: return error response when Permission is denied', async () => {
@@ -189,7 +199,8 @@ describe('GET /api/v1/product-catalog/product-categories E2E', () => {
       .set('Authorization', `Bearer ${accessTokenWithoutPermission}`)
       .query(query);
 
-    // Assert
-    expect(res.status).toBe(403);
+    // Assert - Expected response from input_v2.yaml
+    expect(res.status).toBe(403); // AC_E2E_05
+    expect(res.body.messageKey).toBe('auth_error.forbidden'); // AC_E2E_05
   });
 });
