@@ -2,9 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource, QueryRunner } from 'typeorm';
 import { AppModule } from '../../../../app.module';
 import {
-  cleanup,
+  cleanupProductCategories,
+  ensureBaseDataExists,
   seedProductCategoriesTestData,
-  seedTestData,
   TEST_PARENT_CATEGORY_ID,
   TEST_TENANT_ID,
 } from './get-list-product-category.seed';
@@ -20,7 +20,9 @@ describe('GetListProductCategoryQueryHandler Integration Tests', () => {
     }).compile();
 
     dataSource = moduleRef.get(DataSource);
-    await seedTestData(dataSource);
+
+    // Ensure base data exists (idempotent - safe to call multiple times)
+    await ensureBaseDataExists(dataSource);
   });
 
   beforeEach(async () => {
@@ -39,7 +41,8 @@ describe('GetListProductCategoryQueryHandler Integration Tests', () => {
   });
 
   afterAll(async () => {
-    await cleanup(dataSource);
+    // Cleanup only product categories, keep base data for other tests
+    await cleanupProductCategories(dataSource);
     await moduleRef.close();
   });
 

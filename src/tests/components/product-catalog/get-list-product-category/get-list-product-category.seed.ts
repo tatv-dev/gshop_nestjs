@@ -51,6 +51,67 @@ export async function seedTestData(dataSource: DataSource) {
   }
 }
 
+/**
+ * Ensure base data exists in database (idempotent operation)
+ * This function can be called multiple times safely
+ */
+export async function ensureBaseDataExists(dataSource: DataSource): Promise<void> {
+  const queryRunner = dataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
+
+  try {
+    // Check if base data already exists
+    const [existingSoftware] = await queryRunner.query(
+      'SELECT id FROM softwares WHERE id = ?',
+      [TEST_SOFTWARE_ID]
+    );
+
+    // Only seed if base data doesn't exist
+    if (!existingSoftware) {
+      await seedSoftwares(queryRunner);
+      await seedTenants(queryRunner);
+      await seedUsers(queryRunner);
+      await seedWorkspaces(queryRunner);
+      await seedEmployees(queryRunner);
+      await seedRoles(queryRunner);
+      await seedPermissions(queryRunner);
+      await seedRolePermissions(queryRunner);
+      await seedRoleWorkspaces(queryRunner);
+    }
+
+    await queryRunner.commitTransaction();
+  } catch (error) {
+    await queryRunner.rollbackTransaction();
+    throw error;
+  } finally {
+    await queryRunner.release();
+  }
+}
+
+/**
+ * Cleanup only product categories (targeted cleanup)
+ * Safe to call during test cleanup - doesn't affect base data
+ */
+export async function cleanupProductCategories(dataSource: DataSource): Promise<void> {
+  const queryRunner = dataSource.createQueryRunner();
+  await queryRunner.connect();
+
+  try {
+    // Delete only product categories for this test tenant
+    await queryRunner.query(
+      'DELETE FROM product_categories WHERE tenant_id = ?',
+      [TEST_TENANT_ID]
+    );
+  } finally {
+    await queryRunner.release();
+  }
+}
+
+/**
+ * Cleanup all data (use with caution - only for full cleanup)
+ * This truncates ALL tables - should only be used in afterAll when tests are done
+ */
 export async function cleanup(dataSource: DataSource) {
   const dbName = process.env.DB_DATABASE;
   if (!dbName) throw new Error("Missing DB_DATABASE in environment");

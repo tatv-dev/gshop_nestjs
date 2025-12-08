@@ -9,7 +9,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource, QueryRunner } from 'typeorm';
 import { ProductCategoryQueryRepository } from '../../../../components/product-catalog/infrastructure/repositories/product-category-query.repository';
 import { IProductCategoryQueryRepository } from '../../../../components/product-catalog/application/repositories/product-category-query.repository';
-import { seedProductCategoriesTestData, TEST_TENANT_ID } from './get-list-product-category.seed';
+import {
+  cleanupProductCategories,
+  ensureBaseDataExists,
+  seedProductCategoriesTestData,
+  TEST_TENANT_ID
+} from './get-list-product-category.seed';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ProductCategoryModel } from '../../../../components/product-catalog/infrastructure/entities/product-category.model';
@@ -47,6 +52,9 @@ describe('ProductCategoryQueryRepository - Integration Tests', () => {
 
     dataSource = module.get(DataSource);
     repository = module.get<IProductCategoryQueryRepository>('IProductCategoryQueryRepository');
+
+    // Ensure base data exists (required for product_categories foreign keys)
+    await ensureBaseDataExists(dataSource);
   });
 
   beforeEach(async () => {
@@ -62,6 +70,8 @@ describe('ProductCategoryQueryRepository - Integration Tests', () => {
   });
 
   afterAll(async () => {
+    // Cleanup only product categories, keep base data for other tests
+    await cleanupProductCategories(dataSource);
     await module.close();
   });
 

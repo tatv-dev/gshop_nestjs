@@ -5,8 +5,9 @@ import request from 'supertest';
 import { AppModule } from '../../../../app.module';
 import {
   cleanup,
+  cleanupProductCategories,
+  ensureBaseDataExists,
   seedProductCategoriesTestData,
-  seedTestData,
   TEST_PARENT_CATEGORY_ID,
   TEST_USER_CREDENTIALS,
   TEST_USER_WITHOUT_PERMISSION_CREDENTIALS,
@@ -35,7 +36,9 @@ describe('GET /api/v1/product-catalog/product-categories E2E', () => {
     await app.init();
 
     dataSource = app.get(DataSource);
-    await seedTestData(dataSource);
+
+    // Ensure base data exists (idempotent - safe to call multiple times)
+    await ensureBaseDataExists(dataSource);
 
     // Login user with permission
     const loginRes = await request(app.getHttpServer())
@@ -78,7 +81,8 @@ describe('GET /api/v1/product-catalog/product-categories E2E', () => {
   });
 
   afterAll(async () => {
-    await cleanup(dataSource);
+    // Cleanup only product categories, keep base data for other tests
+    await cleanupProductCategories(dataSource);
     await app.close();
   });
 
