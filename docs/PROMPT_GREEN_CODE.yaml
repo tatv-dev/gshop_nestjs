@@ -326,7 +326,39 @@ process:
          - Export repository interfaces if needed
          - Use implementation_knowledge.code_templates for module configuration
 
-  step_10_validation:
+  step_10_update_app_module:
+    description: "Update app.module.ts to import newly generated module if not already imported"
+    critical_note: >
+      This step MUST ensure app.module.ts contains:
+      1. Import statement for the new module
+      2. The module is added into the @Module({ imports: [...] }) array
+      3. No duplicate imports are added
+      4. Path MUST follow techstack_mappings.component_type_mappings.module
+
+    prompt: |
+      - Open app.module.ts from the root project module path defined in implementation_knowledge.techstack_mappings.app_module_mapping
+      - Read the module name and file path generated in step_9_generate_module
+      - Check if app.module.ts already contains an import for this module:
+          - If YES → do nothing
+          - If NO →
+              - Add import statement:
+                  import { {{ModuleName}} } from '{{module_path}}';
+              - Append {{ModuleName}} into the @Module({ imports: [...] }) section
+      - STRICT: Preserve file formatting and do not modify unrelated code
+      - STRICT: Generated import path MUST follow component_type_mappings.module and use correct relative path resolution
+      - STRICT: After update, the module MUST exist inside imports[] before validation in step_11
+      - Example expected update (pseudocode):
+          @Module({
+            imports: [
+              ExistingModule,
+              {{ModuleName}},   <-- inserted
+            ],
+            controllers: [...],
+            providers: [...],
+          })
+
+
+  step_11_validation:
     description: "Validate implementation against RED tests and ensure ALL generated components match generation_order and mandatory_sequence"
     note: "Uses techstack_mappings.component_type_mappings for exact paths, naming, and file extensions"
 
@@ -336,6 +368,7 @@ process:
       - "CRITICAL: Handler validation must only run AFTER DTOs + Response DTOs + Repository Interface exist"
       - "CRITICAL: Controller validation must only run AFTER Request DTO + Handler + Response DTO exist"
       - "CRITICAL: Module validation must only run AFTER ALL other components exist"
+      - "CRITICAL: app.module.ts MUST be updated BEFORE module validation begins"
 
     file_existence_checklist:
       application_layer:
@@ -362,6 +395,7 @@ process:
         - "CRITICAL: Module file exists at path defined in component_type_mappings.module"
         - "CRITICAL: Module MUST import/wire ALL components from mandatory_sequence"
         - "CRITICAL: Module validation MUST be last step"
+        - "CRITICAL: app.module.ts MUST include the generated module inside imports[]"
 
     handler_signature_checklist:
       - "CRITICAL: Handler MUST import Application DTO using example_import from component_type_mappings.application_dto"
@@ -378,9 +412,11 @@ process:
       - "Validation decorators match expected rules in tests"
       - "All imports use correct relative paths defined in techstack_mappings"
       - "Module includes all providers in correct providers array"
+      - "Module imports[] MUST contain the newly generated module"
       - "No TypeScript compilation errors allowed"
       - "Architecture rules strictly followed (no shared/shared_kernel modifications)"
       - "YAGNI: Only code required to satisfy tests may be generated"
+
 
 standard_knowledge:
   ddd_principles:
@@ -638,6 +674,16 @@ implementation_knowledge:
   techstack_mappings:
     description: "Consolidated mappings of generic architectural concepts to specific technology implementations"
     note: "This section consolidates naming_conventions, file_structure, and tech-specific details to eliminate duplication"
+
+    app_module_mapping:
+        class_naming_pattern: "AppModule"
+        file_naming_pattern: "app.module.ts"
+        file_extension: ".module.ts"
+        directory_relative: "root of src"
+        directory_full: "src/"
+        full_path_pattern: "src/app.module.ts"
+        framework: "NestJS"
+        framework_decorators: ["@Module()"]
 
     component_type_mappings:
       application_dto:
@@ -1267,6 +1313,90 @@ implementation_knowledge:
     entity_to_dto_mapping:
       pattern: "private toDTO(entity: EntityModel): ResponseDTO { return { id: entity.id, name: entity.name }; }"
 
+  transformation_syntax:
+    description: "class-transformer patterns for Request DTO transformations"
+
+    helper_functions:
+      description: "Transform helper functions from custom-validators.ts"
+      import_path: "../../../../shared/application/validators/custom-validators"
+
+      transformToIntArray:
+        usage: "@Transform(transformToIntArray)"
+        purpose: "Transform string '[1,0]' to array [1, 0] while preserving invalid values"
+        e2e_usage: "In E2E tests, pass JSON.stringify([1,0]) in query params"
+        behavior: |
+          - If already array: preserve original values
+          - If string with []: parse to int array
+          - If string without []: return as-is (let validator catch error)
+          - Preserve invalid values that cannot be parsed
+
+      transformToInt:
+        usage: "@Transform(transformToInt)"
+        purpose: "Transform string to integer while preserving invalid values"
+        behavior: |
+          - If already number: return as-is
+          - If string: parse to int, keep original if NaN
+          - Preserve invalid values for validator to catch
+
+    decorators:
+      transform: "@Transform(({ value }) => transformLogic)"
+      type: "@Type(() => TargetClass)"
+
+    common_transformations:
+      string_to_int_array: |
+        @Transform(({ value }) => {
+          if (Array.isArray(value)) return value.map(Number);
+          if (typeof value === 'string') {
+            const cleaned = value.replace(/^\[|\]$/g, '');
+            if (!cleaned) return [];
+            return cleaned.split(',').map((v) => parseInt(v.trim(), 10));
+          }
+          return value;
+        })
+
+      string_to_number: "@Transform(({ value }) => Number(value))"
+      string_to_boolean: "@Transform(({ value }) => value === 'true' || value === '1')"
+
+  validation_syntax:
+    description: "class-validator decorators"
+
+    custom_validators:
+      description: "Custom validators with specific message keys"
+      available_validators:
+        - "@Xor() - for xor validation between fields"
+        - "@ArrayNoDuplicates() - for array_duplicate_items validation"
+        - "@IsStringType() - returns wrong_type_string message"
+        - "@IsIntegerType() - returns wrong_type_integer message"
+        - "@IsArrayType() - returns wrong_type_array message"
+        - "@IsNumberType() - returns wrong_type_number message"
+        - "@IsBooleanType() - returns wrong_type_boolean message"
+      import_path: "../../../../shared/application/validators/custom-validators"
+      usage_note: "Use custom validators instead of standard validators when you need specific messageKey format"
+
+    common_decorators:
+      - "@IsString()"
+      - "@IsString()"
+      - "@IsInt()"
+      - "@IsNumber()"
+      - "@IsBoolean()"
+      - "@IsArray()"
+      - "@IsNotEmpty()"
+      - "@IsOptional()"
+      - "@Min(n)"
+      - "@Max(n)"
+      - "@MinLength(n)"
+      - "@MaxLength(n)"
+      - "@IsIn([...])"
+      - "@IsNotIn([...])"
+      - "@ArrayNotEmpty()"
+      - "@ValidateIf((o) => condition)"
+
+    validation_execution:
+      transform_to_class: "const dto = plainToClass(DtoClass, input)"
+      validate: "const validationErrors = await validate(dto)"
+      transform_errors: "const errors = RequestClass.transformValidationErrors(validationErrors)"
+      note: "CRITICAL: Use RequestClass.transformValidationErrors() to get formatted errors with field, value, messageKey"
+
   code_templates:
     description: "Complete code templates based on actual get-list-product-category implementation"
     note: "These templates are 100% based on real working GREEN CODE - use as reference for generating implementations"
@@ -1879,7 +2009,3 @@ implementation_knowledge:
           return new <Domain>(this.id, newName, this.tenantId, this.activeStatus, this.creatorId);
         }
       }
-
-config:
-  api_version: "v1"
-  bounded_context: "product-catalog"
