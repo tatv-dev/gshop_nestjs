@@ -9,23 +9,19 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource, QueryRunner } from 'typeorm';
 import { ProductCategoryQueryRepository } from '../../../../components/product-catalog/infrastructure/repositories/product-category-query.repository';
 import { IProductCategoryQueryRepository } from '../../../../components/product-catalog/application/repositories/product-category-query.repository';
-import {
-  cleanupProductCategories,
-  ensureBaseDataExists,
-  seedProductCategoriesTestData,
-  TEST_TENANT_ID
-} from './get-list-product-category.seed';
+import { TEST_TENANT_ID } from './get-list-product-category.seed';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ProductCategoryModel } from '../../../../components/product-catalog/infrastructure/entities/product-category.model';
 
 describe('ProductCategoryQueryRepository - Integration Tests', () => {
   let module: TestingModule;
-  let dataSource: DataSource;
-  let queryRunner: QueryRunner;
   let repository: IProductCategoryQueryRepository;
 
   beforeAll(async () => {
+    // ⚠️ IMPORTANT: Data must be seeded before running tests
+    // Run: npm run test:seed get-list-product-category
+
     module = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ isGlobal: true }),
@@ -50,28 +46,11 @@ describe('ProductCategoryQueryRepository - Integration Tests', () => {
       ],
     }).compile();
 
-    dataSource = module.get(DataSource);
     repository = module.get<IProductCategoryQueryRepository>('IProductCategoryQueryRepository');
-
-    // Ensure base data exists (required for product_categories foreign keys)
-    await ensureBaseDataExists(dataSource);
-  });
-
-  beforeEach(async () => {
-    queryRunner = dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-    await seedProductCategoriesTestData(queryRunner);
-  });
-
-  afterEach(async () => {
-    await queryRunner.rollbackTransaction();
-    await queryRunner.release();
   });
 
   afterAll(async () => {
-    // Cleanup only product categories, keep base data for other tests
-    await cleanupProductCategories(dataSource);
+    // ⚠️ Data cleanup is done via: npm run test:cleanup get-list-product-category
     await module.close();
   });
 

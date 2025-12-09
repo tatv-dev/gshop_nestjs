@@ -2,47 +2,24 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource, QueryRunner } from 'typeorm';
 import { AppModule } from '../../../../app.module';
 import {
-  cleanupProductCategories,
-  ensureBaseDataExists,
-  seedProductCategoriesTestData,
   TEST_PARENT_CATEGORY_ID,
   TEST_TENANT_ID,
 } from './get-list-product-category.seed';
 
 describe('GetListProductCategoryQueryHandler Integration Tests', () => {
   let moduleRef: TestingModule;
-  let dataSource: DataSource;
-  let queryRunner: QueryRunner;
 
   beforeAll(async () => {
+    // ⚠️ IMPORTANT: Data must be seeded before running tests
+    // Run: npm run test:seed get-list-product-category
+
     moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
-
-    dataSource = moduleRef.get(DataSource);
-
-    // Ensure base data exists (idempotent - safe to call multiple times)
-    await ensureBaseDataExists(dataSource);
-  });
-
-  beforeEach(async () => {
-    queryRunner = dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-    await seedProductCategoriesTestData(queryRunner);
-  });
-
-  afterEach(async () => {
-    try {
-      await queryRunner.rollbackTransaction();
-    } finally {
-      await queryRunner.release();
-    }
   });
 
   afterAll(async () => {
-    // Cleanup only product categories, keep base data for other tests
-    await cleanupProductCategories(dataSource);
+    // ⚠️ Data cleanup is done via: npm run test:cleanup get-list-product-category
     await moduleRef.close();
   });
 

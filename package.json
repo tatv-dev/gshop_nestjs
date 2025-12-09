@@ -18,7 +18,11 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:seed": "ts-node src/tests/setup/seed.ts",
+    "test:cleanup": "ts-node src/tests/setup/cleanup.ts",
+    "test:redcode": "jest --testPathPattern",
+    "test:full": "npm run test:seed && npm run test:redcode && npm run test:cleanup"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

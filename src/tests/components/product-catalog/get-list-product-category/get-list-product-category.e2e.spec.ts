@@ -4,10 +4,6 @@ import { DataSource, QueryRunner } from 'typeorm';
 import request from 'supertest';
 import { AppModule } from '../../../../app.module';
 import {
-  cleanup,
-  cleanupProductCategories,
-  ensureBaseDataExists,
-  seedProductCategoriesTestData,
   TEST_PARENT_CATEGORY_ID,
   TEST_USER_CREDENTIALS,
   TEST_USER_WITHOUT_PERMISSION_CREDENTIALS,
@@ -15,12 +11,13 @@ import {
 
 describe('GET /api/v1/product-catalog/product-categories E2E', () => {
   let app: INestApplication;
-  let dataSource: DataSource;
-  let queryRunner: QueryRunner;
   let accessTokenWithPermission: string;
   let accessTokenWithoutPermission: string;
 
   beforeAll(async () => {
+    // ⚠️ IMPORTANT: Data must be seeded before running tests
+    // Run: npm run test:seed get-list-product-category
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -35,12 +32,7 @@ describe('GET /api/v1/product-catalog/product-categories E2E', () => {
     );
     await app.init();
 
-    dataSource = app.get(DataSource);
-
-    // Ensure base data exists (idempotent - safe to call multiple times)
-    await ensureBaseDataExists(dataSource);
-
-    // Login user with permission
+    // Login user with permission (using pre-seeded data)
     const loginRes = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
       .send({
@@ -52,7 +44,7 @@ describe('GET /api/v1/product-catalog/product-categories E2E', () => {
     accessTokenWithPermission = loginRes.body?.data?.accessToken || loginRes.body?.accessToken;
     expect(accessTokenWithPermission).toBeDefined();
 
-    // Login user without permission
+    // Login user without permission (using pre-seeded data)
     const loginResNoScope = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
       .send({
@@ -65,24 +57,8 @@ describe('GET /api/v1/product-catalog/product-categories E2E', () => {
     expect(accessTokenWithoutPermission).toBeDefined();
   });
 
-  beforeEach(async () => {
-    queryRunner = dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-    await seedProductCategoriesTestData(queryRunner);
-  });
-
-  afterEach(async () => {
-    try {
-      await queryRunner.rollbackTransaction();
-    } finally {
-      await queryRunner.release();
-    }
-  });
-
   afterAll(async () => {
-    // Cleanup only product categories, keep base data for other tests
-    await cleanupProductCategories(dataSource);
+    // ⚠️ Data cleanup is done via: npm run test:cleanup get-list-product-category
     await app.close();
   });
 

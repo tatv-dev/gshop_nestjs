@@ -27,6 +27,76 @@ export const TEST_USER_WITHOUT_PERMISSION_CREDENTIALS = {
   softwareId: TEST_SOFTWARE_ID,
 };
 
+// ========================================
+// MAIN FUNCTIONS (for npm run test:seed/cleanup)
+// ========================================
+
+/**
+ * Seed ALL test data for this API (base data + product categories)
+ * Called by: npm run test:seed get-list-product-category
+ */
+export async function seedAllTestData(dataSource: DataSource): Promise<void> {
+  const queryRunner = dataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
+
+  try {
+    // Seed base data (users, tenants, workspaces, roles, permissions)
+    await seedSoftwares(queryRunner);
+    await seedTenants(queryRunner);
+    await seedUsers(queryRunner);
+    await seedWorkspaces(queryRunner);
+    await seedEmployees(queryRunner);
+    await seedRoles(queryRunner);
+    await seedPermissions(queryRunner);
+    await seedRolePermissions(queryRunner);
+    await seedRoleWorkspaces(queryRunner);
+
+    // Seed API-specific data (product categories)
+    await seedProductCategoriesTestData(queryRunner);
+
+    await queryRunner.commitTransaction();
+  } catch (error) {
+    await queryRunner.rollbackTransaction();
+    throw error;
+  } finally {
+    await queryRunner.release();
+  }
+}
+
+/**
+ * Cleanup ALL test data for this API
+ * Called by: npm run test:cleanup get-list-product-category
+ */
+export async function cleanupAllTestData(dataSource: DataSource): Promise<void> {
+  const queryRunner = dataSource.createQueryRunner();
+  await queryRunner.connect();
+
+  try {
+    await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
+
+    // Cleanup in reverse order to avoid FK constraints
+    await queryRunner.query('DELETE FROM product_categories WHERE tenant_id = ?', [TEST_TENANT_ID]);
+    await queryRunner.query('DELETE FROM role_workspaces WHERE workspace_id IN (SELECT id FROM workspaces WHERE tenant_id = ?)', [TEST_TENANT_ID]);
+    await queryRunner.query('DELETE FROM role_permissions WHERE role_id IN (SELECT id FROM roles WHERE tenant_id = ?)', [TEST_TENANT_ID]);
+    await queryRunner.query('DELETE FROM roles WHERE tenant_id = ?', [TEST_TENANT_ID]);
+    await queryRunner.query('DELETE FROM permissions WHERE id = ?', [TEST_PERMISSION_ID]);
+    await queryRunner.query('DELETE FROM employees WHERE workspace_id IN (SELECT id FROM workspaces WHERE tenant_id = ?)', [TEST_TENANT_ID]);
+    await queryRunner.query('DELETE FROM workspaces WHERE tenant_id = ?', [TEST_TENANT_ID]);
+    await queryRunner.query('DELETE FROM users WHERE id IN (?, ?)', [TEST_USER_ID, TEST_USER_WITHOUT_PERMISSION_ID]);
+    await queryRunner.query('DELETE FROM tenants WHERE id = ?', [TEST_TENANT_ID]);
+    await queryRunner.query('DELETE FROM softwares WHERE id = ?', [TEST_SOFTWARE_ID]);
+
+    await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
+  } finally {
+    await queryRunner.release();
+  }
+}
+
+// ========================================
+// LEGACY FUNCTIONS (kept for backward compatibility)
+// ========================================
+
 export async function seedTestData(dataSource: DataSource) {
   const queryRunner = dataSource.createQueryRunner();
   await queryRunner.connect();
