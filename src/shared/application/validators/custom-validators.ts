@@ -6,6 +6,40 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 
+
+/**
+ * Custom XOR validator
+ */
+
+@ValidatorConstraint({ name: 'xor', async: false })
+export class XorConstraint implements ValidatorConstraintInterface {
+  validate(value: any, args: ValidationArguments): boolean {
+    const otherProp = args.constraints[0];
+    const otherValue = (args.object as any)[otherProp];
+    const thisPresent = value !== undefined && value !== null;
+    const otherPresent = otherValue !== undefined && otherValue !== null;
+    return (thisPresent || otherPresent) && !(thisPresent && otherPresent);
+  }
+
+  defaultMessage(): string {
+    return 'validation_error.xor';
+  }
+}
+
+export function Xor(otherPropertyName: string, validationOptions?: ValidationOptions) {
+  return function (object: Object, propertyName: string) {
+    registerDecorator({
+      name: 'xor',
+      target: (object as any).constructor,
+      propertyName,
+      options: validationOptions,
+      constraints: [otherPropertyName],
+      validator: XorConstraint,
+    });
+  };
+}
+
+
 /**
  * Custom validator to check for duplicate items in an array
  */
