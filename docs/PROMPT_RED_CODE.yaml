@@ -1470,6 +1470,7 @@ implementation_knowledge:
     custom_validators:
       description: "Custom validators with specific message keys"
       available_validators:
+        - "@Xor() - for xor validation between fields"
         - "@ArrayNoDuplicates() - for array_duplicate_items validation"
         - "@IsStringType() - returns wrong_type_string message"
         - "@IsIntegerType() - returns wrong_type_integer message"
@@ -1480,6 +1481,7 @@ implementation_knowledge:
       usage_note: "Use custom validators instead of standard validators when you need specific messageKey format"
 
     common_decorators:
+      - "@IsString()"
       - "@IsString()"
       - "@IsInt()"
       - "@IsNumber()"
@@ -2220,8 +2222,3 @@ implementation_knowledge:
         - "TIER 2 function: Use simple INSERT (transaction rollback handles cleanup)"
         - "Export ALL constants and functions"
         - "Include proper error handling (try/catch with rollback)"
-
-config:
-  api_version: "v1"
-  bounded_context: "product-catalog"
-  auth_endpoint: "/api/v1/auth/login"
