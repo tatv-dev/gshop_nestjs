@@ -12,10 +12,6 @@ import {
 
 import { ValidationPipe } from '@nestjs/common';
 
-import { ValidationError as ClassValidatorError, validate } from 'class-validator';
-
-import { plainToClass } from 'class-transformer';
-
 import { ValidationException } from '../exceptions/validation.exception';
 
 import { formatValidationErrors } from './validation-error-formatter';
@@ -41,8 +37,6 @@ export class CustomValidationPipe extends ValidationPipe implements PipeTransfor
     // Capture raw input before transformation
 
     this.rawInput = this.cloneValue(value);
-
-    // console.log('Raw input captured:', JSON.stringify(this.rawInput, null, 2));
 
     try {
 
@@ -87,7 +81,9 @@ export class CustomValidationPipe extends ValidationPipe implements PipeTransfor
  
 
           throw new ValidationException({
-
+            messageKey: 'general',
+            params: {},
+            instance: undefined,
             errors: errorsWithRawValues,
 
           });

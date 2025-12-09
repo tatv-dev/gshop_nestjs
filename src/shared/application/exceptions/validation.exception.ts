@@ -1,39 +1,26 @@
-import { HttpStatus } from '@nestjs/common';
+import { HttpException, HttpStatus } from '@nestjs/common';
+import { ValidationError, ExceptionParams } from './param.exception';
 
-export interface ValidationError {
-  field: string;
-  value: any;
-  messageKey: string;
-  params?: Record<string, any>;
-}
-
-export interface ValidationExceptionParams {
-  errors: ValidationError[];
-  instance?: string;
-}
-
-export class ValidationException extends Error {
-  public readonly messageKey = 'validation_error';
+export class ValidationException extends HttpException {
+  public readonly messageKey: string;
   public readonly errors: ValidationError[];
-  public readonly httpStatus: HttpStatus;
   public readonly instance?: string;
 
-  constructor({ errors, instance }: ValidationExceptionParams) {
-    super('validation_error');
-    this.name = 'ValidationException';
-    this.errors = errors;
-    this.httpStatus = HttpStatus.UNPROCESSABLE_ENTITY; // 422
+  constructor({ messageKey, params = {}, instance, errors }: ExceptionParams) {
+    super(
+      {
+        messageKey: `validation_error.${messageKey}`,
+        params,
+      },
+      HttpStatus.UNPROCESSABLE_ENTITY,
+    );
+
+    this.messageKey = 'validation_error.general';
+    this.errors = errors || [];
     this.instance = instance;
-    Error.captureStackTrace(this, this.constructor);
   }
 
-  toJSON() {
-    return {
-      name: this.name,
-      messageKey: this.messageKey,
-      errors: this.errors,
-      httpStatus: this.httpStatus,
-      instance: this.instance,
-    };
+  get httpStatus(): number {
+    return this.getStatus();
   }
 }

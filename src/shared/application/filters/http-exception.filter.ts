@@ -91,11 +91,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // AuthErrorException - Authentication/Authorization errors
     if (exception instanceof AuthErrorException) {
-      console.log("exception.messageKey: ", exception.messageKey)
       const messageKey = this.getFullMessageKey(exception.messageKey);
-      console.log("exception.messageKey2: ", messageKey)
       const translated = this.i18nService.translate(messageKey, exception.params);
-      console.log("exception.messageKey3: ", translated)
       return {
         messageKey: exception.messageKey,
         title: translated.title,
@@ -167,7 +164,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof ValidationException) {
       const translated = this.i18nService.translate('validation_error.required');
       return {
-        messageKey: 'validation_error',
+        messageKey: exception.messageKey,
         title: translated?.title || 'Lỗi xác thực dữ liệu',
         status: exception.httpStatus,
         detail: 'Dữ liệu đầu vào không hợp lệ.',
@@ -230,8 +227,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
               const messageKey = this.mapConstraintToMessageKey(constraintType);
 
-
-
               errors.push({
 
                 field,
@@ -259,11 +254,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       // Convert to ValidationException for consistent handling
 
       throw new ValidationException({
-
-        errors,
-
+        messageKey: 'general',
+        params: {},
         instance,
-
+        errors,
       });
     }
 

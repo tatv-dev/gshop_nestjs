@@ -46,6 +46,10 @@
     }
   },
   "validation_error": {
+    "general": {
+      "title": "Lỗi xác thực dữ liệu",
+      "detail": "Dữ liệu đầu vào không hợp lệ."
+    },
     "missing": {
       "title": "Thiếu thông tin",
       "detail": ":field is required and must be inputed."

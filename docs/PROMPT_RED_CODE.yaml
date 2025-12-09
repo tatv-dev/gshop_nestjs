@@ -1625,18 +1625,8 @@ implementation_knowledge:
           const dto = plainToClass(RequestClass, input);
           const validationErrors = await validate(dto);
 
-          // Debug output (ALWAYS include for visibility)
-          console.log('Raw validation errors:', validationErrors.map(e => ({
-            property: e.property,
-            value: e.value,
-            constraints: e.constraints
-          })));
-
           // Transform using BaseRequestDTO method
           const errors = RequestClass.transformValidationErrors(validationErrors);
-
-          // Debug output (ALWAYS include)
-          console.log('TC_XX Transformed Errors:', JSON.stringify(errors, null, 2));
 
           // Assert
           // Helper function to find error by field
@@ -1851,15 +1841,9 @@ implementation_knowledge:
           // Act
           const dto = plainToClass(<ComponentName>Request, input);
           const validationErrors = await validate(dto);
-
-          // Debug output (ALWAYS include for visibility)
-          console.log('Raw validation errors:', validationErrors.map((e) => ({ property: e.property, value: (e as any).value, constraints: e.constraints })));
-
+          
           // Transform using BaseRequestDTO method
           const errors = (<ComponentName>Request as any).transformValidationErrors(validationErrors);
-
-          // Debug output (ALWAYS include)
-          console.log('AC_UT_01 Transformed Errors:', JSON.stringify(errors, null, 2));
 
           // Assert
           const findError = (field: string) => errors.find((e: any) => e.field === field);
