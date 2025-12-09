@@ -147,11 +147,14 @@ process:
          - Use implementation_knowledge.code_templates for test type-specific input formatting
 
   step_4_generate_seed_data:
-    description: "Generate seed data functions for IT/E2E tests using TWO-TIER seeding strategy"
+    description: "Generate seed data functions for IT/E2E tests using COMMAND-BASED seeding strategy"
     prompt: |
-      CRITICAL: Understand the TWO-TIER seeding strategy (see standard_knowledge.lifecycle_management_principles):
-      - TIER 1 (Authorization): seedTestData() - called in beforeAll, uses idempotent SQL, committed
-      - TIER 2 (Domain): seed<Domain>TestData() - called in beforeEach, uses simple INSERT, rolled back in afterEach
+      CRITICAL: Understand the COMMAND-BASED seeding strategy:
+      - Tests do NOT seed data themselves
+      - Seeding is done EXTERNALLY via: npm run test:seed <api-name>
+      - Cleanup is done EXTERNALLY via: npm run test:cleanup <api-name>
+      - Tests assume data is pre-seeded and only verify logic
+      - See src/tests/setup/ for base implementation
 
       MANDATORY FOR ALL IT/E2E TESTS: This step MUST generate authorization seeding code (permissions, roles, role_permissions, role_workspaces) even if test_plan does not explicitly mention permission_denied test cases. Authentication is ALWAYS required for protected endpoints.
 
@@ -174,22 +177,32 @@ process:
       4. Generate seed file structure:
          - File name: [action-domain].seed.ts (in same directory as test file)
          - Export ID constants at top (use >= 100000 to avoid conflicts)
-         - Export TWO credential constants with EXACTLY 3 fields each
-         - Generate main seedTestData() function (TIER 1):
-           * Takes dataSource as parameter
-           * Wraps all authorization seeds in transaction and commits
-           * Uses idempotent SQL (INSERT IGNORE, ON DUPLICATE KEY UPDATE)
-           * Called ONCE in beforeAll
-         - Generate seed<Domain>TestData() function (TIER 2):
-           * Takes queryRunner as parameter
-           * Uses simple INSERT (no idempotency)
-           * Called in beforeEach within transaction
-           * Automatically cleaned by rollback in afterEach
-         - Generate cleanup() function:
-           * Purpose: Final cleanup in afterAll ONLY (not used per-test)
-           * Uses TRUNCATE with FK checks disabled
-           * Removes ALL test data from all tables
-           * Note: Per-test cleaning is done by transaction rollback, NOT by calling cleanup()
+         - Export TWO credential constants with EXACTLY 3 fields each: username, password, softwareId
+
+         - Generate seedAllTestData() function (MAIN FUNCTION):
+           * Signature: Takes dataSource as parameter, returns Promise<void>
+           * Purpose: Seed ALL test data (authorization + domain-specific)
+           * Called by: npm run test:seed <api-name>
+           * Implementation: Create queryRunner, start transaction, call all helper seed functions in topological order, commit
+           * Uses idempotent SQL patterns (INSERT IGNORE for first table, ON DUPLICATE KEY UPDATE for others)
+           * Include both authorization data AND domain-specific data in single transaction
+
+         - Generate cleanupAllTestData() function (MAIN FUNCTION):
+           * Signature: Takes dataSource as parameter, returns Promise<void>
+           * Purpose: Delete ALL test data for this API
+           * Called by: npm run test:cleanup <api-name>
+           * Implementation: Use DELETE queries with specific test IDs (NOT TRUNCATE)
+           * Delete in REVERSE topological order to avoid FK constraint violations
+           * Use SET FOREIGN_KEY_CHECKS = 0/1 for safety
+
+         - Generate helper seed functions (INTERNAL):
+           * One function per table: seed<TableName>(queryRunner)
+           * Authorization tables: seedSoftwares, seedTenants, seedUsers, seedWorkspaces, seedEmployees, seedRoles, seedPermissions, seedRolePermissions, seedRoleWorkspaces
+           * Domain table: seed<DomainPlural>TestData(queryRunner)
+           * These are called by seedAllTestData(), NOT by tests directly
+
+         - Optional: Keep legacy functions for backward compatibility
+
          - Apply implementation_knowledge.code_templates.seed_data_helper_template for complete structure
          - Apply implementation_knowledge.authorization_seeding_guidance for authorization table seeding order
 
@@ -203,25 +216,24 @@ process:
          - See implementation_knowledge.authorization_seeding_guidance.seeding_strategy for complete guidance
          - See implementation_knowledge.code_templates.seed_data_helper_template for complete code structure
 
-      6. Generate domain-specific seed data function (IT/E2E only - TIER 2):
-         - CRITICAL: Create separate seed function for domain entities
+      6. Generate domain-specific seed data function (IT/E2E only):
+         - CRITICAL: Create separate helper function for domain entities
          - Function naming: seed<DomainPlural>TestData
-         - Function signature: Takes queryRunner as parameter (for transaction management)
-         - Export this function for use in IT/E2E test lifecycle hooks
-         - SQL pattern: Use SIMPLE INSERT (NOT INSERT IGNORE, NOT ON DUPLICATE KEY UPDATE)
-         - Rationale: This function runs in beforeEach within a transaction that gets rolled back in afterEach
+         - Function signature: Takes queryRunner as parameter
+         - Function visibility: Internal helper, called by seedAllTestData()
+         - SQL pattern: Use SIMPLE INSERT (idempotency not required since called within transaction)
          - Seed data structure:
            * Extract test data values from test_plan expected outcomes
            * Create enough records to satisfy test assertions (e.g., if expected.data.total = 2, create 2 records)
-           * Use exported ID constants (TEST_PARENT_CATEGORY_ID, TEST_CHILD_CATEGORY_ID, etc.)
+           * Use exported ID constants for primary keys and foreign keys
            * Ensure hierarchical relationships match test expectations (parent/child, ancestors, etc.)
-           * Include all required FK fields (tenant_id, creator_id, etc.)
+           * Include all required FK fields (tenant_id, creator_id, etc.) referencing authorization constants
          - Data derivation from test_plan:
            * If expected shows parent-child hierarchy → create parent first, then child with parent_id
-           * If expected shows specific field values → use those exact values
-           * If expected shows activeStatus variations → create records with different statuses
-         - This function is called in beforeEach within transaction, NOT in main seedTestData()
-         - Cleaning: Automatic via transaction rollback in afterEach (no manual DELETE needed)
+           * If expected shows specific field values → use those exact values in seed data
+           * If expected shows variations (statuses, types) → create records with different values
+         - This function is called by seedAllTestData() as part of the complete data seeding
+         - Cleaning: Handled by cleanupAllTestData() using DELETE queries
 
   step_5_generate_test_method:
     description: "Generate test method body using Arrange-Act-Assert pattern"
@@ -236,9 +248,9 @@ process:
       2. Generate Arrange phase:
          - For Request DTO UT: Declare input with values from test_plan, preserve exact data types
          - For Handler UT: Setup mocks using standard_knowledge.mock_principles and implementation_knowledge.mock_syntax
-         - For Handler IT: Data already seeded in beforeEach
-         - For Repository IT: Data already seeded in beforeEach
-         - For E2E: Data already seeded, use accessToken from beforeAll
+         - For Handler IT: Data pre-seeded externally (via npm run test:seed), use imported constants
+         - For Repository IT: Data pre-seeded externally (via npm run test:seed), use imported constants
+         - For E2E: Data pre-seeded externally (via npm run test:seed), use accessToken from beforeAll
          - For E2E permission_denied: Login with user WITHOUT permission to get separate token
          - See implementation_knowledge.code_templates for test type-specific arrange patterns
 
@@ -315,57 +327,68 @@ process:
         - "  * Include AC ID in assertion comments for traceability"
 
     seed_helper_specific:
-      description: "[action-domain].seed.ts validation - TWO-TIER seeding strategy"
+      description: "[action-domain].seed.ts validation - COMMAND-BASED seeding strategy"
       checklist:
         - "All ID constants exported at top with test prefix (>= 100000)"
-        - "TWO credential constants with all required authentication fields"
-        - "TIER 1: seedTestData(dataSource) - authorization data seeding:"
-        - "  * Wraps all authorization seeds in transaction and commits"
-        - "  * Uses INSERT IGNORE or ON DUPLICATE KEY UPDATE (idempotent)"
-        - "  * Seed softwares FIRST using INSERT IGNORE pattern"
-        - "  * Most authorization tables use upsert pattern (ON DUPLICATE KEY UPDATE)"
-        - "  * role_permissions uses INSERT only (no upsert to detect duplicates)"
-        - "  * Seed TWO users with same password hash"
-        - "  * Seed TWO roles (with/without permission)"
-        - "  * role_permissions only links role WITH permission"
-        - "  * role_workspaces links BOTH roles to their workspaces"
-        - "  * Function commits on success, rollbacks on error"
-        - "TIER 2: seed<Domain>TestData(queryRunner) - domain data seeding:"
-        - "  * Takes queryRunner parameter (for transaction)"
-        - "  * Uses SIMPLE INSERT (no INSERT IGNORE, no ON DUPLICATE KEY)"
-        - "  * Runs within beforeEach transaction"
-        - "  * Cleaned automatically by transaction rollback in afterEach"
-        - "cleanup() function:"
-        - "  * Uses TRUNCATE with FK checks disabled"
-        - "  * Called ONLY in afterAll (not in afterEach)"
-        - "  * Purpose: Final cleanup, not per-test cleanup"
+        - "TWO credential constants with all required authentication fields (username, password, softwareId)"
+        - "seedAllTestData(dataSource: DataSource): Promise<void> - Main seeding function:"
+        - "  * Called by: npm run test:seed <api-name>"
+        - "  * Creates queryRunner, starts transaction"
+        - "  * Calls all helper seed functions in topological order"
+        - "  * Includes BOTH authorization AND domain data seeding"
+        - "  * Commits transaction on success, rollbacks on error"
+        - "  * Uses idempotent SQL patterns (INSERT IGNORE for first table, ON DUPLICATE KEY UPDATE for others)"
+        - "cleanupAllTestData(dataSource: DataSource): Promise<void> - Main cleanup function:"
+        - "  * Called by: npm run test:cleanup <api-name>"
+        - "  * Uses DELETE queries with specific test IDs (NOT TRUNCATE)"
+        - "  * Deletes in REVERSE topological order"
+        - "  * Uses SET FOREIGN_KEY_CHECKS = 0/1 for safety"
+        - "Helper seed functions (internal):"
+        - "  * seedSoftwares(queryRunner) - uses INSERT IGNORE (must be first)"
+        - "  * seedTenants(queryRunner) - uses ON DUPLICATE KEY UPDATE"
+        - "  * seedUsers(queryRunner) - creates TWO users with same password hash"
+        - "  * seedWorkspaces(queryRunner) - creates TWO workspaces"
+        - "  * seedEmployees(queryRunner) - creates TWO employees"
+        - "  * seedRoles(queryRunner) - creates TWO roles (with/without permission)"
+        - "  * seedPermissions(queryRunner) - creates required permission"
+        - "  * seedRolePermissions(queryRunner) - links role WITH permission only"
+        - "  * seedRoleWorkspaces(queryRunner) - links BOTH roles to workspaces"
+        - "  * seed<DomainPlural>TestData(queryRunner) - creates domain-specific data"
         - "Permission name constant matches derived permission from component name"
+        - "Optional: Legacy functions (seedTestData, cleanup) for backward compatibility"
 
     handler_it_specific:
-      description: "Handler Integration Test validation - TWO-TIER seeding"
+      description: "Handler Integration Test validation - COMMAND-BASED approach"
       checklist:
         - "Use dynamic import to load handler class"
         - "Retrieve handler from dependency injection container"
         - "Execute handler with user context object"
-        - "beforeAll: Seed authorization data once using seedTestData(dataSource)"
-        - "beforeEach: Create queryRunner, start transaction"
-        - "beforeEach: Seed domain data using seed<Domain>TestData(queryRunner)"
-        - "afterEach: Rollback transaction (automatic domain data cleanup)"
-        - "afterEach: Release queryRunner"
-        - "afterAll: Call cleanup(dataSource) for final cleanup"
+        - "beforeAll: Setup module ONLY, do NOT seed data"
+        - "  * Data must be seeded externally via: npm run test:seed <api-name>"
+        - "  * Add comment indicating external seeding requirement"
+        - "NO beforeEach/afterEach hooks for seeding/cleanup"
+        - "afterAll: Close module ONLY, do NOT call cleanup"
+        - "  * Cleanup done externally via: npm run test:cleanup <api-name>"
+        - "  * Add comment indicating external cleanup"
+        - "Import only constants from seed file (IDs, credentials)"
+        - "  * Do NOT import seed functions"
         - "Assert result is defined and matches expected structure"
 
     repository_it_specific:
-      description: "Repository Integration Test validation - TWO-TIER seeding"
+      description: "Repository Integration Test validation - COMMAND-BASED approach"
       checklist:
         - "Import repository interface and implementation classes"
         - "Call repository methods directly (not through handler)"
-        - "beforeAll: Usually no authorization seeding needed (Repository IT doesn't test auth)"
-        - "beforeEach: Create queryRunner, start transaction"
-        - "beforeEach: Seed domain data using seed<Domain>TestData(queryRunner)"
-        - "afterEach: Rollback transaction (automatic domain data cleanup)"
-        - "afterEach: Release queryRunner"
-        - "afterAll: Usually no cleanup() needed (no authorization seeded)"
+        - "beforeAll: Setup TypeORM module with test database config ONLY"
+        - "  * Data must be seeded externally via: npm run test:seed <api-name>"
+        - "  * Add comment indicating external seeding requirement"
+        - "  * Repository IT tests require base data for FK constraints"
+        - "NO beforeEach/afterEach hooks for seeding/cleanup"
+        - "afterAll: Close module ONLY, do NOT call cleanup"
+        - "  * Cleanup done externally via: npm run test:cleanup <api-name>"
+        - "  * Add comment indicating external cleanup"
+        - "Import only constants from seed file (IDs)"
+        - "  * Do NOT import seed functions"
         - "Assert on returned data structure and types"
 
 standard_knowledge:
@@ -413,8 +436,8 @@ standard_knowledge:
       characteristics:
         - "Use REAL database"
         - "NO mocks for database"
-        - "Seed data before EACH test"
-        - "Rollback transaction after EACH test"
+        - "Data seeded externally via npm run test:seed"
+        - "Tests assume pre-seeded data"
 
     e2e_test:
       scope:
@@ -450,6 +473,70 @@ standard_knowledge:
         3. Does handler aggregate or transform data? → YES: Generate both UT and IT
         4. Otherwise → Generate UT only
 
+  test_workflow:
+    description: "COMMAND-BASED test workflow for E2E and IT tests"
+
+    overview:
+      approach: "External seeding with separate npm commands"
+      key_principle: "Tests do NOT seed data themselves - seeding is done externally"
+      rationale:
+        - "Clear separation of concerns (seeding vs testing)"
+        - "Explicit control over test data lifecycle"
+        - "Easy to reproduce test environment"
+
+    workflow_steps:
+      step_1_seed:
+        command: "npm run test:seed <api-name>"
+        description: "Seeds all required data for the API test"
+        what_it_does:
+          - "Connects to database using env variables"
+          - "Finds seed file matching pattern: **/<api-name>.seed.ts"
+          - "Calls seedAllTestData(dataSource) function"
+          - "Seeds both base data (auth) and domain-specific data"
+        result: "Database contains all test data ready for use"
+
+      step_2_test:
+        command: "npm run test:redcode <api-name>"
+        description: "Runs tests that assume data is already seeded"
+        what_it_does:
+          - "Runs Jest with test files matching <api-name>"
+          - "Tests import constants (IDs, credentials) from seed file"
+          - "Tests read and verify pre-seeded data"
+          - "NO seeding happens in beforeAll/beforeEach"
+        result: "Test results (pass/fail) without data modification"
+
+      step_3_cleanup:
+        command: "npm run test:cleanup <api-name>"
+        description: "Cleans up test data after tests complete"
+        what_it_does:
+          - "Finds seed file matching pattern: **/<api-name>.seed.ts"
+          - "Calls cleanupAllTestData(dataSource) function"
+          - "Deletes data in reverse dependency order"
+          - "Uses specific IDs to avoid affecting other data"
+        result: "Database is clean, ready for next test run"
+
+    benefits:
+      - "Explicit control: Developer knows exactly when data is seeded/cleaned"
+      - "Debuggable: Can inspect database state between steps"
+      - "Reproducible: Can re-seed if test fails after data modification"
+      - "Flexible: Can seed once, run tests multiple times"
+
+    important_notes:
+      data_sharing:
+        - "Tests share the same seeded data (NO per-test isolation)"
+        - "Tests should primarily READ data, minimize WRITE operations"
+        - "If test modifies data and fails, re-run seed command to restore clean state"
+
+      file_organization:
+        - "Each API has its own seed file: <api-name>.seed.ts"
+        - "Seed file exports: seedAllTestData(), cleanupAllTestData(), constants"
+        - "Test files import only constants, never call seed functions directly"
+
+      environment_setup:
+        - "Seed/cleanup scripts require .env file with database credentials"
+        - "Scripts use dotenv to load environment variables"
+        - "Database connection configured via DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE"
+
   lifecycle_management_principles:
     description: "Lifecycle hook responsibilities by test type"
 
@@ -466,95 +553,102 @@ standard_knowledge:
         - "Usually not needed (no external resources)"
 
     integration_test_lifecycle:
-      description: "CRITICAL: IT tests use TWO-TIER seeding strategy"
+      description: "CRITICAL: IT tests use COMMAND-BASED seeding approach"
 
-      two_tier_seeding_strategy:
-        tier_1_authorization_data:
-          when: "beforeAll (seed ONCE for entire test suite)"
-          what: "Authorization tables (softwares, tenants, users, workspaces, employees, roles, permissions, role_permissions, role_workspaces)"
-          how: "Call seedTestData(dataSource) - wraps all seeds in transaction and commits"
-          sql_pattern: "INSERT IGNORE or ON DUPLICATE KEY UPDATE (idempotent - safe to call multiple times)"
-          rationale: "Authorization data is shared across all tests and expensive to setup"
+      seeding_approach:
+        external_seeding:
+          when: "BEFORE running tests (not in test lifecycle hooks)"
+          what: "ALL test data (authorization + domain-specific)"
+          how: "Run: npm run test:seed <api-name>"
+          function_called: "seedAllTestData(dataSource)"
+          sql_pattern: "INSERT IGNORE for first table, ON DUPLICATE KEY UPDATE for others, simple INSERT for domain"
+          rationale: "Tests are simpler, can seed once and run tests multiple times"
 
-        tier_2_domain_data:
-          when: "beforeEach (seed FRESH for each test)"
-          what: "Domain-specific tables (e.g., product_categories for GetListProductCategory)"
-          how: "Start transaction → call seed<Domain>TestData(queryRunner) within transaction"
-          sql_pattern: "Simple INSERT (no idempotency needed because transaction will rollback)"
-          rationale: "Each test needs isolated domain data to avoid interference"
+        data_sharing:
+          isolation: "NO transaction isolation between tests"
+          impact: "Tests share the same data"
+          caution: "Tests should primarily READ data, minimize WRITE operations"
+          recovery: "If test fails after modifying data, re-run seed command"
 
         cleaning_mechanism:
-          method: "Transaction ROLLBACK (NOT explicit DELETE/TRUNCATE)"
-          when: "afterEach"
-          how: "queryRunner.rollbackTransaction() - automatically removes all data inserted in beforeEach"
-          rationale: "More efficient than DELETE, ensures perfect isolation between tests"
+          method: "External cleanup command (NOT in test hooks)"
+          when: "AFTER all tests complete"
+          how: "Run: npm run test:cleanup <api-name>"
+          function_called: "cleanupAllTestData(dataSource)"
+          rationale: "Cleanup is explicit and controlled"
 
       setup:
         - "Create test module with real dependencies"
-        - "Get database connection"
-        - "beforeAll: Seed authorization data ONCE using seedTestData(dataSource)"
+        - "beforeAll: Setup module ONLY, do NOT seed data"
+        - "beforeAll: Add comment indicating external seeding requirement"
         - "For Repository IT: No login needed (direct repository testing)"
         - "For Handler IT: No login needed (pass tenantId in currentUser object)"
 
       per_test:
-        - "beforeEach: Create queryRunner and connect"
-        - "beforeEach: Start database transaction for isolation"
-        - "beforeEach: Seed domain data within transaction using seed<Domain>TestData(queryRunner)"
+        - "NO beforeEach hook - tests assume data is already seeded"
+        - "Tests import constants from seed file (IDs, credentials)"
+        - "Tests use pre-seeded data for verification"
 
       teardown_per_test:
-        - "afterEach: Rollback transaction (this CLEANS domain data automatically)"
-        - "afterEach: Release queryRunner"
+        - "NO afterEach hook - no per-test cleanup"
 
       teardown:
-        - "afterAll: Call cleanup(dataSource) to truncate ALL tables (final cleanup only)"
-        - "afterAll: Close test module"
+        - "afterAll: Close test module ONLY, do NOT call cleanup functions"
+        - "afterAll: Add comment indicating external cleanup via npm command"
 
     e2e_test_lifecycle:
-      description: "CRITICAL: E2E tests use TWO-TIER seeding strategy + authentication"
+      description: "CRITICAL: E2E tests use COMMAND-BASED seeding approach + authentication"
 
-      two_tier_seeding_strategy:
-        tier_1_authorization_data:
-          when: "beforeAll (seed ONCE for entire test suite)"
-          what: "Authorization tables + login to get access tokens"
-          how: "Call seedTestData(dataSource) then login TWO users"
+      seeding_approach:
+        external_seeding:
+          when: "BEFORE running tests (not in test lifecycle hooks)"
+          what: "ALL test data (authorization + domain-specific)"
+          how: "Run: npm run test:seed <api-name>"
+          function_called: "seedAllTestData(dataSource)"
+          sql_pattern: "INSERT IGNORE for first table, ON DUPLICATE KEY UPDATE for others, simple INSERT for domain"
+          rationale: "Tests are simpler, can seed once and run tests multiple times"
+
+        authentication:
+          when: "beforeAll (after data is seeded externally)"
+          what: "Login TWO users to obtain access tokens"
           tokens:
             - "accessTokenWithPermission - from user with permission (happy path tests)"
             - "accessTokenWithoutPermission - from user without permission (403 tests)"
-          sql_pattern: "INSERT IGNORE or ON DUPLICATE KEY UPDATE (idempotent)"
-          rationale: "Authorization data and tokens are shared across all tests"
+          credentials: "Use TEST_USER_CREDENTIALS and TEST_USER_WITHOUT_PERMISSION_CREDENTIALS from seed file"
+          rationale: "Tokens are reused across all tests"
 
-        tier_2_domain_data:
-          when: "beforeEach (seed FRESH for each test)"
-          what: "Domain-specific tables (e.g., product_categories)"
-          how: "Start transaction → call seed<Domain>TestData(queryRunner) within transaction"
-          sql_pattern: "Simple INSERT (no idempotency needed because transaction will rollback)"
-          rationale: "Each test needs isolated domain data"
+        data_sharing:
+          isolation: "NO transaction isolation between tests"
+          impact: "Tests share the same data"
+          caution: "Tests should primarily READ data, minimize WRITE operations"
+          recovery: "If test fails after modifying data, re-run seed command"
 
         cleaning_mechanism:
-          method: "Transaction ROLLBACK (NOT explicit DELETE/TRUNCATE)"
-          when: "afterEach"
-          how: "queryRunner.rollbackTransaction() - automatically removes all data inserted in beforeEach"
-          rationale: "More efficient than DELETE, ensures perfect isolation between tests"
+          method: "External cleanup command (NOT in test hooks)"
+          when: "AFTER all tests complete"
+          how: "Run: npm run test:cleanup <api-name>"
+          function_called: "cleanupAllTestData(dataSource)"
+          rationale: "Cleanup is explicit and controlled"
 
       setup:
         - "Create and initialize application"
         - "Setup global pipes and middleware (ValidationPipe with transform: false)"
-        - "beforeAll: Seed authorization data ONCE using seedTestData(dataSource)"
-        - "beforeAll: Login user with permission to obtain accessTokenWithPermission"
-        - "beforeAll: Login user without permission to obtain accessTokenWithoutPermission"
+        - "beforeAll: Setup app ONLY, do NOT seed data"
+        - "beforeAll: Add comment indicating external seeding requirement"
+        - "beforeAll: Login user with permission using pre-seeded credentials"
+        - "beforeAll: Login user without permission using pre-seeded credentials"
 
       per_test:
-        - "beforeEach: Create queryRunner and connect"
-        - "beforeEach: Start database transaction for isolation"
-        - "beforeEach: Seed domain data within transaction using seed<Domain>TestData(queryRunner)"
+        - "NO beforeEach hook - tests assume data is already seeded"
+        - "Tests import constants from seed file (IDs, credentials)"
+        - "Tests use pre-seeded data and pre-obtained tokens"
 
       teardown_per_test:
-        - "afterEach: Rollback transaction (this CLEANS domain data automatically)"
-        - "afterEach: Release queryRunner"
+        - "NO afterEach hook - no per-test cleanup"
 
       teardown:
-        - "afterAll: Call cleanup(dataSource) to truncate ALL tables (final cleanup only)"
-        - "afterAll: Close application"
+        - "afterAll: Close application ONLY, do NOT call cleanup functions"
+        - "afterAll: Add comment indicating external cleanup via npm command"
 
   seed_data_principles:
     description: "Theory-based approach to seed data generation"
@@ -592,9 +686,10 @@ standard_knowledge:
       principle: "Parent records must exist before inserting child records"
       implementation: "Use topological sort result to determine insertion order"
 
-    transaction_isolation:
-      principle: "Each test must have independent, isolated data"
-      implementation: "Use database transactions with rollback after each test"
+    data_persistence:
+      principle: "Test data persists across test runs (command-based approach)"
+      implementation: "Use external seed/cleanup commands - data is NOT rolled back per test"
+      rationale: "Tests share seeded data for simplicity and debugging"
 
     minimal_data_principle:
       principle: "Seed only required fields and essential relationships"
@@ -607,13 +702,18 @@ standard_knowledge:
       optional_fields: "Use default values or NULL"
 
     idempotency_principle:
-      principle: "Seed operations should be repeatable - but strategy differs by data tier"
+      principle: "Seed operations should be repeatable and safe to run multiple times"
 
-      tier_1_authorization_data:
-        pattern: "INSERT IGNORE or ON DUPLICATE KEY UPDATE"
-        when: "For authorization tables seeded in beforeAll (softwares, tenants, users, workspaces, employees, roles, permissions, role_permissions, role_workspaces)"
-        rationale: "Seeded ONCE per test suite, must be safe if called multiple times"
-        example: |
+      command_based_approach:
+        pattern: "INSERT IGNORE or ON DUPLICATE KEY UPDATE for all tables"
+        rationale: "seedAllTestData() can be called multiple times without errors"
+        when: "For all tables seeded by seedAllTestData() function"
+        use_cases:
+          - "Re-running seed command after cleanup"
+          - "Recovering from partial seed failure"
+          - "Re-seeding after test modifies data"
+
+        authorization_tables_example: |
           INSERT IGNORE INTO softwares (id, name, created_at, updated_at)
           VALUES (1, 'Test Software', NOW(), NOW())
 
@@ -621,15 +721,18 @@ standard_knowledge:
           VALUES (?, ?, 1, NOW(), NOW())
           ON DUPLICATE KEY UPDATE name = VALUES(name)
 
-      tier_2_domain_data:
-        pattern: "Simple INSERT (no idempotency clauses)"
-        when: "For domain tables seeded in beforeEach within transaction"
-        rationale: "Transaction rollback in afterEach automatically cleans data - no need for idempotency"
-        cleaning_method: "Transaction ROLLBACK (not DELETE/TRUNCATE)"
-        example: |
-          INSERT INTO product_categories (id, name, tenant_id, created_at, updated_at)
+        domain_tables_example: |
+          INSERT IGNORE INTO product_categories (id, name, tenant_id, created_at, updated_at)
           VALUES (?, ?, ?, NOW(), NOW())
-        note: "Do NOT use INSERT IGNORE or ON DUPLICATE KEY - simple INSERT is correct because transaction ensures clean state"
+
+      cleanup_approach:
+        pattern: "DELETE with specific IDs (not TRUNCATE)"
+        rationale: "Targeted cleanup avoids affecting other test data"
+        order: "Delete in reverse dependency order (children before parents)"
+        example: |
+          DELETE FROM product_categories WHERE tenant_id = ?
+          DELETE FROM role_workspaces WHERE workspace_id IN (SELECT id FROM workspaces WHERE tenant_id = ?)
+          DELETE FROM employees WHERE tenant_id = ?
 
     permission_naming_convention:
       pattern: "<Action>_<Domain>"
@@ -1792,13 +1895,9 @@ implementation_knowledge:
     e2e_test_template: |
       import { Test, TestingModule } from '@nestjs/testing';
       import { INestApplication, ValidationPipe } from '@nestjs/common';
-      import { DataSource, QueryRunner } from 'typeorm';
       import request from 'supertest';
       import { AppModule } from '../../../../app.module';
       import {
-        cleanup,
-        seed<DomainSpecific>TestData,
-        seedTestData,
         TEST_<DOMAIN_CONSTANT>_ID,
         TEST_USER_CREDENTIALS,
         TEST_USER_WITHOUT_PERMISSION_CREDENTIALS,
@@ -1806,12 +1905,13 @@ implementation_knowledge:
 
       describe('<HTTP_METHOD> /api/v1/<bounded-context>/<resources> E2E', () => {
         let app: INestApplication;
-        let dataSource: DataSource;
-        let queryRunner: QueryRunner;
         let accessTokenWithPermission: string;
         let accessTokenWithoutPermission: string;
 
         beforeAll(async () => {
+          // ⚠️ IMPORTANT: Data must be seeded before running tests
+          // Run: npm run test:seed [action-domain]
+
           const moduleFixture: TestingModule = await Test.createTestingModule({
             imports: [AppModule],
           }).compile();
@@ -1825,9 +1925,6 @@ implementation_knowledge:
             })
           );
           await app.init();
-
-          dataSource = app.get(DataSource);
-          await seedTestData(dataSource);
 
           // Login user with permission
           const loginRes = await request(app.getHttpServer())
@@ -1854,21 +1951,8 @@ implementation_knowledge:
           expect(accessTokenWithoutPermission).toBeDefined();
         });
 
-        beforeEach(async () => {
-          queryRunner = dataSource.createQueryRunner();
-          await queryRunner.connect();
-        });
-
-        afterEach(async () => {
-          try {
-            await queryRunner.rollbackTransaction();
-          } finally {
-            await queryRunner.release();
-          }
-        });
-
         afterAll(async () => {
-          await cleanup(dataSource);
+          // ⚠️ Data cleanup is done externally via: npm run test:cleanup [action-domain]
           await app.close();
         });
 
@@ -1944,47 +2028,26 @@ implementation_knowledge:
 
     handler_it_template: |
       import { Test, TestingModule } from '@nestjs/testing';
-      import { DataSource, QueryRunner } from 'typeorm';
       import { AppModule } from '../../../../app.module';
       import {
-        cleanup,
-        seed<DomainSpecific>TestData,
-        seedTestData,
         TEST_<DOMAIN_CONSTANT>_ID,
         TEST_TENANT_ID,
       } from './[action-domain].seed';
 
       describe('<ComponentName>QueryHandler Integration Tests', () => {
         let moduleRef: TestingModule;
-        let dataSource: DataSource;
-        let queryRunner: QueryRunner;
 
         beforeAll(async () => {
+          // ⚠️ IMPORTANT: Data must be seeded before running tests
+          // Run: npm run test:seed [action-domain]
+
           moduleRef = await Test.createTestingModule({
             imports: [AppModule],
           }).compile();
-
-          dataSource = moduleRef.get(DataSource);
-          await seedTestData(dataSource);
-        });
-
-        beforeEach(async () => {
-          queryRunner = dataSource.createQueryRunner();
-          await queryRunner.connect();
-          await queryRunner.startTransaction();
-          await seed<DomainSpecific>TestData(queryRunner);
-        });
-
-        afterEach(async () => {
-          try {
-            await queryRunner.rollbackTransaction();
-          } finally {
-            await queryRunner.release();
-          }
         });
 
         afterAll(async () => {
-          await cleanup(dataSource);
+          // ⚠️ Data cleanup is done externally via: npm run test:cleanup [action-domain]
           await moduleRef.close();
         });
 
@@ -2011,10 +2074,10 @@ implementation_knowledge:
 
     repository_it_template: |
       import { Test, TestingModule } from '@nestjs/testing';
-      import { DataSource, QueryRunner } from 'typeorm';
+      import { DataSource } from 'typeorm';
       import { <DomainName>QueryRepository } from '../../../../components/<bounded-context>/infrastructure/repositories/<domain-name>-query.repository';
       import { I<DomainName>QueryRepository } from '../../../../components/<bounded-context>/application/repositories/<domain-name>-query.repository';
-      import { seed<DomainSpecific>TestData, TEST_TENANT_ID } from './[action-domain].seed';
+      import { TEST_TENANT_ID } from './[action-domain].seed';
       import { TypeOrmModule } from '@nestjs/typeorm';
       import { ConfigModule } from '@nestjs/config';
       import { <DomainName>Model } from '../../../../components/<bounded-context>/infrastructure/entities/<domain-name>.model';
@@ -2022,10 +2085,12 @@ implementation_knowledge:
       describe('<DomainName>QueryRepository - Integration Tests', () => {
         let module: TestingModule;
         let dataSource: DataSource;
-        let queryRunner: QueryRunner;
         let repository: I<DomainName>QueryRepository;
 
         beforeAll(async () => {
+          // ⚠️ IMPORTANT: Data must be seeded before running tests
+          // Run: npm run test:seed [action-domain]
+
           module = await Test.createTestingModule({
             imports: [
               ConfigModule.forRoot({ isGlobal: true }),
@@ -2054,19 +2119,8 @@ implementation_knowledge:
           repository = module.get<I<DomainName>QueryRepository>('I<DomainName>QueryRepository');
         });
 
-        beforeEach(async () => {
-          queryRunner = dataSource.createQueryRunner();
-          await queryRunner.connect();
-          await queryRunner.startTransaction();
-          await seed<DomainSpecific>TestData(queryRunner);
-        });
-
-        afterEach(async () => {
-          await queryRunner.rollbackTransaction();
-          await queryRunner.release();
-        });
-
         afterAll(async () => {
+          // ⚠️ Data cleanup is done externally via: npm run test:cleanup [action-domain]
           await module.close();
         });
 
@@ -2116,52 +2170,88 @@ implementation_knowledge:
       });
 
     seed_data_helper_template:
-      description: "Structure for [action-domain].seed.ts - derive columns from db_schema"
+      description: "Structure for [action-domain].seed.ts - COMMAND-BASED approach"
 
       critical_instructions: |
-        CRITICAL: Do NOT use placeholder code. Generate ACTUAL code by:
+        CRITICAL: Generate seed file for COMMAND-BASED workflow:
         1. Read db_schema to get actual table names, columns, and constraints
         2. Identify NOT NULL columns → must provide values
         3. Identify nullable columns → can use NULL
         4. Respect FK relationships → seed parents before children
-        5. Follow TWO-TIER seeding strategy (see lifecycle_management_principles)
+        5. Generate seedAllTestData() and cleanupAllTestData() as main functions
+        6. Tests do NOT call these functions - called by npm commands
+        7. See src/tests/setup/ for base implementation reference
 
       file_structure:
         1_constants:
           description: "Export ID constants and credentials at top"
           id_constants:
-            pattern: "TEST_<TABLE_SINGULAR>_ID = 100xxx"
-            software_id: "TEST_SOFTWARE_ID = 1"
+            pattern: "export const TEST_<TABLE_SINGULAR>_ID = 100xxx"
+            software_id: "export const TEST_SOFTWARE_ID = 1"
             authorization_ids: "TEST_TENANT_ID, TEST_USER_ID, TEST_WORKSPACE_ID, TEST_EMPLOYEE_ID, TEST_ROLE_*_ID, TEST_PERMISSION_ID"
-            domain_ids: "TEST_<DOMAIN_ENTITY>_ID (e.g., TEST_PARENT_CATEGORY_ID, TEST_CHILD_CATEGORY_ID)"
+            domain_ids: "TEST_<DOMAIN_ENTITY>_ID based on domain (e.g., TEST_PARENT_CATEGORY_ID, TEST_CHILD_CATEGORY_ID)"
 
           permission_constant:
-            pattern: "REQUIRED_PERMISSION_NAME = '<DERIVED_FROM_COMPONENT>'"
+            pattern: "export const REQUIRED_PERMISSION_NAME = '<DERIVED_FROM_COMPONENT>'"
             derivation: "Use implementation_knowledge.techstack_mappings.derivation_patterns.permission_name"
 
           credentials:
             pattern: |
-              TEST_USER_CREDENTIALS = { username, password, softwareId }
-              TEST_USER_WITHOUT_PERMISSION_CREDENTIALS = { username, password, softwareId }
+              export const TEST_USER_CREDENTIALS = { username: string, password: string, softwareId: number }
+              export const TEST_USER_WITHOUT_PERMISSION_CREDENTIALS = { username: string, password: string, softwareId: number }
+            note: "MUST have exactly 3 fields for login endpoint"
 
-        2_tier1_seedTestData:
-          description: "Main function for authorization data (beforeAll)"
-          signature: "seedTestData(dataSource: DataSource)"
-          pattern: |
-            Create queryRunner → startTransaction
-            Call seed functions in topological order:
-              seedSoftwares, seedTenants, seedUsers, seedWorkspaces,
-              seedEmployees, seedRoles, seedPermissions,
-              seedRolePermissions, seedRoleWorkspaces
+        2_main_seedAllTestData:
+          description: "Main seeding function (called by npm run test:seed)"
+          signature: "export async function seedAllTestData(dataSource: DataSource): Promise<void>"
+          purpose: "Seed ALL test data (authorization + domain-specific) in single transaction"
+          implementation_pattern: |
+            Create queryRunner → connect → startTransaction
+            Call helper seed functions in topological order:
+              await seedSoftwares(queryRunner)
+              await seedTenants(queryRunner)
+              await seedUsers(queryRunner)
+              await seedWorkspaces(queryRunner)
+              await seedEmployees(queryRunner)
+              await seedRoles(queryRunner)
+              await seedPermissions(queryRunner)
+              await seedRolePermissions(queryRunner)
+              await seedRoleWorkspaces(queryRunner)
+              await seed<DomainPlural>TestData(queryRunner)
             Commit transaction (or rollback on error)
+            Release queryRunner
+          error_handling: "try-catch with rollback on error, finally release queryRunner"
 
-        3_tier1_authorization_seed_functions:
-          description: "Individual functions for each authorization table (called by seedTestData)"
-          signature: "seed<TableName>(queryRunner: QueryRunner)"
-          sql_pattern:
-            softwares: "INSERT IGNORE INTO softwares (...columns...) VALUES (...)"
+        3_main_cleanupAllTestData:
+          description: "Main cleanup function (called by npm run test:cleanup)"
+          signature: "export async function cleanupAllTestData(dataSource: DataSource): Promise<void>"
+          purpose: "Delete ALL test data for this API using targeted DELETE queries"
+          implementation_pattern: |
+            Create queryRunner → connect
+            SET FOREIGN_KEY_CHECKS = 0
+            Delete in REVERSE topological order using specific test IDs:
+              DELETE FROM <domain_table> WHERE tenant_id = TEST_TENANT_ID
+              DELETE FROM role_workspaces WHERE workspace_id IN (SELECT id FROM workspaces WHERE tenant_id = TEST_TENANT_ID)
+              DELETE FROM role_permissions WHERE role_id IN (SELECT id FROM roles WHERE tenant_id = TEST_TENANT_ID)
+              DELETE FROM roles WHERE tenant_id = TEST_TENANT_ID
+              DELETE FROM permissions WHERE id = TEST_PERMISSION_ID
+              DELETE FROM employees WHERE workspace_id IN (SELECT id FROM workspaces WHERE tenant_id = TEST_TENANT_ID)
+              DELETE FROM workspaces WHERE tenant_id = TEST_TENANT_ID
+              DELETE FROM users WHERE id IN (TEST_USER_ID, TEST_USER_WITHOUT_PERMISSION_ID)
+              DELETE FROM tenants WHERE id = TEST_TENANT_ID
+              DELETE FROM softwares WHERE id = TEST_SOFTWARE_ID
+            SET FOREIGN_KEY_CHECKS = 1
+            Release queryRunner
+          note: "Use DELETE with specific IDs, NOT TRUNCATE"
+
+        4_helper_authorization_seed_functions:
+          description: "Helper functions for authorization tables (internal use)"
+          signature: "async function seed<TableName>(queryRunner: QueryRunner)"
+          visibility: "Internal (not exported) - called by seedAllTestData()"
+          sql_patterns:
+            softwares: "INSERT IGNORE INTO softwares (...columns...) VALUES (...) - FIRST table"
             other_tables: "INSERT INTO table (...) VALUES (...) ON DUPLICATE KEY UPDATE col = VALUES(col)"
-            role_permissions: "INSERT INTO role_permissions (...) - NO ON DUPLICATE KEY (intentional error on duplicate)"
+            role_permissions: "INSERT INTO role_permissions (...) - NO ON DUPLICATE KEY (detect duplicates)"
 
           column_derivation:
             method: "Query db_schema.<table_name> to get actual columns"
@@ -2174,51 +2264,52 @@ implementation_knowledge:
             id: "Use exported constants (TEST_*_ID)"
             timestamps: "NOW()"
             fk_columns: "Use corresponding TEST_*_ID constant"
-            name: "Descriptive test value ('Admin E2E', 'Tenant E2E')"
+            name: "Descriptive test value based on purpose"
             password: "Use hash from implementation_knowledge.seed_syntax.password_hashing"
             status: "1 (active) or appropriate default"
             nullable: "NULL if not needed for test"
 
           special_notes:
             softwares: "Seed FIRST with INSERT IGNORE (required by permissions.software_id FK)"
-            users: "Seed TWO users (with/without permission) using credentials username"
+            users: "Seed TWO users using credentials username values"
             workspaces: "Seed TWO workspaces (one per user)"
             employees: "Seed TWO employees (one per workspace)"
-            roles: "Seed TWO roles (Admin E2E with permission, Staff E2E without)"
-            role_permissions: "Link ONLY TEST_ROLE_WITH_PERMISSION_ID to TEST_PERMISSION_ID"
+            roles: "Seed TWO roles (with/without permission)"
+            role_permissions: "Link ONLY role WITH permission to permission"
             role_workspaces: "Link BOTH roles to their respective workspaces"
 
-        4_tier2_domain_seed_function:
-          description: "Separate function for domain data (beforeEach)"
-          signature: "seed<DomainPlural>TestData(queryRunner: QueryRunner)"
-          sql_pattern: "Simple INSERT (no INSERT IGNORE, no ON DUPLICATE KEY)"
+        5_helper_domain_seed_function:
+          description: "Helper function for domain-specific data (internal use)"
+          signature: "async function seed<DomainPlural>TestData(queryRunner: QueryRunner)"
+          visibility: "Internal (not exported) - called by seedAllTestData()"
+          sql_pattern: "Simple INSERT (idempotency not required - within transaction)"
+          purpose: "Seed domain tables needed for test assertions"
 
           derivation_steps:
-            1: "Identify domain table from component name (e.g., GetListProductCategory → product_categories)"
+            1: "Identify domain table from component name"
             2: "Query db_schema.<domain_table> to get columns"
             3: "Extract expected data from test_plan (values, hierarchy, counts)"
             4: "Generate INSERT with actual columns and test values"
 
           common_patterns:
             hierarchical: "Seed parent first, then children with parent_id FK"
-            multiple_records: "If expected.total = 2, create 2 records"
-            test_values: "Use exact values from test_plan.expected (names, statuses, etc.)"
+            multiple_records: "Create enough records to satisfy test_plan expectations"
+            test_values: "Use exact values from test_plan.expected"
             required_fks: "Always include tenant_id, creator_id from authorization constants"
 
-        5_cleanup_function:
-          description: "Final cleanup (afterAll only)"
-          signature: "cleanup(dataSource: DataSource)"
-          pattern: |
-            Get DB name from env
-            SET FOREIGN_KEY_CHECKS = 0
-            TRUNCATE all tables from information_schema
-            SET FOREIGN_KEY_CHECKS = 1
+        6_optional_legacy_functions:
+          description: "Optional legacy functions for backward compatibility"
+          functions:
+            seedTestData: "Old approach - can delegate to seedAllTestData or keep similar logic"
+            cleanup: "Old cleanup using TRUNCATE ALL - kept if needed"
+          note: "Only include if backward compatibility is required"
 
       code_generation_rules:
-        - "Generate ACTUAL code, not placeholders like <table_name> or <columns>"
-        - "Derive all columns from db_schema - do NOT hardcode column names"
+        - "Generate ACTUAL code - derive all details from db_schema"
         - "Follow topological order from step_4 graph analysis"
-        - "TIER 1 functions: Use idempotent SQL (INSERT IGNORE, ON DUPLICATE KEY UPDATE)"
-        - "TIER 2 function: Use simple INSERT (transaction rollback handles cleanup)"
-        - "Export ALL constants and functions"
-        - "Include proper error handling (try/catch with rollback)"
+        - "seedAllTestData() calls ALL helpers including domain seed"
+        - "cleanupAllTestData() deletes in REVERSE order with specific IDs"
+        - "Helper functions are internal (not exported)"
+        - "Export ONLY: constants, credentials, seedAllTestData, cleanupAllTestData"
+        - "Include proper error handling (try-catch with rollback)"
+        - "Add JSDoc comments explaining purpose and usage"
