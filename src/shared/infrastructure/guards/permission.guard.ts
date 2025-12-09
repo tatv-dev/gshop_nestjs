@@ -1,6 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
+import { AuthErrorException } from '../../application/exceptions/auth-error.exception';
 
 @Injectable()
 export class PermissionGuard implements CanActivate {
@@ -20,7 +21,7 @@ export class PermissionGuard implements CanActivate {
     const user = request.user;
 
     if (!user) {
-      throw new ForbiddenException('User not authenticated');
+      throw new AuthErrorException({messageKey: 'auth_invalid_credentials'});
     }
 
     const userPermissions: string[] = user.permissions || [];
@@ -30,11 +31,7 @@ export class PermissionGuard implements CanActivate {
     );
 
     if (!hasPermission) {
-      throw new ForbiddenException({
-        messageKey: 'insufficient_permissions',
-        detail: `Required permissions: ${requiredPermissions.join(', ')}`,
-        requiredPermissions,
-      });
+      throw new AuthErrorException({messageKey: 'forbidden'});
     }
 
     return true;
