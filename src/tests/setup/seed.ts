@@ -18,6 +18,13 @@ async function main() {
     console.log('🌱 Seeding data for ALL APIs\n');
   }
 
+  // Verify .env is loaded
+  console.log('📋 Database config:');
+  console.log(`   Host: ${process.env.DB_HOST || 'NOT SET'}`);
+  console.log(`   Port: ${process.env.DB_PORT || 'NOT SET'}`);
+  console.log(`   Database: ${process.env.DB_DATABASE || 'NOT SET'}`);
+  console.log(`   Username: ${process.env.DB_USERNAME || 'NOT SET'}\n`);
+
   const dataSource = await createTestDataSource();
 
   try {

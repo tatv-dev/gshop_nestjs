@@ -19,8 +19,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "test:seed": "ts-node src/tests/setup/seed.ts",
-    "test:cleanup": "ts-node src/tests/setup/cleanup.ts",
+    "test:seed": "ts-node -r dotenv/config src/tests/setup/seed.ts",
+    "test:cleanup": "ts-node -r dotenv/config src/tests/setup/cleanup.ts",
     "test:redcode": "jest --testPathPattern",
     "test:full": "npm run test:seed && npm run test:redcode && npm run test:cleanup"
   },
@@ -67,6 +67,7 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^6.0.3",
     "@types/uuid": "^10.0.0",
+    "dotenv": "^17.2.3",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

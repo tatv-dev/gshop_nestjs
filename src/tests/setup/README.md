@@ -159,13 +159,30 @@ Seed files **MUST** match the API name:
 
 ### Database Configuration
 
-Edit `database.config.ts` to change database connection settings.
-Uses environment variables:
+**Create a `.env` file in the root directory:**
+
+```bash
+# Copy from example
+cp .env.example .env
+
+# Or create manually:
+cat > .env << EOF
+DB_HOST=localhost
+DB_PORT=3306
+DB_USERNAME=root
+DB_PASSWORD=your_password
+DB_DATABASE=gshop_test
+EOF
+```
+
+Environment variables used:
 - `DB_HOST` (default: localhost)
 - `DB_PORT` (default: 3306)
 - `DB_USERNAME` (default: root)
 - `DB_PASSWORD` (default: empty)
 - `DB_DATABASE` (default: test_db)
+
+**Note:** The scripts automatically load `.env` file using `dotenv/config`.
 
 ## 🔧 Troubleshooting
 
