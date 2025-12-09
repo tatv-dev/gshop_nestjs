@@ -211,7 +211,6 @@ export function IsStrictString(validationOptions?: ValidationOptions) {
 // Helper to transform query string arrays (e.g., "[1,0]" or "1,0" -> [1, 0])
 // Preserves invalid values for proper validation error reporting
 export function transformToIntArray ({ value }) {
-  console.log("transformToIntArray: ", value)
   // If already array, keep as-is to preserve original values for validation
   if (Array.isArray(value)) {
     return value.map(v => {
